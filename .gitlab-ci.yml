@@ -4,6 +4,7 @@ include:
       file: "wf-containers.yaml"
 
 variables:
+    NF_BEFORE_SCRIPT: exit 0
     # Workflow inputs given to nextflow.
     # The workflow should define `--out_dir`, the CI template sets this.
     # Only common file inputs and option values need to be given here

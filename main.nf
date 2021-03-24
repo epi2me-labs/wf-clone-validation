@@ -218,6 +218,36 @@ process prokkaAnnotateAssembly {
 }
 
 
+process buildQCReport {
+    label "wfplasmid"
+    cpus 1
+    input:
+        file samples
+        file assemblies
+    output:
+        file "report.html"
+    shell:
+    '''
+    # Get maf files for dotplots
+    for assm in !{assemblies}
+    do
+        lastdb ${assm}.lastdb $assm
+        lastal ${assm}.lastdb $assm > ${assm}.maf
+    done
+
+    # Get summary tables
+    seqkit stats -T !{assemblies} > assemblies.tsv
+    fastcat --read samples_reads.txt --file samples_summary.txt !{samples} > /dev/null
+
+    aplanat clonevalidation \
+        --assembly_summary assemblies.tsv \
+        --assembly_mafs *.maf \
+        --reads_summary samples_reads.txt \
+        --fastq_summary samples_summary.txt
+    '''
+}
+
+
 workflow pipeline {
     take:
         fastq_dir
@@ -254,8 +284,10 @@ workflow pipeline {
         // Re-group reconciled assemblies together for final polish
         named_reconciled = nameIt(reconciled).join(named_samples)
         polished = medakaPolishAssembly(named_reconciled)
-        // And finally grab the annotations
+        // And finally grab the annotations and report
         annotations = prokkaAnnotateAssembly(polished)
+        report = buildQCReport(downsampled_fastqs.collect(), 
+            polished.collect())
     emit:
         samples = sample_fastqs
         subsets = subsets
@@ -264,6 +296,7 @@ workflow pipeline {
         reconciled = reconciled
         polished = polished
         annotations = annotations
+        report = report
 }
 
 
@@ -293,6 +326,6 @@ workflow {
     results = pipeline(fastq_dir, host_reference, regions_bedfile)
     output(results.polished.concat( results.subsets, results.assemblies,
         results.deconcatenated, results.reconciled, results.samples,
-        results.annotations
+        results.report, results.annotations
     ))
 }
