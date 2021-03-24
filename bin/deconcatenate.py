@@ -36,7 +36,7 @@ def align_self(seq):
 
 
 def deconcatenate(seq):
-    """Iteratively self-align to remove duplicate regions."""
+    """Self-align to remove duplicate regions."""
     finished = False
     iteration = 0
     trimmed_assm = seq
