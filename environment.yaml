@@ -1,0 +1,19 @@
+name: wf-plasmid-assembly
+channels:
+    - bioconda
+    - conda-forge
+    - defaults
+dependencies:
+    - python==3.6.*
+    - aplanat
+    - trycycler
+    - filtlong
+    - porechop
+    - pysam
+    - minimap2
+    - samtools
+    - bedtools
+    - mappy
+    - flye
+    - medaka
+    - prokka
