@@ -1,4 +1,4 @@
-name: wf-plasmid-assembly
+name: wf-clone-validation
 channels:
     - bioconda
     - conda-forge
