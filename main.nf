@@ -4,10 +4,10 @@ nextflow.enable.dsl = 2
 
 def helpMessage(){
     log.info """
-wf-plasmid-assemble
+wf-clone-validation
 
 Usage:
-    nextflow run epi2melabs/wf-plasmid-assembly [options]
+    nextflow run epi2melabs/wf-clone-validation [options]
 
 Script Options:
     --fastq             DIR     Path to directory containing FASTQ files (required)

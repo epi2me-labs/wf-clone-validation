@@ -1,4 +1,4 @@
-# wf-plasmid-assembly
+# wf-clone-validation
 
 This repository contains a [nextflow](https://www.nextflow.io/) workflow
 that can be used to de novo assemble plasmid sequences from Oxford Nanopore data.
@@ -24,7 +24,7 @@ either docker of conda is installed.
 To obtain the workflow, having installed `nextflow`, users can run:
 
 ```
-nextflow run epi2me-labs/wf-plasmid-assembly --help
+nextflow run epi2me-labs/wf-clone-validation --help
 ```
 
 to see the options for the workflow.
@@ -77,7 +77,7 @@ Nextflow and Docker in order to run the workflow.
 
 ## Running the workflow
 
-The `wf-plasmid-assembly` workflow can be controlled by the following parameters. The `fastq` parameter
+The `wf-clone-validation` workflow can be controlled by the following parameters. The `fastq` parameter
 is the most important parameter: it is required to identify the location of the
 sequence files to be analysed.
 
@@ -100,13 +100,13 @@ sequence files to be analysed.
 To run the workflow using Docker containers supply the `-profile standard`
 argument to `nextflow run`:
 
-> The command below uses test data available from the [github repository](https://github.com/epi2me-labs/wf-plasmid-assembly/tree/master/test_data)
-> It can be obtained with `git clone https://github.com/epi2me-labs/wf-plasmid-assembly`.
+> The command below uses test data available from the [github repository](https://github.com/epi2me-labs/wf-clone-validation/tree/master/test_data)
+> It can be obtained with `git clone https://github.com/epi2me-labs/wf-clone-validation`.
 
 ```
 # run the pipeline with the test data
 OUTPUT=output
-nextflow run epi2me-labs/wf-plasmid-assembly \
+nextflow run epi2me-labs/wf-clone-validation \
     -w ${OUTPUT}/workspace \
     -profile standard \
     --fastq test_data \
@@ -156,7 +156,7 @@ and running the workflow providing the `-c` (config) option, e.g.:
 
 ```
 # run the pipeline with custom configuration
-nextflow run epi2me-labs/wf-plasmid-assembly \
+nextflow run epi2me-labs/wf-clone-validation \
     -c my_config.cfg \
     ...
 ```
@@ -193,7 +193,7 @@ profiles {
 and running nextflow by setting the profile to `fixed_conda`:
 
 ```
-nextflow run epi2me-labs/wf-plasmid-assembly \
+nextflow run epi2me-labs/wf-clone-validation \
     -c my_config.cfg \
     -profile fixed_conda \
     ...
@@ -206,20 +206,20 @@ indicating that an update to the workflow is available.
 
 To update the workflow simply run:
 
-    nextflow pull epi2me-labs/wf-plasmid-assembly
+    nextflow pull epi2me-labs/wf-clone-validation
 
 ## Building the docker container from source
 
-The docker image used for running the `wf-plasmid-assembly` workflow is available on
-[dockerhub](https://hub.docker.com/repository/docker/ontresearch/wf-plasmid-assembly).
+The docker image used for running the `wf-clone-validation` workflow is available on
+[dockerhub](https://hub.docker.com/repository/docker/ontresearch/wf-clone-validation).
 The image is built from the Dockerfile present in the git repository. Users
 wishing to modify and build the image can do so with:
 
 ```
-CONTAINER_TAG=ontresearch/wf-plasmid-assembly:latest
+CONTAINER_TAG=ontresearch/wf-clone-validation:latest
 
-git clone https://github.com/epi2me-labs/wf-plasmid-assembly
-cd wf-plasmid-assembly
+git clone https://github.com/epi2me-labs/wf-clone-validation
+cd wf-clone-validation
 
 docker build \
     -t ${CONTAINER_TAG} -f Dockerfile \
@@ -231,7 +231,7 @@ In order to run the workflow with this new image it is required to give
 `nextflow` the `--wfversion` parameter:
 
 ```
-nextflow run epi2me-labs/wf-plasmid-assembly \
+nextflow run epi2me-labs/wf-clone-validation \
     --wfversion latest
 ```
 
