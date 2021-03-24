@@ -1,10 +1,14 @@
 #!/usr/bin/env python
-import sys
+"""Deconcatenate a sequence."""
+
 import argparse
+import sys
+
 import mappy as mp
 
 
 def get_output_handler(path):
+    """Open file path or stdout."""
     if path != '-':
         fh = open(path, 'w')
     else:
@@ -13,6 +17,7 @@ def get_output_handler(path):
 
 
 def get_aligner(reference):
+    """Return a ready aligner."""
     aligner = mp.Aligner(seq=reference, preset='asm5')
     if not aligner:
         raise Exception("ERROR: failed to load/build index")
@@ -20,6 +25,7 @@ def get_aligner(reference):
 
 
 def align_self(seq):
+    """Split read and align one half to the other."""
     half = len(seq) // 2
     first, second = seq[0:half], seq[half:]
 
@@ -30,6 +36,7 @@ def align_self(seq):
 
 
 def deconcatenate(seq):
+    """Iteratively self-align to remove duplicate regions."""
     finished = False
     iteration = 0
     trimmed_assm = seq
@@ -62,6 +69,7 @@ def deconcatenate(seq):
 
 
 def main(sequence_fasta, output):
+    """For each sequence, deconcatenate and write to output."""
     corrected = []
     for name, seq, _ in mp.fastx_read(sequence_fasta):
         corrected.append([name, deconcatenate(seq)])
@@ -73,6 +81,7 @@ def main(sequence_fasta, output):
 
 
 def parse_arguments(argv=sys.argv[1:]):
+    """Parse arguments."""
     parser = argparse.ArgumentParser(
         description=(
             "Fix large-scale duplications within a sequence by "
