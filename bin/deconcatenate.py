@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Deconcatenate a sequence."""
+"""Go deconcatenate your sequences."""
 
 import argparse
 import sys
