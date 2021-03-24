@@ -74,6 +74,7 @@ process filterHostReads {
         path "*.filtered.fastq", emit: unmapped
     script:
         def name = fastq.simpleName
+        def regs = regions_bedfile.name != 'NO_REG_BED' ? regs : 'none'
     """
     minimap2 -t $task.cpus -y -ax map-ont $reference $fastq \
         | samtools sort -o ${name}.sorted.aligned.bam -
@@ -82,8 +83,8 @@ process filterHostReads {
     samtools view -b -F 4  ${name}.sorted.aligned.bam > mapped.bam
     samtools fastq unmapped.bam > ${name}.filtered.fastq
 
-    if [[ -f "$regions_bedfile" ]]; then
-        bedtools intersect -a mapped.bam -b $regions_bedfile -wa \
+    if [[ -f "$regs" ]]; then
+        bedtools intersect -a mapped.bam -b $regs -wa \
             | samtools view -bh - > retained.bam
         samtools fastq retained.bam >> ${name}.filtered.fastq
     fi
@@ -292,6 +293,6 @@ workflow {
     results = pipeline(fastq_dir, host_reference, regions_bedfile)
     output(results.polished.concat( results.subsets, results.assemblies,
         results.deconcatenated, results.reconciled, results.samples,
-        results.annotations 
+        results.annotations
     ))
 }
