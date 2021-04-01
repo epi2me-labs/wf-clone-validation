@@ -297,7 +297,7 @@ workflow pipeline {
             polished = medakaPolishAssembly(named_deconcatenated)
         }
         // And finally grab the annotations and report
-        // annotations = prokkaAnnotateAssembly(polished)
+        annotations = prokkaAnnotateAssembly(polished)
         report = buildQCReport(downsampled_fastqs.collect(), 
             polished.collect())
     emit:
