@@ -7,6 +7,8 @@ channels:
 dependencies:
     - python==3.6.*
     - aplanat
+    - seqkit
+    - scikit-learn
     - trycycler
     - filtlong
     - porechop

@@ -16,6 +16,7 @@ Script Options:
     --approx_size       INT     Approximate size of the plasmid in base pairs (default: 10000)
     --assm_coverage     INT     Try to use this many fold coverage per assembly (default: 150)
     --flye_overlap      INT     Sets the min overlap that flye requires of reads (default: 2000)
+    --no_reconcile      BOOL    If enabled, only a single assembly will be made and polished (optional)
     --help
 
 Note:
@@ -58,7 +59,7 @@ process combineFastq {
     script:
         catter = fastq_dir.baseName + '.fastq'
     """
-    find "$fastq_dir/" -type f -name "*.fastq" -exec cat {} >> $catter \\;
+    find "$fastq_dir/" -type f -name "*.fastq*" -exec cat {} >> $catter \\;
     """
 }
 
@@ -107,12 +108,7 @@ process downsampleReads {
         --min_mean_q 12 \
         --keep_percent 90 \
         -t $target \
-        $fastq > filtered.temp
-    porechop \
-        --threads $task.cpus \
-        -i filtered.temp \
-        -o ${fastq.simpleName}.downsampled.fastq
-    rm filtered.temp
+        $fastq > ${fastq.simpleName}.downsampled.fastq
     """
 }
 
@@ -123,20 +119,19 @@ process subsetReads {
         file fastq
     output:
         path "sets/*.fastq", emit: subsets
-    script:
-        def name = fastq.simpleName
-        def min_depth = (params.assm_coverage / 3) * 2
-    """
+    shell:
+    '''
     trycycler subsample \
         --count 3 \
-        --min_read_depth $min_depth \
-        --reads $fastq \
+        --min_read_depth !{(params.assm_coverage / 3) * 2} \
+        --reads !{fastq} \
         --out_dir sets \
-        --genome_size $params.approx_size
-    mv sets/sample_01.fastq sets/${name}.subsample01.fastq
-    mv sets/sample_02.fastq sets/${name}.subsample02.fastq
-    mv sets/sample_03.fastq sets/${name}.subsample03.fastq
-    """
+        --genome_size !{params.approx_size}
+    for sub in $(ls sets/sample_*.fastq)
+    do
+        mv $sub sets/!{fastq.simpleName}.sub$(basename $sub)
+    done
+    '''
 }
 
 
@@ -271,29 +266,41 @@ workflow pipeline {
         // After host filtering, we reduce our overall read depth
         // to the desired level
         downsampled_fastqs = downsampleReads(sample_fastqs)
-        // And then for each sample split the reads into subsets
-        subsets = subsetReads(downsampled_fastqs)
-        // Assemble each subset independently
-        assemblies = assembleFlye(subsets.flatten())
-        // Deconcatenate assemblies
-        deconcatenated = deconcatenateAssembly(assemblies)
-        // Group assemblies back together for reconciliation
-        named_samples = nameIt(downsampled_fastqs)
-        named_deconcatenated = nameIt(deconcatenated).join(named_samples)
-        reconciled = reconcileAssemblies(named_deconcatenated)
-        // Re-group reconciled assemblies together for final polish
-        named_reconciled = nameIt(reconciled).join(named_samples)
-        polished = medakaPolishAssembly(named_reconciled)
+        // Now we branch depeneding on whether reconciliaton is
+        // enabled, if so we will subset the data and create an
+        // assembly for each subset, then use trycyler to reconcile
+        // them, this can produce a better, circularised assembly
+        // more frequently than not.
+        if (!params.no_reconcile) {
+            // For each sample split the reads into subsets
+            subsets = subsetReads(downsampled_fastqs)
+            // Assemble each subset independently
+            assemblies = assembleFlye(subsets.flatten())
+            // Deconcatenate assemblies
+            deconcatenated = deconcatenateAssembly(assemblies)
+            // Group assemblies back together for reconciliation
+            named_samples = nameIt(downsampled_fastqs)
+            named_deconcatenated = nameIt(deconcatenated).join(named_samples)
+            reconciled = reconcileAssemblies(named_deconcatenated)
+            // Re-group reconciled assemblies together for final polish
+            named_reconciled = nameIt(reconciled).join(named_samples)
+            polished = medakaPolishAssembly(named_reconciled)
+        } else {
+            // Given reconciliation is not enabled
+            // Assemble the downsampled dataset in one go
+            assemblies = assembleFlye(downsampled_fastqs)
+            // Deconcatenate assemblies
+            deconcatenated = deconcatenateAssembly(assemblies)
+            // Final polish
+            named_samples = nameIt(downsampled_fastqs)
+            named_deconcatenated = nameIt(deconcatenated).join(named_samples)
+            polished = medakaPolishAssembly(named_deconcatenated)
+        }
         // And finally grab the annotations and report
         annotations = prokkaAnnotateAssembly(polished)
         report = buildQCReport(downsampled_fastqs.collect(), 
             polished.collect())
     emit:
-        samples = sample_fastqs
-        subsets = subsets
-        assemblies = assemblies
-        deconcatenated = deconcatenated
-        reconciled = reconciled
         polished = polished
         annotations = annotations
         report = report
@@ -324,8 +331,8 @@ workflow {
     regions_bedfile = file(params.regions_bedfile, type: "file")
     // Run pipeline
     results = pipeline(fastq_dir, host_reference, regions_bedfile)
-    output(results.polished.concat( results.subsets, results.assemblies,
-        results.deconcatenated, results.reconciled, results.samples,
-        results.report, results.annotations
+    output(results.polished.concat( 
+        results.polished, results.report, 
+        results.annotations 
     ))
 }
