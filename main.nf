@@ -17,6 +17,7 @@ Script Options:
     --assm_coverage     INT     Try to use this many fold coverage per assembly (default: 150)
     --flye_overlap      INT     Sets the min overlap that flye requires of reads (default: 2000)
     --no_reconcile      BOOL    If enabled, only a single assembly will be made and polished (optional)
+    --prefix            STR     The prefix attached to each of the output filenames (optional)
     --help
 
 Note:
@@ -312,7 +313,8 @@ workflow pipeline {
 // decoupling the publish from the process steps.
 process output {
     // publish inputs to output directory
-    publishDir "${params.out_dir}", mode: 'copy', pattern: "*"
+    publishDir "${params.out_dir}", mode: 'copy', pattern: "*", saveAs: { 
+        f -> params.prefix ? "${params.prefix}.${f}" : "${f}" }
     input:
         file fname
     output:
