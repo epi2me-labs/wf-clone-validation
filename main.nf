@@ -314,7 +314,7 @@ workflow pipeline {
 process output {
     // publish inputs to output directory
     publishDir "${params.out_dir}", mode: 'copy', pattern: "*", saveAs: { 
-        f -> params.prefix ? "${params.prefix}.${f}" : "${f}" }
+        f -> params.prefix ? "${params.prefix}-${f}" : "${f}" }
     input:
         file fname
     output:
