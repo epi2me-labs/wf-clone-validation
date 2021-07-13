@@ -11,6 +11,8 @@ Usage:
 
 Script Options:
     --fastq             DIR     Path to directory containing FASTQ files (required)
+    --samples           FILE    CSV file with columns named `barcode` and `sample_name`
+                                (or simply a sample name for non-multiplexed data).
     --host_reference    FILE    FASTA file, reads which map to it are discarded (optional)
     --regions_bedfile   FILE    BED file, mask regions within host_reference from filtering (optional)
     --approx_size       INT     Approximate size of the plasmid in base pairs (default: 10000)
@@ -20,29 +22,13 @@ Script Options:
     --prefix            STR     The prefix attached to each of the output filenames (optional)
     --help
 
-Note:
-    --fastq should point to either a directory, or a directory of directories. If the former,
-    any fastq files in that single location will be processed together, as a single sample.
-    If the latter, i.e. there are sub-directories, each sub-directory will be expected to
-    contain .fastq files, and will be treated as a separate sample.
+Notes:
+    If directories named "barcode*" are found under the `--fastq` directory the
+    data is assumed to be multiplex and each barcode directory will be processed
+    independently. If `.fastq(.gz)` files are found under the `--fastq` directory
+    the sample is assumed to not be multiplexed. In this second case `--samples`
+    should be a simple name rather than a CSV file.
 """
-}
-
-if (params.help) {
-    helpMessage()
-    exit 1
-}
-if (!params.fastq) {
-    helpMessage()
-    println("")
-    println("Error: `--fastq` is required")
-    exit 1
-}
-if (params.regions_bedfile != "NO_REG_BED" 
-    && params.host_reference == "NO_HOST_REF") {
-    println("")
-    println("Error: `--regions_bedfile` requires `--host_reference` to be set")
-    exit 1
 }
 
 
@@ -51,16 +37,28 @@ def nameIt(ch) {
 }
 
 
-process combineFastq {
-    cpus params.threads
+process checkSampleSheet {
+    label "artic"
+    cpus 1
     input:
-        file fastq_dir
+        file "sample_sheet.txt"
     output:
-        path "*.fastq", emit: combined
-    script:
-        catter = fastq_dir.baseName + '.fastq'
+        file "samples.txt"
     """
-    find "$fastq_dir/" -type f -name "*.fastq*" -exec cat {} >> $catter \\;
+    check_sample_sheet.py sample_sheet.txt samples.txt
+    """
+}
+
+
+process combineFastq {
+    label "wfplasmid"
+    cpus 1
+    input:
+        tuple file(directory), val(sample_name) 
+    output:
+        file "${sample_name}.fastq.gz"
+    """
+    fastcat -x ${directory} | gzip > ${sample_name}.fastq.gz
     """
 }
 
@@ -96,9 +94,9 @@ process filterHostReads {
 
 process downsampleReads {
     label "wfplasmid"
-    cpus params.threads
+    cpus 1
     input:
-        file fastq
+        path fastq
     output:
         path "*.downsampled.fastq", emit: downsampled
     script:
@@ -246,17 +244,13 @@ process buildQCReport {
 
 workflow pipeline {
     take:
-        fastq_dir
+        samples
         host_reference
         regions_bedfile
     main:
-        // Acquire either top level directory or subdirectories
-        // and produce a list of directories each of which will 
-        // form a sample
-        sample_dirs = channel.fromPath( "$fastq_dir/*", type: 'dir' )
         // Combine fastq from each of the sample directories into 
         // a single per-sample fastq file
-        sample_fastqs = combineFastq(sample_dirs.ifEmpty([fastq_dir]))
+        sample_fastqs = combineFastq(samples)
         // Optionally filter the data, removing reads mapping to 
         // the host or background genome
         if (host_reference.name != "NO_HOST_REF") {
@@ -325,14 +319,177 @@ process output {
 }
 
 
+/**
+ * Load a sample sheet into a Nextflow channel to map barcodes
+ * to sample names.
+ *
+ * @param samples CSV file according to MinKNOW sample sheet specification
+ * @return A Nextflow Channel of tuples (barcode, sample name)
+ */ 
+def check_sample_sheet(samples)
+{
+    println("Checking sample sheet.")
+    sample_sheet = Channel.fromPath(samples, checkIfExists: true)
+    sample_sheet = checkSampleSheet(sample_sheet)
+        .splitCsv(header: true)
+        .map { row -> tuple(row.barcode, row.sample_name) }
+    return sample_sheet
+}
+
+
+/**
+ * Find fastq data using various globs. Wrapper around Nextflow `file`
+ * method.
+ *
+ * @param patten glob pattern for top level input folder.
+ * @param maxdepth maximum depth to traverse
+ * @return list of files.
+ */ 
+def find_fastq(pattern, maxdepth)
+{
+    files = []
+    extensions = ["fastq", "fastq.gz", "fq", "fq.gz"]
+    for (ext in extensions) {
+        files += file("${pattern}/*.${ext}", type: 'file', maxdepth: maxdepth)
+    }
+    return files
+}
+
+
+/**
+ * Rework EPI2ME flattened directory structure into standard form
+ * files are matched on barcode\d+ and moved into corresponding
+ * subdirectories ready for processing.
+ *
+ * @param input_folder Top-level input directory.
+ * @param output_folder Top-level output_directory.
+ * @return A File object representating the staging directory created
+ *     under output_folder
+ */ 
+def sanitize_fastq(input_folder, output_folder)
+{
+    println("Running sanitization.")
+    println(" - Moving files: ${input_folder} -> ${output_folder}")
+    staging = new File(output_folder)
+    staging.mkdirs()
+    files = find_fastq("${input_folder}/**/", 1)
+    for (fastq in files) {
+        fname = fastq.getFileName()
+        // find barcode
+        pattern = ~/barcode\d+/
+        matcher = fname =~ pattern
+        if (!matcher.find()) {
+            // not barcoded - leave alone
+            fastq.renameTo("${staging}/${fname}")
+        } else {
+            bc_dir = new File("${staging}/${matcher[0]}")
+            bc_dir.mkdirs()
+            fastq.renameTo("${staging}/${matcher[0]}/${fname}")
+        }
+    }
+    println(" - Finished sanitization.")
+    return staging
+}
+
+
+/**
+ * Resolves input folder containing barcode subdirectories
+ * or a flat set of fastq data to a Nextflow Channel. Removes barcode
+ * directories with no fastq files.
+ *
+ * @param input_folder Top level input folder to locate fastq data
+ * @param sample_sheet List of tuples mapping barcode to sample name
+ *     or a simple string for non-multiplexed data.
+ * @return Channel of tuples (path, sample_name)
+ */
+def resolve_barcode_structure(input_folder, sample_sheet)
+{
+    println("Checking input directory structure.")
+    barcode_dirs = file("$input_folder/barcode*", type: 'dir', maxdepth: 1)
+    not_barcoded = find_fastq("$input_folder/", 1)
+    samples = null
+    if (barcode_dirs) {
+        println(" - Found barcode directories")
+        // remove empty barcode_dirs
+        valid_barcode_dirs = []
+        invalid_barcode_dirs = []
+        for (d in barcode_dirs) {
+            if(!find_fastq(d, 1)) {
+                invalid_barcode_dirs << d
+            } else {
+                valid_barcode_dirs << d
+            }
+        }
+        if (invalid_barcode_dirs.size() > 0) {
+            println(" - Some barcode directories did not contain .fastq(.gz) files:")
+            for (d in invalid_barcode_dirs) {
+                println("   - ${d}")
+            }
+        }
+        // link sample names to barcode through sample sheet
+        if (!sample_sheet) {
+            sample_sheet = Channel
+                .fromPath(valid_barcode_dirs)
+                .filter(~/.*barcode[0-9]{1,3}$/)  // up to 192
+                .map { path -> tuple(path.baseName, path.baseName) }
+        }
+        samples = Channel
+            .fromPath(valid_barcode_dirs)
+            .filter(~/.*barcode[0-9]{1,3}$/)  // up to 192
+            .map { path -> tuple(path.baseName, path) }
+            .join(sample_sheet)
+            .map { barcode, path, sample -> tuple(path, sample) }
+    } else if (not_barcoded) {
+        println(" - Found fastq files, assuming single sample")
+        sample = (sample_sheet == null) ? "unknown" : sample_sheet
+        samples = Channel
+            .fromPath(input_folder, type: 'dir', maxDepth:1)
+            .map { path -> tuple(path, sample) }
+    }
+    return samples
+}
+
+
 // entrypoint workflow
 workflow {
-    // Acquire fastq directory
-    fastq_dir = file(params.fastq, type: "dir", checkIfExists: true)
+
+    if (params.help) {
+        helpMessage()
+        exit 1
+    }
+    if (!params.fastq) {
+        helpMessage()
+        println("")
+        println("Error: `--fastq` is required")
+        exit 1
+    }
+    if (params.regions_bedfile != "NO_REG_BED" 
+        && params.host_reference == "NO_HOST_REF") {
+        println("")
+        println("Error: `--regions_bedfile` requires `--host_reference` to be set")
+        exit 1
+    }
+
+    // shadow input, since it may get changed
+    input_folder = params.fastq
+    // EPI2ME harness 
+    if (params.sanitize_fastq) {
+        staging = "${params.out_dir}/staging"
+        input_folder = sanitize_fastq(input_folder, staging)
+    }
+    // check sample sheet
+    sample_sheet = null
+    if (params.samples) {
+        sample_sheet = check_sample_sheet(params.samples)
+    }
+    // resolve whether we have demultiplexed data or single sample
+    samples = resolve_barcode_structure(input_folder, sample_sheet)
+
+
     host_reference = file(params.host_reference, type: "file")
     regions_bedfile = file(params.regions_bedfile, type: "file")
     // Run pipeline
-    results = pipeline(fastq_dir, host_reference, regions_bedfile)
+    results = pipeline(samples, host_reference, regions_bedfile)
     output(results.polished.concat( 
         results.polished, results.report, 
         results.annotations 
