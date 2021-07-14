@@ -1,1 +1,8 @@
 .git
+LICENSE
+main.nf
+data
+test_data
+nextflow.config
+output
+README.md

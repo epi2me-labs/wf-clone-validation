@@ -1,9 +1,9 @@
 name: wf-clone-validation
 channels:
+    - epi2melabs
     - bioconda
     - conda-forge
     - defaults
-    - epi2melabs
 dependencies:
     - python==3.6.*
     - aplanat
@@ -19,6 +19,8 @@ dependencies:
     - mappy
     - flye
     - medaka
+    - plannotate
     - prokka
-    - fastcat
+    - fastcat==0.2.0
     - last
+    

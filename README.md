@@ -109,8 +109,11 @@ OUTPUT=output
 nextflow run epi2me-labs/wf-clone-validation \
     -w ${OUTPUT}/workspace \
     -profile standard \
-    --fastq test_data \
-    --out_dir ${OUTPUT}
+    --fastq test_data/test \
+    --approx_size 7000 \
+    --assm_coverage 20 \
+    --samples test_data/sample_sheet \
+    --out_dir ${OUTPUT} \
 ```
 
 The output of the pipeline will be found in `./output` for the above

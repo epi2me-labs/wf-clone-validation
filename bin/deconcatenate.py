@@ -54,16 +54,18 @@ def deconcatenate(seq):
             # Tested variations of this, but if works...
             hits = [hit for hit in hits if hit.q_st < 5]
             if not hits:
-                print("> No self-alignments match criteriia, stopping here.")
+                print("> No self-alignments match criteria, stopping here.")
                 finished = True
 
         else:
             print("> No self-alignments, stopping here.")
             finished = True
             break
-
-        hit = hits[0]
-        trimmed_assm = second[:hit.q_en] + first[hit.r_en:]
+        try:
+            hit = hits[0]
+            trimmed_assm = second[:hit.q_en] + first[hit.r_en:]
+        except IndexError:
+            trimmed_assm = seq
 
     return trimmed_assm
 

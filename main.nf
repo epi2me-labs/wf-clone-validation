@@ -22,6 +22,7 @@ Script Options:
     --flye_overlap      INT     Sets the min overlap that flye requires of reads (default: 2000)
     --no_reconcile      BOOL    If enabled, only a single assembly will be made and polished (optional)
     --prefix            STR     The prefix attached to each of the output filenames (optional)
+    --annotate_db       FILE    Zip folder containing database (default: BLAST_dbs file)     
     --help
 
 Notes:
@@ -36,6 +37,25 @@ Notes:
 
 def nameIt(ch) {
     return ch.map { it -> return tuple(it.simpleName, it) }.groupTuple()
+}
+
+// Checks the number of records in the file, but not the number of bases
+def checkCoverage(barcode_dir) {
+    listOfFiles = file("${barcode_dir}/*.fastq*")
+    total = 0
+    for (i in listOfFiles){
+        sample = file(i)
+        fastq_count = sample.countFastq()
+        total = total + fastq_count
+    }
+    if (total < (params.assm_coverage * 0.8)){
+        return false;
+     }
+    else {
+        return true;
+    }
+
+
 }
 
 
@@ -94,7 +114,7 @@ process downsampleReads {
     filtlong \
         --min_length 1000 \
         --min_mean_q 12 \
-        --keep_percent 90 \
+        --keep_percent 99 \
         -t $target \
         $fastq > ${fastq.simpleName}.downsampled.fastq
     """
@@ -129,15 +149,16 @@ process assembleFlye {
     input:
         file fastq
     output:
-        path "*.fasta", emit: assembly
+        path "*.fasta", optional: true, emit: assembly
     """
+    mkdir assm
     flye \
         --nano-raw $fastq \
         --meta --plasmids \
         --out-dir assm \
         --min-overlap $params.flye_overlap \
-        --threads $task.cpus
-    mv assm/assembly.fasta ${fastq.baseName}.fasta
+        --threads $task.cpus  && mv assm/assembly.fasta ${fastq.baseName}.fasta || echo "failed flye sample ${fastq.simpleName}"
+    
     """
 }
 
@@ -160,16 +181,18 @@ process reconcileAssemblies {
     input:
         tuple val(sample), file(assemblies), file(fastq)
     output:
-        path "*.reconciled.fasta", emit: reconciled
+        path "*.reconciled.fasta", optional: true, emit: reconciled
     script:
-        def cluster_dir = "trycycler/cluster_001"
+        def cluster_dir = "trycycler/cluster_001" 
     """
-    trycycler cluster --assemblies $assemblies --reads $fastq --out_dir trycycler
-    trycycler reconcile --reads $fastq --cluster_dir ${cluster_dir}
-    trycycler msa --cluster_dir ${cluster_dir}
-    trycycler partition --reads $fastq --cluster_dirs ${cluster_dir}
-    trycycler consensus --cluster_dir ${cluster_dir}
-    mv ${cluster_dir}/7_final_consensus.fasta ${fastq.simpleName}.reconciled.fasta
+    
+    (trycycler cluster --assemblies $assemblies --reads $fastq --out_dir trycycler  || (echo "failed" && exit 1)) \
+    && (trycycler reconcile --reads $fastq --cluster_dir ${cluster_dir} || (echo "failed" && exit 1)) \
+    && (trycycler msa --cluster_dir ${cluster_dir} || (echo "failed" && exit 1 )) \
+    && (trycycler partition --reads $fastq --cluster_dirs ${cluster_dir} || (echo "failed" && exit 1 )) \
+    && (trycycler consensus --cluster_dir ${cluster_dir} && mv ${cluster_dir}/7_final_consensus.fasta ${fastq.simpleName}.reconciled.fasta) \
+    || echo "failed something in Trycycler ${fastq.simpleName}"
+ 
     """
 }
 
@@ -181,9 +204,10 @@ process medakaPolishAssembly {
         tuple val(sample), file(draft), file(fastq)
     output:
         path "*.final.fasta", emit: polished
+
     """
-    medaka_consensus -i $fastq -d $draft -m r941_min_high_g360 -o . -t $task.cpus -f
-    mv consensus.fasta ${fastq.simpleName}.final.fasta
+  
+    medaka_consensus -i $fastq -d $draft -m r941_min_high_g360 -o . -t $task.cpus -f && mv consensus.fasta ${fastq.simpleName}.final.fasta
     """
 }
 
@@ -201,14 +225,36 @@ process prokkaAnnotateAssembly {
 }
 
 
-process buildQCReport {
+process assemblyStats {
     label "wfplasmid"
     cpus 1
     input:
         file samples
         file assemblies
+
     output:
-        file "report.html"
+        
+        path "assemblies.tsv", emit: assembly_stat
+        path "samples_reads.txt", emit: samples_reads
+        path "samples_summary.txt", emit: sample_summary
+    """
+    seqkit stats -T $assemblies > assemblies.tsv
+    fastcat --read samples_reads.txt --file samples_summary.txt $samples
+    """
+ }
+
+
+ process assemblyMafs {
+         label "wfplasmid"
+    cpus 1
+    input:
+     
+        file assemblies
+
+    output:
+        
+        path "*.maf", emit: assembly_maf
+
     shell:
     '''
     # Get maf files for dotplots
@@ -218,17 +264,50 @@ process buildQCReport {
         lastal ${assm}.lastdb $assm > ${assm}.maf
     done
 
-    # Get summary tables
-    seqkit stats -T !{assemblies} > assemblies.tsv
-    fastcat --read samples_reads.txt --file samples_summary.txt !{samples} > /dev/null
-
-    aplanat clonevalidation \
-        --assembly_summary assemblies.tsv \
-        --assembly_mafs *.maf \
-        --reads_summary samples_reads.txt \
-        --fastq_summary samples_summary.txt
     '''
-}
+ }
+
+
+ process report {
+     label "wfplasmid"
+     cpus 1
+     input:
+        file annotation_database
+        file assemblies
+        path assembly_maf
+        path assembly_stat
+        path samples_reads
+        path sample_summary
+        file sample_status
+        
+        
+     output:
+        path "*report.html", emit: html
+        path "sample_status.txt", emit: sample_stat
+    
+    script:
+        def sample_sheet = projectDir + "/${params.samples}"
+
+   
+    """ 
+
+        cp $annotation_database annotation_database.tar.gz    
+        tar -xvzf annotation_database.tar.gz
+
+        report.py \
+        --assembly_summary $assembly_stat \
+        --assembly_mafs $assembly_maf \
+        --reads_summary $samples_reads \
+        --fastq_summary $sample_summary \
+        --consensus $assemblies \
+        --revision $workflow.revision \
+        --commit $workflow.commitId \
+        --database $annotation_database \
+        --status_sheet $sample_status \
+        --sample_sheet $sample_sheet
+
+        """
+ }
 
 
 workflow pipeline {
@@ -236,6 +315,8 @@ workflow pipeline {
         samples
         host_reference
         regions_bedfile
+        database
+        
     main:
         // Combine fastq from each of the sample directories into 
         // a single per-sample fastq file
@@ -250,6 +331,7 @@ workflow pipeline {
         // After host filtering, we reduce our overall read depth
         // to the desired level
         downsampled_fastqs = downsampleReads(sample_fastqs)
+
         // Now we branch depeneding on whether reconciliaton is
         // enabled, if so we will subset the data and create an
         // assembly for each subset, then use trycyler to reconcile
@@ -265,6 +347,7 @@ workflow pipeline {
             // Group assemblies back together for reconciliation
             named_samples = nameIt(downsampled_fastqs)
             named_deconcatenated = nameIt(deconcatenated).join(named_samples)
+
             reconciled = reconcileAssemblies(named_deconcatenated)
             // Re-group reconciled assemblies together for final polish
             named_reconciled = nameIt(reconciled).join(named_samples)
@@ -282,12 +365,25 @@ workflow pipeline {
         }
         // And finally grab the annotations and report
         annotations = prokkaAnnotateAssembly(polished)
-        report = buildQCReport(downsampled_fastqs.collect(), 
+
+        assembly_stats = assemblyStats(downsampled_fastqs.collect(), 
             polished.collect())
+        assembly_mafs = assemblyMafs(polished.collect())
+
+        //plannotate
+        sample_status = projectDir + '/bin/sample_status.txt'
+
+        report = report(database,polished.collect(),assembly_mafs.assembly_maf,
+                        assembly_stats.assembly_stat,assembly_stats.samples_reads,assembly_stats.sample_summary, sample_status)
+        
+        results = polished.concat(
+            polished,
+            annotations,
+            report.html,
+            report.sample_stat)
+
     emit:
-        polished = polished
-        annotations = annotations
-        report = report
+        results
 }
 
 
@@ -328,15 +424,45 @@ workflow {
         exit 1
     }
 
+    // check directories have enough samples
+    barcode_dirs = file("$params.fastq/barcode*", type: 'dir', maxdepth: 1)
+    if (barcode_dirs) {
+        println(" - Found barcode directories")
+        // remove empty barcode_dirs
+        invalid_depth = []
+        for (d in barcode_dirs) {
+            if (checkCoverage(d)==false) {
+                invalid_depth << d
+            } 
+        }
+        if (invalid_depth.size() > 0) {
+            println("Some barcode directories did not contain enough samples:")
+            for (d in invalid_depth) {
+                println("- ${d}")
+               }       
+            }
+    }
+      // create status file
+    sample_status = projectDir + '/bin/sample_status.txt'
+    sample_status.write "Sample\tPass/fail\n"
+    if(barcode_dirs) {
+            for (d in barcode_dirs) {
+            sample_status << "${d}" + "\n" 
+    }}
+
+
     samples = fastq_ingress(
         params.fastq, params.out_dir, params.samples, params.sanitize_fastq)
 
+
+    annotation_database = projectDir + '/data/BLAST_dbs.tar.gz'
+    if (params.database) {
+        annotation_database = file(params.annotate_db, type: "file", checkIfExists: true)
+    }
     host_reference = file(params.host_reference, type: "file")
     regions_bedfile = file(params.regions_bedfile, type: "file")
     // Run pipeline
-    results = pipeline(samples, host_reference, regions_bedfile)
-    output(results.polished.concat( 
-        results.polished, results.report, 
-        results.annotations 
-    ))
+    results = pipeline(samples, host_reference, regions_bedfile, annotation_database)
+
+    output(results)
 }
