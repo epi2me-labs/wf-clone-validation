@@ -362,7 +362,7 @@ workflow pipeline {
         assembly_mafs = assemblyMafs(polished.collect())
 
         //plannotate
-        sample_status = projectDir + '/bin/sample_status.txt'
+        sample_status = workDir + '/sample_status.txt'
 
         report = report(database,polished.collect(),assembly_mafs.assembly_maf,
                         assembly_stats.assembly_stat,assembly_stats.samples_reads,
@@ -418,7 +418,7 @@ workflow {
     }
     // create status file
     barcode_dirs = file("$params.fastq/barcode*", type: 'dir', maxdepth: 1)
-    sample_status = projectDir + '/bin/sample_status.txt'
+    sample_status = workDir + '/sample_status.txt'
     sample_status.write "Sample\tPass/fail\n"
     if(barcode_dirs) {
             for (d in barcode_dirs) {
@@ -427,6 +427,7 @@ workflow {
 
     samples = fastq_ingress(
         params.fastq, params.out_dir, params.samples, params.sanitize_fastq)
+
 
     annotation_database = projectDir + '/data/BLAST_dbs.tar.gz'
     if (params.database) {
