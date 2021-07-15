@@ -34,29 +34,11 @@ Notes:
 """
 }
 
-
 def nameIt(ch) {
     return ch.map { it -> return tuple(it.simpleName, it) }.groupTuple()
 }
 
 // Checks the number of records in the file, but not the number of bases
-def checkCoverage(barcode_dir) {
-    listOfFiles = file("${barcode_dir}/*.fastq*")
-    total = 0
-    for (i in listOfFiles){
-        sample = file(i)
-        fastq_count = sample.countFastq()
-        total = total + fastq_count
-    }
-    if (total < (params.assm_coverage * 0.8)){
-        return false;
-     }
-    else {
-        return true;
-    }
-
-
-}
 
 
 process combineFastq {
@@ -65,9 +47,16 @@ process combineFastq {
     input:
         tuple file(directory), val(sample_name) 
     output:
-        file "${sample_name}.fastq.gz"
+        path "${sample_name}.fastq.gz", optional: true, emit: sample
+    script:
+        def expected_depth = "$params.assm_coverage"
+        int value = (expected_depth.toInteger()) * 0.8 * 4
     """
-    fastcat -x ${directory} | gzip > ${sample_name}.fastq.gz
+    fastcat -x ${directory} > interim.fastq
+    if [[ "\$(wc -l <"interim.fastq")" -ge "$value" ]];  then 
+        mv interim.fastq ${sample_name}.fastq
+        gzip ${sample_name}.fastq  
+    fi
     """
 }
 
@@ -123,24 +112,26 @@ process downsampleReads {
 
 process subsetReads {
     label "wfplasmid"
+    
     input:
         file fastq
     output:
-        path "sets/*.fastq", emit: subsets
+        path "sets/*.fastq", optional: true, emit: subsets 
     shell:
     '''
-    trycycler subsample \
+    (trycycler subsample \
         --count 3 \
         --min_read_depth !{(params.assm_coverage / 3) * 2} \
         --reads !{fastq} \
         --out_dir sets \
-        --genome_size !{params.approx_size}
-    for sub in $(ls sets/sample_*.fastq)
+        --genome_size !{params.approx_size} || (echo "failed" && exit 1) \
+    && for sub in $(ls sets/sample_*.fastq)
     do
         mv $sub sets/!{fastq.simpleName}.sub$(basename $sub)
-    done
+    done)|| echo "failed something in subsample ${fastq.simpleName}"
     '''
 }
+
 
 
 process assembleFlye {
@@ -284,13 +275,13 @@ process assemblyStats {
      output:
         path "*report.html", emit: html
         path "sample_status.txt", emit: sample_stat
+        path "feature_table.txt", emit: feature_table
     
     script:
         def sample_sheet = projectDir + "/${params.samples}"
 
    
     """ 
-
         cp $annotation_database annotation_database.tar.gz    
         tar -xvzf annotation_database.tar.gz
 
@@ -374,13 +365,15 @@ workflow pipeline {
         sample_status = projectDir + '/bin/sample_status.txt'
 
         report = report(database,polished.collect(),assembly_mafs.assembly_maf,
-                        assembly_stats.assembly_stat,assembly_stats.samples_reads,assembly_stats.sample_summary, sample_status)
+                        assembly_stats.assembly_stat,assembly_stats.samples_reads,
+                        assembly_stats.sample_summary, sample_status)
         
         results = polished.concat(
             polished,
             annotations,
             report.html,
-            report.sample_stat)
+            report.sample_stat,
+            report.feature_table)
 
     emit:
         results
@@ -423,26 +416,8 @@ workflow {
         println("Error: `--regions_bedfile` requires `--host_reference` to be set")
         exit 1
     }
-
-    // check directories have enough samples
+    // create status file
     barcode_dirs = file("$params.fastq/barcode*", type: 'dir', maxdepth: 1)
-    if (barcode_dirs) {
-        println(" - Found barcode directories")
-        // remove empty barcode_dirs
-        invalid_depth = []
-        for (d in barcode_dirs) {
-            if (checkCoverage(d)==false) {
-                invalid_depth << d
-            } 
-        }
-        if (invalid_depth.size() > 0) {
-            println("Some barcode directories did not contain enough samples:")
-            for (d in invalid_depth) {
-                println("- ${d}")
-               }       
-            }
-    }
-      // create status file
     sample_status = projectDir + '/bin/sample_status.txt'
     sample_status.write "Sample\tPass/fail\n"
     if(barcode_dirs) {
@@ -450,10 +425,8 @@ workflow {
             sample_status << "${d}" + "\n" 
     }}
 
-
     samples = fastq_ingress(
         params.fastq, params.out_dir, params.samples, params.sanitize_fastq)
-
 
     annotation_database = projectDir + '/data/BLAST_dbs.tar.gz'
     if (params.database) {

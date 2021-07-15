@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [unreleased]
 ### Added
 - Plannotate
+- Per sample pass or fail output file
+- Feature table output csv
 
 ## [v0.0.4]
 ### Added
