@@ -103,6 +103,7 @@ def dotplot_assembly(assembly_maf):
 def per_assembly(assemblies_file, database, mafs):
     """Build_per_assembly_tuples."""
     tup = []
+
     for maf in mafs:
         dotplot = dotplot_assembly(maf)
         filename = str(maf)[:-4]
@@ -201,7 +202,6 @@ def tidyup_status_file(status_sheet, mafs, sample_sheet):
         translated = pass_fail
 
     # change status to pass for any samples that made it to end of pipeline
-
     for maf in mafs:
         name = str(maf)[:-16]
         translated[name] = 'pass'
@@ -209,6 +209,19 @@ def tidyup_status_file(status_sheet, mafs, sample_sheet):
                              columns=['Sample', 'pass/fail'])
     status_df.to_csv('sample_status.txt', index=False)
     return(status_df)
+
+
+def output_feature_table(data):
+    """Build feature table text file."""
+    df = data[0][7]
+    sample_column = data[0][0]
+    df.insert(0, 'Sample_name', sample_column)
+    df.to_csv('feature_table.txt', mode='a', header=True, index=False)
+    for i in data[1:]:
+        df = i[7]
+        sample_column = i[0]
+        df.insert(0, 'Sample_name', sample_column)
+        df.to_csv('feature_table.txt', mode='a', header=False, index=False)
 
 
 def main():
@@ -290,7 +303,9 @@ The Plasmid annotation plot and feature table are produced using
     reads_summ = args.reads_summary
     database = str(args.database)[:-7]
     alldata = per_assembly(assembly, database, mafs)
+    output_feature_table(alldata)
     summary_stats_dic = build_samples_panel(fastq_summ, reads_summ)
+
     for i in alldata:
         section = report_doc.add_section()
         section.markdown('### Sample: {}'.format(str(i[0])))
