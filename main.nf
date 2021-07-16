@@ -426,9 +426,9 @@ workflow {
     }}
 
     samples = fastq_ingress(
-        params.fastq, params.out_dir, params.samples, params.sanitize_fastq)
+        params.fastq, workDir, params.samples, params.sanitize_fastq)
 
-
+    
     annotation_database = projectDir + '/data/BLAST_dbs.tar.gz'
     if (params.database) {
         annotation_database = file(params.annotate_db, type: "file", checkIfExists: true)
