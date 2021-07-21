@@ -37,7 +37,8 @@ def clean_results(df):
         'pident': 'Identity', 'abs percmatch': 'Match Length',
         'Description': 'Description',
         'qstart': 'Start Location', 'qend': 'End Location', 'length': 'Length',
-        'sframe': 'Strand', 'db': 'Database'}
+        'sframe': 'Strand', 'db': 'Database',
+        'qlen': 'qlen'}
     numeric_columns = ['Identity', 'Match Length']
     display_columns = [
         'Feature', 'Uniprot ID',
@@ -45,9 +46,10 @@ def clean_results(df):
         'Identity', 'Match Length',
         'Description',
         'Start Location', 'End Location', 'Length',
-        'Strand']
-
+        'Strand', 'qlen']
     df = df.rename(columns=rename)[display_columns]
+    df['Plasmid length'] = df.iloc[0]['qlen']
+    df = df.drop(columns='qlen')
     df[numeric_columns] = np.round(df[numeric_columns], 1).astype(str) + "%"
     df.loc[df['Database'] == "infernal", 'Identity'] = "-"
     df.loc[df['Database'] == "infernal", 'Match Length'] = "-"
@@ -260,7 +262,7 @@ def main():
         help="git commit number")
     parser.add_argument(
         "--database", default='unknown',
-        help="database to use, as a zip folder")
+        help="database to use, directory containing BLAST et. al. files.")
     parser.add_argument(
         "--status_sheet", default='unknown',
         help="status file")
@@ -301,7 +303,7 @@ The Plasmid annotation plot and feature table are produced using
     mafs = args.assembly_mafs
     fastq_summ = args.fastq_summary
     reads_summ = args.reads_summary
-    database = str(args.database)[:-7]
+    database = args.database
     alldata = per_assembly(assembly, database, mafs)
     output_feature_table(alldata)
     summary_stats_dic = build_samples_panel(fastq_summ, reads_summ)
@@ -333,7 +335,8 @@ The Plasmid annotation plot and feature table are produced using
             layout(
                 [[lengthplot, qstatplot], [dotplot, plasmidplot]],
                 sizing_mode='scale_width'))
-        section.table(i[7], index=False, key="table"+str(i[1]))
+        section.table((i[7].drop(columns=['Plasmid length'])),
+                      index=False, key="table"+str(i[1]))
     section = report_doc.add_section()
     status_sheet = args.status_sheet
     sample_sheet = args.sample_sheet

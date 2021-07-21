@@ -13,16 +13,16 @@ Usage:
 
 Script Options:
     --fastq             DIR     Path to directory containing FASTQ files (required)
+    --db_directory      DIR     Location of annotation database. (required) 
     --samples           FILE    CSV file with columns named `barcode` and `sample_name`
                                 (or simply a sample name for non-multiplexed data).
-    --host_reference    FILE    FASTA file, reads which map to it are discarded (optional)
-    --regions_bedfile   FILE    BED file, mask regions within host_reference from filtering (optional)
-    --approx_size       INT     Approximate size of the plasmid in base pairs (default: 10000)
-    --assm_coverage     INT     Try to use this many fold coverage per assembly (default: 150)
-    --flye_overlap      INT     Sets the min overlap that flye requires of reads (default: 2000)
-    --no_reconcile      BOOL    If enabled, only a single assembly will be made and polished (optional)
-    --prefix            STR     The prefix attached to each of the output filenames (optional)
-    --annotate_db       FILE    Zip folder containing database (default: BLAST_dbs file)     
+    --host_reference    FILE    FASTA file, reads which map to it are discarded.
+    --regions_bedfile   FILE    BED file, mask regions within host_reference from filtering..
+    --approx_size       INT     Approximate size of the plasmid in base pairs (default: 10000).
+    --assm_coverage     INT     Try to use this many fold coverage per assembly (default: 150).
+    --flye_overlap      INT     Sets the min overlap that flye requires of reads (default: 2000).
+    --no_reconcile      BOOL    If enabled, only a single assembly will be made and polished.
+    --prefix            STR     The prefix attached to each of the output filenames.
     --help
 
 Notes:
@@ -31,14 +31,19 @@ Notes:
     independently. If `.fastq(.gz)` files are found under the `--fastq` directory
     the sample is assumed to not be multiplexed. In this second case `--samples`
     should be a simple name rather than a CSV file.
+
+    An generic annotation database can be obtained with the following commands:
+        wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/wf-clone-validation-db.tar.gz
+        tar -xzvf wf-clone-validation-db.tar.gz
+    This will create a directory `wf-clone-validation` in the current working directory
+    which can be provided as the `--db_directory` parameter.
 """
 }
+
 
 def nameIt(ch) {
     return ch.map { it -> return tuple(it.simpleName, it) }.groupTuple()
 }
-
-// Checks the number of records in the file, but not the number of bases
 
 
 process combineFastq {
@@ -50,6 +55,7 @@ process combineFastq {
         path "${sample_name}.fastq.gz", optional: true, emit: sample
     script:
         def expected_depth = "$params.assm_coverage"
+        // a little heuristic to decide if we have enough data
         int value = (expected_depth.toInteger()) * 0.8 * 4
     """
     fastcat -x ${directory} > interim.fastq
@@ -133,7 +139,6 @@ process subsetReads {
 }
 
 
-
 process assembleFlye {
     label "wfplasmid"
     cpus params.threads
@@ -197,7 +202,6 @@ process medakaPolishAssembly {
         path "*.final.fasta", emit: polished
 
     """
-  
     medaka_consensus -i $fastq -d $draft -m r941_min_high_g360 -o . -t $task.cpus -f && mv consensus.fasta ${fastq.simpleName}.final.fasta
     """
 }
@@ -224,7 +228,6 @@ process assemblyStats {
         file assemblies
 
     output:
-        
         path "assemblies.tsv", emit: assembly_stat
         path "samples_reads.txt", emit: samples_reads
         path "samples_summary.txt", emit: sample_summary
@@ -232,20 +235,16 @@ process assemblyStats {
     seqkit stats -T $assemblies > assemblies.tsv
     fastcat --read samples_reads.txt --file samples_summary.txt $samples
     """
- }
+}
 
 
- process assemblyMafs {
-         label "wfplasmid"
+process assemblyMafs {
+    label "wfplasmid"
     cpus 1
     input:
-     
         file assemblies
-
     output:
-        
         path "*.maf", emit: assembly_maf
-
     shell:
     '''
     # Get maf files for dotplots
@@ -256,49 +255,40 @@ process assemblyStats {
     done
 
     '''
- }
+}
 
 
- process report {
-     label "wfplasmid"
-     cpus 1
-     input:
-        file annotation_database
+process report {
+    label "wfplasmid"
+    cpus 1
+    input:
+        path annotation_database
         file assemblies
         path assembly_maf
         path assembly_stat
         path samples_reads
         path sample_summary
         file sample_status
-        
-        
-     output:
+    output:
         path "*report.html", emit: html
         path "sample_status.txt", emit: sample_stat
         path "feature_table.txt", emit: feature_table
-    
     script:
         def sample_sheet = projectDir + "/${params.samples}"
-
-   
     """ 
-        cp $annotation_database annotation_database.tar.gz    
-        tar -xvzf annotation_database.tar.gz
-
-        report.py \
-        --assembly_summary $assembly_stat \
-        --assembly_mafs $assembly_maf \
-        --reads_summary $samples_reads \
-        --fastq_summary $sample_summary \
-        --consensus $assemblies \
-        --revision $workflow.revision \
-        --commit $workflow.commitId \
-        --database $annotation_database \
-        --status_sheet $sample_status \
-        --sample_sheet $sample_sheet
-
-        """
- }
+    report.py \
+    --assembly_summary $assembly_stat \
+    --assembly_mafs $assembly_maf \
+    --reads_summary $samples_reads \
+    --fastq_summary $sample_summary \
+    --consensus $assemblies \
+    --revision $workflow.revision \
+    --commit $workflow.commitId \
+    --database $annotation_database \
+    --status_sheet $sample_status \
+    --sample_sheet $sample_sheet
+    """
+}
 
 
 workflow pipeline {
@@ -307,7 +297,6 @@ workflow pipeline {
         host_reference
         regions_bedfile
         database
-        
     main:
         // Combine fastq from each of the sample directories into 
         // a single per-sample fastq file
@@ -404,12 +393,15 @@ workflow {
         helpMessage()
         exit 1
     }
-    if (!params.fastq) {
+
+    if (!params.fastq || !params.db_directory) {
         helpMessage()
         println("")
-        println("Error: `--fastq` is required")
+        println("Error: `--fastq` and `--db_directory` are required. A suitable")
+        println("database can be obtained using `--download_db`.")
         exit 1
     }
+
     if (params.regions_bedfile != "NO_REG_BED" 
         && params.host_reference == "NO_HOST_REF") {
         println("")
@@ -421,22 +413,18 @@ workflow {
     sample_status = workDir + '/sample_status.txt'
     sample_status.write "Sample\tPass/fail\n"
     if(barcode_dirs) {
-            for (d in barcode_dirs) {
-            sample_status << "${d}" + "\n" 
+        for (d in barcode_dirs) {
+        sample_status << "${d}" + "\n" 
     }}
 
     samples = fastq_ingress(
         params.fastq, workDir, params.samples, params.sanitize_fastq)
 
-    
-    annotation_database = projectDir + '/data/BLAST_dbs.tar.gz'
-    if (params.database) {
-        annotation_database = file(params.annotate_db, type: "file", checkIfExists: true)
-    }
+    database = file(params.db_directory, type: "dir")
     host_reference = file(params.host_reference, type: "file")
     regions_bedfile = file(params.regions_bedfile, type: "file")
     // Run pipeline
-    results = pipeline(samples, host_reference, regions_bedfile, annotation_database)
+    results = pipeline(samples, host_reference, regions_bedfile, database)
 
     output(results)
 }
