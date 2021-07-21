@@ -8,5 +8,6 @@ variables:
     # The workflow should define `--out_dir`, the CI template sets this.
     # Only common file inputs and option values need to be given here
     # (not things such as -profile)
-    NF_WORKFLOW_OPTS: "--fastq test_data/test --threads 4 --no_reconcile --prefix wf-clone-validation"
+    NF_BEFORE_SCRIPT: "wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/wf-clone-validation-db.tar.gz && tar -xzvf wf-clone-validation-db.tar.gz" 
+    NF_WORKFLOW_OPTS: "--fastq test_data/test --db_directory wf-clone-validation-db --threads 4 --no_reconcile --prefix wf-clone-validation"
 
