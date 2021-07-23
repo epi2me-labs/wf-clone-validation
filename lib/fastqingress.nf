@@ -93,29 +93,53 @@ def sanitize_fastq(input_folder, output_folder)
  * @param input_folder Top level input folder to locate fastq data
  * @param sample_sheet List of tuples mapping barcode to sample name
  *     or a simple string for non-multiplexed data.
+ * @param min_barcode minimum barcode of valid range (default: null)
+ * @param max_barcode maximum barcode of valid range (default: null)
  * @return Channel of tuples (path, sample_name)
  */
-def resolve_barcode_structure(input_folder, sample_sheet)
+def resolve_barcode_structure(input_folder, sample_sheet, min_barcode, max_barcode)
 {
     println("Checking input directory structure.")
     barcode_dirs = file("$input_folder/barcode*", type: 'dir', maxdepth: 1)
     not_barcoded = find_fastq("$input_folder/", 1)
     samples = null
+    //check min max are not null
+    if (!min_barcode){
+        min_barcode = 0
+    }
+    if (!max_barcode){
+        max_barcode = Integer.MAX_VALUE
+    }
     if (barcode_dirs) {
         println(" - Found barcode directories")
         // remove empty barcode_dirs
         valid_barcode_dirs = []
         invalid_barcode_dirs = []
+        out_of_range_barcode_dir = []
+
         for (d in barcode_dirs) {
+            // find barcode
+            pattern = ~/barcode(\d+)/
+            matcher = "${d}" =~ pattern
+            value = matcher[0][1].toInteger()
             if(!find_fastq(d, 1)) {
                 invalid_barcode_dirs << d
-            } else {
-                valid_barcode_dirs << d
+            }else if(value >= min_barcode && value <= max_barcode){
+                valid_barcode_dirs << d 
+            }else{
+                out_of_range_barcode_dir << d
             }
-        }
+         }
+        
         if (invalid_barcode_dirs.size() > 0) {
             println(" - Some barcode directories did not contain .fastq(.gz) files:")
             for (d in invalid_barcode_dirs) {
+                println("   - ${d}")
+            }
+        }
+        if (out_of_range_barcode_dir.size() > 0) {
+            println(" - Some barcode directories were outside of expected range")
+            for (d in out_of_range_barcode_dir) {
                 println("   - ${d}")
             }
         }
@@ -150,9 +174,11 @@ def resolve_barcode_structure(input_folder, sample_sheet)
  * @param input_folder Top level input folder to locate fastq data
  * @param sample_sheet List of tuples mapping barcode to sample name
  *     or a simple string for non-multiplexed data.
+ * @param min_barcode minimum barcode of valid range (default: null)
+ * @param max_barcode maximum barcode of valid range (default: null)
  * @return Channel of tuples (path, sample_name)
  */
-def fastq_ingress(input_folder, output_folder, samples, sanitize)
+def fastq_ingress(input_folder, output_folder, samples, sanitize, min_barcode, max_barcode)
 {
     // EPI2ME harness 
     if (sanitize) {
@@ -165,6 +191,6 @@ def fastq_ingress(input_folder, output_folder, samples, sanitize)
         sample_sheet = check_sample_sheet(samples)
     }
     // resolve whether we have demultiplexed data or single sample
-    data = resolve_barcode_structure(input_folder, sample_sheet)
+    data = resolve_barcode_structure(input_folder, sample_sheet, min_barcode, max_barcode)
     return data
 }

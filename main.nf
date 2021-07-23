@@ -23,6 +23,8 @@ Script Options:
     --flye_overlap      INT     Sets the min overlap that flye requires of reads (default: 2000).
     --no_reconcile      BOOL    If enabled, only a single assembly will be made and polished.
     --prefix            STR     The prefix attached to each of the output filenames.
+    --min_barcode       INT     Minimum number in barcode range.
+    --max_barcode       INT     Maximmum number in barcode range.
     --help
 
 Notes:
@@ -269,6 +271,7 @@ process report {
         path samples_reads
         path sample_summary
         file sample_status
+        
     output:
         path "*report.html", emit: html
         path "sample_status.txt", emit: sample_stat
@@ -417,8 +420,10 @@ workflow {
         sample_status << "${d}" + "\n" 
     }}
 
+
     samples = fastq_ingress(
-        params.fastq, workDir, params.samples, params.sanitize_fastq)
+        params.fastq, workDir, params.samples, params.sanitize_fastq,
+        params.min_barcode, params.max_barcode)
 
     database = file(params.db_directory, type: "dir")
     host_reference = file(params.host_reference, type: "file")
