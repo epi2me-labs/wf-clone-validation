@@ -209,19 +209,6 @@ process medakaPolishAssembly {
 }
 
 
-process prokkaAnnotateAssembly {
-    label "wfplasmid"
-    cpus params.threads
-    input:
-        file assembly
-    output:
-        path "*_prokka", type: "dir", emit: annotations
-    """
-    prokka --outdir ${assembly.simpleName}_prokka --prefix ${assembly.simpleName} $assembly
-    """
-}
-
-
 process assemblyStats {
     label "wfplasmid"
     cpus 1
@@ -346,8 +333,6 @@ workflow pipeline {
             named_deconcatenated = nameIt(deconcatenated).join(named_samples)
             polished = medakaPolishAssembly(named_deconcatenated)
         }
-        // And finally grab the annotations and report
-        annotations = prokkaAnnotateAssembly(polished)
 
         assembly_stats = assemblyStats(downsampled_fastqs.collect(), 
             polished.collect())
@@ -362,7 +347,6 @@ workflow pipeline {
         
         results = polished.concat(
             polished,
-            annotations,
             report.html,
             report.sample_stat,
             report.feature_table)
