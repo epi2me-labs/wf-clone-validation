@@ -385,7 +385,7 @@ workflow {
         helpMessage()
         println("")
         println("Error: `--fastq` and `--db_directory` are required. A suitable")
-        println("database can be obtained using `--download_db`.")
+        println("database can be obtained using the instructions provided by running `--help`")
         exit 1
     }
 
