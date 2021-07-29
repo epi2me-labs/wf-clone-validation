@@ -16,15 +16,17 @@ Script Options:
     --db_directory      DIR     Location of annotation database. (required) 
     --samples           FILE    CSV file with columns named `barcode` and `sample_name`
                                 (or simply a sample name for non-multiplexed data).
+    --out_dir           DIR     Path to output directory (default: output)
     --host_reference    FILE    FASTA file, reads which map to it are discarded.
-    --regions_bedfile   FILE    BED file, mask regions within host_reference from filtering..
-    --approx_size       INT     Approximate size of the plasmid in base pairs (default: 10000).
-    --assm_coverage     INT     Try to use this many fold coverage per assembly (default: 150).
+    --regions_bedfile   FILE    BED file, mask regions within host_reference from filtering.
+    --approx_size       INT     Approximate size of the plasmid in base pairs (default: 7000).
+    --assm_coverage     INT     Try to use this many fold coverage per assembly (default: 60).
     --flye_overlap      INT     Sets the min overlap that flye requires of reads (default: 2000).
     --no_reconcile      BOOL    If enabled, only a single assembly will be made and polished.
     --prefix            STR     The prefix attached to each of the output filenames.
     --min_barcode       INT     Minimum number in barcode range.
     --max_barcode       INT     Maximmum number in barcode range.
+    --threads           INT     Number of threads per process where applicable (default: 4)
     --help
 
 Notes:
@@ -49,8 +51,8 @@ def nameIt(ch) {
 
 
 process combineFastq {
-    label "wfplasmid"
     errorStrategy 'ignore'
+    label "wfplasmid"
     cpus 1
     input:
         tuple file(directory), val(sample_name) 
@@ -88,20 +90,18 @@ process filterHostReads {
         def name = fastq.simpleName
         def regs = regions_bedfile.name != 'NO_REG_BED' ? regs : 'none'
     """
-    STATUS = ${name}",Filter host read Fail"
-    minimap2 -t $task.cpus -y -ax map-ont $reference $fastq \
+    STATUS="${name},Filter host read Fail"
+    (minimap2 -t $task.cpus -y -ax map-ont $reference $fastq \
         | samtools sort -o ${name}.sorted.aligned.bam -
     samtools index ${name}.sorted.aligned.bam
     samtools view -b -f 4  ${name}.sorted.aligned.bam > unmapped.bam
     samtools view -b -F 4  ${name}.sorted.aligned.bam > mapped.bam
     samtools fastq unmapped.bam > ${name}.filtered.fastq
-
     if [[ -f "$regs" ]]; then
         bedtools intersect -a mapped.bam -b $regs -wa \
             | samtools view -bh - > retained.bam
         samtools fastq retained.bam >> ${name}.filtered.fastq
-    fi
-    STATUS=${name}",Pass"
+    fi ) && STATUS="${name},Pass"
     """
 }
 
@@ -323,7 +323,7 @@ process report {
     --revision $workflow.revision \
     --commit $workflow.commitId \
     --database $annotation_database \
-    --status $final_status
+    --status $final_status 
     """
 }
 
@@ -342,14 +342,17 @@ workflow pipeline {
         // the host or background genome
         if (host_reference.name != "NO_HOST_REF") {
             filtered = filterHostReads(
-                    sample_fastqs.sample, host_reference, regions_bedfile,
-                    sample_fastqs.status)
-            sample_fastqs = filtered.unmapped
-            status_collected = status_collected.join(filtered.status)
+                    sample_fastqs.sample, host_reference, regions_bedfile)
+            samples_filtered = filtered.unmapped
+            updated_status = filtered.status
+        }
+        else {
+            samples_filtered = sample_fastqs.sample
+            updated_status = sample_fastqs.status
         }
         // After host filtering, we reduce our overall read depth
         // to the desired level
-        downsampled_fastqs = downsampleReads(sample_fastqs.sample)
+        downsampled_fastqs = downsampleReads(samples_filtered)
         all_status = downsampled_fastqs.status.join(sample_fastqs.status)
         // Now we branch depeneding on whether reconciliaton is
         // enabled, if so we will subset the data and create an
@@ -371,6 +374,7 @@ workflow pipeline {
             named_reconciled = nameIt(reconciled.reconciled).join(named_samples)
             polished = medakaPolishAssembly(named_reconciled)
             final_status = sample_fastqs.status.join(downsampled_fastqs.status,remainder: true)
+                           .join(updated_status,remainder: true)
                            .join(subsets.status,remainder: true)
                            .join(deconcatenated.status,remainder: true)
                            .join(reconciled.status, remainder: true)
@@ -386,11 +390,12 @@ workflow pipeline {
             deconcatenated = deconcatenateAssembly(assemblies.assembly)
             // Final polish
             named_samples = nameIt(downsampled_fastqs.downsampled)
-            named_samples.view()
+      
             named_deconcatenated = (deconcatenated.deconcatenated).join(named_samples)
-            named_deconcatenated.view()
+         
             polished = medakaPolishAssembly(named_deconcatenated)
             final_status = sample_fastqs.status.join(downsampled_fastqs.status,remainder: true)
+                           .join(updated_status,remainder: true)
                            .join(deconcatenated.status,remainder: true)
                            .join(polished.status,remainder: true)
                            .collectFile(name: 'final_status.csv', newLine: true)
@@ -407,7 +412,6 @@ workflow pipeline {
                  assembly_stats.sample_summary.ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
                  final_status)
         results = polished.polished.concat(
-                  polished.polished,
                   report.html,
                   report.sample_stat,
                   report.feature_table)
