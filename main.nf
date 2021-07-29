@@ -50,26 +50,31 @@ def nameIt(ch) {
 
 process combineFastq {
     label "wfplasmid"
+    errorStrategy 'ignore'
     cpus 1
     input:
         tuple file(directory), val(sample_name) 
     output:
         path "${sample_name}.fastq.gz", optional: true, emit: sample
+        env STATUS, emit: status
     script:
         def expected_depth = "$params.assm_coverage"
         // a little heuristic to decide if we have enough data
         int value = (expected_depth.toInteger()) * 0.8 * 4
     """
+    STATUS=${sample_name}",Insufficient reads"
     fastcat -x ${directory} > interim.fastq
     if [[ "\$(wc -l <"interim.fastq")" -ge "$value" ]];  then 
         mv interim.fastq ${sample_name}.fastq
         gzip ${sample_name}.fastq  
+        STATUS=${sample_name}",Pass"
     fi
     """
 }
 
 
 process filterHostReads {
+    errorStrategy 'ignore'
     label "wfplasmid"
     cpus params.threads
     input:
@@ -77,11 +82,13 @@ process filterHostReads {
         file reference
         file regions_bedfile
     output:
-        path "*.filtered.fastq", emit: unmapped
+        path "*.filtered.fastq", optional: true, emit: unmapped
+        env STATUS, emit: status
     script:
         def name = fastq.simpleName
         def regs = regions_bedfile.name != 'NO_REG_BED' ? regs : 'none'
     """
+    STATUS = ${name}",Filter host read Fail"
     minimap2 -t $task.cpus -y -ax map-ont $reference $fastq \
         | samtools sort -o ${name}.sorted.aligned.bam -
     samtools index ${name}.sorted.aligned.bam
@@ -94,103 +101,127 @@ process filterHostReads {
             | samtools view -bh - > retained.bam
         samtools fastq retained.bam >> ${name}.filtered.fastq
     fi
+    STATUS=${name}",Pass"
     """
 }
 
 
 process downsampleReads {
+    errorStrategy 'ignore'
     label "wfplasmid"
     cpus 1
     input:
         path fastq
     output:
-        path "*.downsampled.fastq", emit: downsampled
+        path "*.downsampled.fastq", optional: true, emit: downsampled
+        env STATUS, emit: status
     script:
         def target = params.approx_size * params.assm_coverage * 3
     """
-    filtlong \
+    STATUS=${fastq.simpleName}",Downsample reads"
+    (filtlong \
         --min_length 1000 \
         --min_mean_q 12 \
         --keep_percent 99 \
         -t $target \
-        $fastq > ${fastq.simpleName}.downsampled.fastq
+        $fastq > ${fastq.simpleName}.downsampled.fastq ) && STATUS=${fastq.simpleName}",Pass"
     """
 }
 
 
 process subsetReads {
+    errorStrategy 'ignore'
     label "wfplasmid"
-    
     input:
         file fastq
     output:
-        path "sets/*.fastq", optional: true, emit: subsets 
+        path "*.fastq", optional: true, emit: subset
+        env STATUS, emit: status
     shell:
     '''
+    STATUS="!{fastq.simpleName},Subset reads"
     (trycycler subsample \
         --count 3 \
         --min_read_depth !{(params.assm_coverage / 3) * 2} \
         --reads !{fastq} \
         --out_dir sets \
-        --genome_size !{params.approx_size} || (echo "failed" && exit 1) \
+        --genome_size !{params.approx_size} \
     && for sub in $(ls sets/sample_*.fastq)
     do
-        mv $sub sets/!{fastq.simpleName}.sub$(basename $sub)
-    done)|| echo "failed something in subsample ${fastq.simpleName}"
+        mv $sub ./!{fastq.simpleName}.sub$(basename $sub)
+    done) && STATUS="!{fastq.simpleName},Pass"
     '''
 }
 
 
 process assembleFlye {
+    errorStrategy 'ignore'
     label "wfplasmid"
     cpus params.threads
     input:
-        file fastq
+        file subset_files  
     output:
         path "*.fasta", optional: true, emit: assembly
+        env STATUS, emit: status
+    script:
+        name = subset_files[0]
     """
-    mkdir assm
-    flye \
-        --nano-raw $fastq \
+    STATUS=${name.simpleName}",Assemble Flye"
+    (mkdir assm
+    for FASTQ in $subset_files
+    do
+    (flye \
+        --nano-raw \$FASTQ \
         --meta --plasmids \
         --out-dir assm \
         --min-overlap $params.flye_overlap \
-        --threads $task.cpus  && mv assm/assembly.fasta ${fastq.baseName}.fasta || echo "failed flye sample ${fastq.simpleName}"
-    
+        --threads $task.cpus && mv assm/assembly.fasta \$FASTQ.fasta) \
+    done ) && STATUS=${name.simpleName}",Pass"
     """
 }
 
 
 process deconcatenateAssembly {
+    errorStrategy 'ignore'
     label "wfplasmid"
     input:
-        file assembly
+        file assemblies
     output:
-        path "*.deconcatenated.fasta", emit: deconcatenated
+        tuple val(sample_name), path("*.deconcatenated.fasta"), optional: true, emit: deconcatenated
+        env STATUS, emit: status
+    script:
+        name = assemblies[0]
+        sample_name = name.toString().split("\\.")[0]
     """
-    deconcatenate.py $assembly -o ${assembly.baseName}.deconcatenated.fasta
+    STATUS="${name.simpleName},Deconcatenate Assembly"
+    (for ASSEMBLY in $assemblies
+    do
+    (deconcatenate.py \$ASSEMBLY -o \$ASSEMBLY.deconcatenated.fasta)
+    done) && STATUS="${name.simpleName},Pass"
     """
 }
 
 
 process reconcileAssemblies {
+    errorStrategy 'ignore'
     label "wfplasmid"
     cpus params.threads
     input:
-        tuple val(sample), file(assemblies), file(fastq)
+        tuple val(sample), file(fastq), file(assemblies)
     output:
         path "*.reconciled.fasta", optional: true, emit: reconciled
+        env STATUS, emit: status
     script:
         def cluster_dir = "trycycler/cluster_001" 
     """
-    
-    (trycycler cluster --assemblies $assemblies --reads $fastq --out_dir trycycler  || (echo "failed" && exit 1)) \
-    && (trycycler reconcile --reads $fastq --cluster_dir ${cluster_dir} || (echo "failed" && exit 1)) \
-    && (trycycler msa --cluster_dir ${cluster_dir} || (echo "failed" && exit 1 )) \
-    && (trycycler partition --reads $fastq --cluster_dirs ${cluster_dir} || (echo "failed" && exit 1 )) \
-    && (trycycler consensus --cluster_dir ${cluster_dir} && mv ${cluster_dir}/7_final_consensus.fasta ${fastq.simpleName}.reconciled.fasta) \
-    || echo "failed something in Trycycler ${fastq.simpleName}"
- 
+    STATUS=${fastq.simpleName}",Reconcile Assemblies"
+    (trycycler cluster --assemblies $assemblies --reads $fastq --out_dir trycycler \
+    && trycycler reconcile --reads $fastq --cluster_dir ${cluster_dir} \
+    && trycycler msa --cluster_dir ${cluster_dir} \
+    && trycycler partition --reads $fastq --cluster_dirs ${cluster_dir} \
+    && trycycler consensus --cluster_dir ${cluster_dir} \
+    && mv ${cluster_dir}/7_final_consensus.fasta ${fastq.simpleName}.reconciled.fasta) \
+    && STATUS=${fastq.simpleName}",Pass"
     """
 }
 
@@ -202,9 +233,12 @@ process medakaPolishAssembly {
         tuple val(sample), file(draft), file(fastq)
     output:
         path "*.final.fasta", emit: polished
-
+        env STATUS, emit: status
     """
-    medaka_consensus -i $fastq -d $draft -m r941_min_high_g360 -o . -t $task.cpus -f && mv consensus.fasta ${fastq.simpleName}.final.fasta
+    STATUS=${fastq.simpleName}",Medaka Polish Assembly"
+    medaka_consensus -i $fastq -d $draft -m r941_min_high_g360 -o . -t $task.cpus -f
+    mv consensus.fasta ${fastq.simpleName}.final.fasta
+    STATUS=${fastq.simpleName}",Pass"
     """
 }
 
@@ -215,7 +249,6 @@ process assemblyStats {
     input:
         file samples
         file assemblies
-
     output:
         path "assemblies.tsv", emit: assembly_stat
         path "samples_reads.txt", emit: samples_reads
@@ -242,7 +275,25 @@ process assemblyMafs {
         lastdb ${assm}.lastdb $assm
         lastal ${assm}.lastdb $assm > ${assm}.maf
     done
+    '''
+}
 
+
+process sampleStatus {
+    label "wfplasmid"
+    cpus 1
+    input:
+        file assemblies
+    output:
+        path "*.maf", emit: assembly_maf
+    shell:
+    '''
+    # Get maf files for dotplots
+    for assm in !{assemblies}
+    do
+        lastdb ${assm}.lastdb $assm
+        lastal ${assm}.lastdb $assm > ${assm}.maf
+    done
     '''
 }
 
@@ -252,31 +303,27 @@ process report {
     cpus 1
     input:
         path annotation_database
-        file assemblies
-        path assembly_maf
-        path assembly_stat
-        path samples_reads
-        path sample_summary
-        file sample_status
-        
+        path "assemblies/*"
+        file "assembly_maf/*"
+        path "assembly_stat/*"
+        path "samples_reads/*"
+        path "samples_summary/*"
+        file final_status
     output:
         path "*report.html", emit: html
         path "sample_status.txt", emit: sample_stat
         path "feature_table.txt", emit: feature_table
-    script:
-        def sample_sheet = projectDir + "/${params.samples}"
     """ 
     report.py \
-    --assembly_summary $assembly_stat \
-    --assembly_mafs $assembly_maf \
-    --reads_summary $samples_reads \
-    --fastq_summary $sample_summary \
-    --consensus $assemblies \
+    --assembly_summary assembly_stat/* \
+    --assembly_mafs assembly_maf/* \
+    --reads_summary samples_reads/* \
+    --fastq_summary samples_summary/* \
+    --consensus assemblies/* \
     --revision $workflow.revision \
     --commit $workflow.commitId \
     --database $annotation_database \
-    --status_sheet $sample_status \
-    --sample_sheet $sample_sheet
+    --status $final_status
     """
 }
 
@@ -295,13 +342,15 @@ workflow pipeline {
         // the host or background genome
         if (host_reference.name != "NO_HOST_REF") {
             filtered = filterHostReads(
-                sample_fastqs, host_reference, regions_bedfile)
+                    sample_fastqs.sample, host_reference, regions_bedfile,
+                    sample_fastqs.status)
             sample_fastqs = filtered.unmapped
+            status_collected = status_collected.join(filtered.status)
         }
         // After host filtering, we reduce our overall read depth
         // to the desired level
-        downsampled_fastqs = downsampleReads(sample_fastqs)
-
+        downsampled_fastqs = downsampleReads(sample_fastqs.sample)
+        all_status = downsampled_fastqs.status.join(sample_fastqs.status)
         // Now we branch depeneding on whether reconciliaton is
         // enabled, if so we will subset the data and create an
         // assembly for each subset, then use trycyler to reconcile
@@ -309,47 +358,59 @@ workflow pipeline {
         // more frequently than not.
         if (!params.no_reconcile) {
             // For each sample split the reads into subsets
-            subsets = subsetReads(downsampled_fastqs)
+            subsets = subsetReads(downsampled_fastqs.downsampled)
             // Assemble each subset independently
-            assemblies = assembleFlye(subsets.flatten())
+            assemblies = assembleFlye(subsets.subset)
             // Deconcatenate assemblies
-            deconcatenated = deconcatenateAssembly(assemblies)
+            deconcatenated = deconcatenateAssembly(assemblies.assembly)
             // Group assemblies back together for reconciliation
-            named_samples = nameIt(downsampled_fastqs)
-            named_deconcatenated = nameIt(deconcatenated).join(named_samples)
-
+            named_samples = nameIt(downsampled_fastqs.downsampled)
+            named_deconcatenated = named_samples.join(deconcatenated.deconcatenated)
             reconciled = reconcileAssemblies(named_deconcatenated)
             // Re-group reconciled assemblies together for final polish
-            named_reconciled = nameIt(reconciled).join(named_samples)
+            named_reconciled = nameIt(reconciled.reconciled).join(named_samples)
             polished = medakaPolishAssembly(named_reconciled)
+            final_status = sample_fastqs.status.join(downsampled_fastqs.status,remainder: true)
+                           .join(subsets.status,remainder: true)
+                           .join(deconcatenated.status,remainder: true)
+                           .join(reconciled.status, remainder: true)
+                           .join(polished.status,remainder: true)
+                           .collectFile(name: 'final_status.csv', newLine: true)
+
+            
         } else {
             // Given reconciliation is not enabled
             // Assemble the downsampled dataset in one go
-            assemblies = assembleFlye(downsampled_fastqs)
+            assemblies = assembleFlye(downsampled_fastqs.downsampled)
             // Deconcatenate assemblies
-            deconcatenated = deconcatenateAssembly(assemblies)
+            deconcatenated = deconcatenateAssembly(assemblies.assembly)
             // Final polish
-            named_samples = nameIt(downsampled_fastqs)
-            named_deconcatenated = nameIt(deconcatenated).join(named_samples)
+            named_samples = nameIt(downsampled_fastqs.downsampled)
+            named_samples.view()
+            named_deconcatenated = (deconcatenated.deconcatenated).join(named_samples)
+            named_deconcatenated.view()
             polished = medakaPolishAssembly(named_deconcatenated)
+            final_status = sample_fastqs.status.join(downsampled_fastqs.status,remainder: true)
+                           .join(deconcatenated.status,remainder: true)
+                           .join(polished.status,remainder: true)
+                           .collectFile(name: 'final_status.csv', newLine: true)
+            
         }
-
-        assembly_stats = assemblyStats(downsampled_fastqs.collect(), 
-            polished.collect())
-        assembly_mafs = assemblyMafs(polished.collect())
-
-        //plannotate
-        sample_status = workDir + '/sample_status.txt'
-
-        report = report(database,polished.collect(),assembly_mafs.assembly_maf,
-                        assembly_stats.assembly_stat,assembly_stats.samples_reads,
-                        assembly_stats.sample_summary, sample_status)
-        
-        results = polished.concat(
-            polished,
-            report.html,
-            report.sample_stat,
-            report.feature_table)
+        assembly_stats = assemblyStats(downsampled_fastqs.downsampled.collect(), 
+                         polished.polished.collect())
+        assembly_mafs = assemblyMafs(polished.polished.collect())
+        report = report(database,
+                 polished.polished.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
+                 assembly_mafs.assembly_maf.ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
+                 assembly_stats.assembly_stat.ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
+                 assembly_stats.samples_reads.ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
+                 assembly_stats.sample_summary.ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
+                 final_status)
+        results = polished.polished.concat(
+                  polished.polished,
+                  report.html,
+                  report.sample_stat,
+                  report.feature_table)
 
     emit:
         results
@@ -395,15 +456,6 @@ workflow {
         println("Error: `--regions_bedfile` requires `--host_reference` to be set")
         exit 1
     }
-    // create status file
-    barcode_dirs = file("$params.fastq/barcode*", type: 'dir', maxdepth: 1)
-    sample_status = workDir + '/sample_status.txt'
-    sample_status.write "Sample\tPass/fail\n"
-    if(barcode_dirs) {
-        for (d in barcode_dirs) {
-        sample_status << "${d}" + "\n" 
-    }}
-
 
     samples = fastq_ingress(
         params.fastq, workDir, params.samples, params.sanitize_fastq,
