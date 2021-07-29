@@ -16,15 +16,17 @@ Script Options:
     --db_directory      DIR     Location of annotation database. (required) 
     --samples           FILE    CSV file with columns named `barcode` and `sample_name`
                                 (or simply a sample name for non-multiplexed data).
+    --out_dir           DIR     Path to output directory (default: output)
     --host_reference    FILE    FASTA file, reads which map to it are discarded.
-    --regions_bedfile   FILE    BED file, mask regions within host_reference from filtering..
-    --approx_size       INT     Approximate size of the plasmid in base pairs (default: 10000).
-    --assm_coverage     INT     Try to use this many fold coverage per assembly (default: 150).
+    --regions_bedfile   FILE    BED file, mask regions within host_reference from filtering.
+    --approx_size       INT     Approximate size of the plasmid in base pairs (default: 7000).
+    --assm_coverage     INT     Try to use this many fold coverage per assembly (default: 60).
     --flye_overlap      INT     Sets the min overlap that flye requires of reads (default: 2000).
     --no_reconcile      BOOL    If enabled, only a single assembly will be made and polished.
     --prefix            STR     The prefix attached to each of the output filenames.
     --min_barcode       INT     Minimum number in barcode range.
     --max_barcode       INT     Maximmum number in barcode range.
+    --threads           INT     Number of threads per process where applicable (default: 4)
     --help
 
 Notes:
