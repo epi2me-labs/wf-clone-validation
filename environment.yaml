@@ -1,4 +1,4 @@
-name: wf-clone-validation
+name: epi2melabs-wf-clone-validation
 channels:
     - epi2melabs
     - bioconda
@@ -22,4 +22,3 @@ dependencies:
     - plannotate
     - fastcat
     - last
-    

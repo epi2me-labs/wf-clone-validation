@@ -2,6 +2,7 @@
 
 """Report component for displaying information from wf-clone-validation."""
 import argparse
+import os
 
 from aplanat import base, hist, report
 import aplanat.graphics
@@ -102,24 +103,26 @@ def dotplot_assembly(assembly_maf):
     return dotplot
 
 
-def per_assembly(assemblies_file, database, mafs):
+def per_assembly(assemblies_file, database, sample_data):
     """Build_per_assembly_tuples."""
     tup = []
-
-    for maf in mafs:
-        dotplot = dotplot_assembly(maf)
-        filename = str(maf)[:-4]
-        plot, annotations = run_plannotate(filename, database)
+    for sample in sample_data:
+        dotplot = dotplot_assembly(sample['maf'])
+        plot, annotations = run_plannotate(sample['fasta'], database)
         df = pd.read_csv(assemblies_file, sep='\t', index_col=0)
-        num_seqs = df.loc[str(filename), 'num_seqs']
-        min_len = df.loc[str(filename), 'min_len']
-        avg_len = df.loc[str(filename), 'avg_len']
-        max_len = df.loc[str(filename), 'max_len']
-        tup.append((filename[:-12:], num_seqs, min_len,
-                    avg_len,
-                    max_len, plot,
-                    dotplot, annotations))
-
+        filename = str(sample['sample_name']) + '.final.fasta'
+        num_seqs = df.loc[filename, 'num_seqs']
+        min_len = df.loc[filename, 'min_len']
+        avg_len = df.loc[filename, 'avg_len']
+        max_len = df.loc[filename, 'max_len']
+        tup.append({'sample_name': sample['sample_name'],
+                    'num_seqs': num_seqs,
+                    'min_len': min_len,
+                    'avg_len': avg_len,
+                    'max_len': max_len,
+                    'plot': plot,
+                    'dotplot': dotplot,
+                    'annotations': annotations})
     return(tup)
 
 
@@ -180,50 +183,51 @@ def build_samples_panel(summary_file, reads_file):
     return qc_plots_dic
 
 
-def tidyup_status_file(status_sheet, mafs, sample_sheet):
+def tidyup_status_file(status_sheet):
     """Tidy up the sample status file."""
-    status_sheet = open(status_sheet).read().splitlines()
-    pass_fail = {}
-    # mark samples as passed or failed
-    for i in status_sheet[1::]:
-        i = i.split('/')
-        pass_fail[i[-1]] = 'fail'
-    barcode_dic = {}
-    # if there is a sample sheet translated barcode>sample otherwise pass
-    try:
-        sample_sheet = open(sample_sheet).read().splitlines()
-        for i in sample_sheet[1::]:
-            i = i.split(',')
-            barcode_dic[i[0]] = i[1]
-        translated = {}
-        for k, v in pass_fail.items():
-            sample_name = barcode_dic[k]
-            pass_or_fail = pass_fail[k]
-            translated[sample_name] = pass_or_fail
-    except Exception:
-        translated = pass_fail
-
-    # change status to pass for any samples that made it to end of pipeline
-    for maf in mafs:
-        name = str(maf)[:-16]
-        translated[name] = 'pass'
-    status_df = pd.DataFrame(translated.items(),
-                             columns=['Sample', 'pass/fail'])
+    sample_status = pd.read_csv(status_sheet[0], header=None)
+    unique_samples = sample_status[0].unique()
+    pass_fail_dic = {}
+    for sample in unique_samples:
+        pass_fail_dic[sample] = 'Pass'
+    filter_pass = sample_status[sample_status[1] != 'Pass']
+    passed = sample_status[sample_status[1] == 'Pass']
+    passed_list = passed[0].tolist()
+    failures = dict(zip(filter_pass[0], filter_pass[1]))
+    for k, v in failures.items():
+        pass_fail_dic[k] = v
+    status_df = pd.DataFrame(pass_fail_dic.items(),
+                             columns=['Sample', 'pass/failed reason'])
     status_df.to_csv('sample_status.txt', index=False)
-    return(status_df)
+    return(status_df, passed_list)
 
 
 def output_feature_table(data):
     """Build feature table text file."""
-    df = data[0][7]
-    sample_column = data[0][0]
+    df = data[0]['annotations']
+    sample_column = data[0]['sample_name']
     df.insert(0, 'Sample_name', sample_column)
     df.to_csv('feature_table.txt', mode='a', header=True, index=False)
-    for i in data[1:]:
-        df = i[7]
-        sample_column = i[0]
+    for sample in data[1:]:
+        df = sample['annotations']
+        sample_column = sample['sample_name']
         df.insert(0, 'Sample_name', sample_column)
         df.to_csv('feature_table.txt', mode='a', header=False, index=False)
+
+
+def pair_samples_with_mafs(sample_names):
+    """Match Assembly sequences with mafs."""
+    fasta_mafs = []
+    for sample_name in sample_names:
+        fasta = 'assemblies/' + sample_name + '.final.fasta'
+        maf = 'assembly_maf/' + sample_name + '.final.fasta.maf'
+        if os.path.exists(fasta) and os.path.exists(maf):
+            fasta_mafs.append({'sample_name': sample_name,
+                               'fasta': fasta,
+                               'maf': maf})
+        else:
+            print("Missing data required for report: " + sample_name)
+    return(fasta_mafs)
 
 
 def main():
@@ -264,15 +268,14 @@ def main():
         "--database", default='unknown',
         help="database to use, directory containing BLAST et. al. files.")
     parser.add_argument(
-        "--status_sheet", default='unknown',
-        help="status file")
-    parser.add_argument(
-        "--sample_sheet",
-        help="status file")
+        "--status", nargs='+',
+        help="status")
     args = parser.parse_args()
     report_doc = report.WFReport(
-        "Clone Validation Report", "wf-clone-validation",
-        revision=args.revision, commit=args.commit)
+        "Clone Validation Report",
+        "wf-clone-validation",
+        revision=args.revision,
+        commit=args.commit)
     section = report_doc.add_section()
     section.markdown("Results generated through the wf-clone-validation "
                      "nextflow workflow provided by Oxford Nanopore "
@@ -301,48 +304,57 @@ The Plasmid annotation plot and feature table are produced using
 
     assembly = args.assembly_summary
     mafs = args.assembly_mafs
+    status = args.status
+    pass_fail = tidyup_status_file(status)
+    sample_data = pair_samples_with_mafs(pass_fail[1])
     fastq_summ = args.fastq_summary
     reads_summ = args.reads_summary
     database = args.database
-    alldata = per_assembly(assembly, database, mafs)
-    output_feature_table(alldata)
-    summary_stats_dic = build_samples_panel(fastq_summ, reads_summ)
+    if (mafs[0] != 'assembly_maf/OPTIONAL_FILE'):
+        alldata = per_assembly(assembly, database, sample_data)
+        output_feature_table(alldata)
+        summary_stats_dic = build_samples_panel(fastq_summ, reads_summ)
+        for i in alldata:
+            section = report_doc.add_section()
+            section.markdown('### Sample: {}'.format(i['sample_name']))
+            exec_summary = aplanat.graphics.InfoGraphItems()
+            exec_summary.append(
+                "No. Seqs",
+                str(i['num_seqs']),
+                "bars", '')
+            exec_summary.append(
+                "Min Length",
+                str(i['min_len']),
+                "align-left", '')
+            exec_summary.append(
+                "Average Length",
+                str(int(i['avg_len'])),
+                "align-center", '')
+            exec_summary.append(
+                "Max Length",
+                str(i['max_len']),
+                'align-right')
+            exec_plot = aplanat.graphics.infographic(
+                exec_summary.values(), ncols=4)
+            section.plot(exec_plot, key="exec-plot"+(i['sample_name']))
+            dotplot = [i['dotplot']]
+            lengthplot = summary_stats_dic[str(i['sample_name'])][0]
+            qstatplot = summary_stats_dic[i['sample_name']][1]
+            plasmidplot = [i['plot']]
+            section.plot(
+                layout(
+                    [[lengthplot, qstatplot], [dotplot, plasmidplot]],
+                    sizing_mode='scale_width'))
+            section.table((i['annotations'].drop(columns=['Plasmid length'])),
+                          index=False, key="table"+(str(i['sample_name'])))
+    else:
+        open("feature_table.txt", "w")
 
-    for i in alldata:
-        section = report_doc.add_section()
-        section.markdown('### Sample: {}'.format(str(i[0])))
-        exec_summary = aplanat.graphics.InfoGraphItems()
-        exec_summary.append("No. Seqs",
-                            str(i[1]),
-                            "bars", '')
-        exec_summary.append("Min Length",
-                            str(i[2]),
-                            "align-left", '')
-        exec_summary.append("Average Length",
-                            str(int(i[3])),
-                            "align-center", '')
-        exec_summary.append("Max Length",
-                            str(i[4]),
-                            'align-right')
-        exec_plot = aplanat.graphics.infographic(
-                    exec_summary.values(), ncols=4)
-        section.plot(exec_plot, key="exec-plot"+str(i[1]))
-        dotplot = [i[6]]
-        lengthplot = summary_stats_dic[str(i[0])][0]
-        qstatplot = summary_stats_dic[str(i[0])][1]
-        plasmidplot = [i[5]]
-        section.plot(
-            layout(
-                [[lengthplot, qstatplot], [dotplot, plasmidplot]],
-                sizing_mode='scale_width'))
-        section.table((i[7].drop(columns=['Plasmid length'])),
-                      index=False, key="table"+str(i[1]))
     section = report_doc.add_section()
-    status_sheet = args.status_sheet
-    sample_sheet = args.sample_sheet
-    pass_fail = tidyup_status_file(status_sheet, mafs, sample_sheet)
+    status = args.status
+    pass_fail = tidyup_status_file(status)
     section.markdown("##Sample status")
-    section.table(pass_fail, index=False)
+    section.table(pass_fail[0], index=False)
 
     report_doc.write('wf-clone-validation-report.html')
 
