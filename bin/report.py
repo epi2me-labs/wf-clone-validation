@@ -191,13 +191,16 @@ def tidyup_status_file(status_sheet):
     for sample in unique_samples:
         pass_fail_dic[sample] = 'Pass'
     filter_pass = sample_status[sample_status[1] != 'Pass']
-    passed = sample_status[sample_status[1] == 'Pass']
-    passed_list = passed[0].tolist()
     failures = dict(zip(filter_pass[0], filter_pass[1]))
+    passed_list = unique_samples.tolist()
     for k, v in failures.items():
         pass_fail_dic[k] = v
+        passed_list.remove(k)
+    passed_list.sort()
     status_df = pd.DataFrame(pass_fail_dic.items(),
                              columns=['Sample', 'pass/failed reason'])
+    sort_df = status_df['Sample'].astype(str).argsort()
+    status_df = status_df.iloc[sort_df]
     status_df.to_csv('sample_status.txt', index=False)
     return(status_df, passed_list)
 
