@@ -20,5 +20,5 @@ dependencies:
     - flye
     - medaka
     - plannotate
-    - fastcat
+    - fastcat==0.3.6
     - last

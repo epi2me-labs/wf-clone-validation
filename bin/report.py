@@ -4,7 +4,7 @@
 import argparse
 import os
 
-from aplanat import base, hist, report
+from aplanat import bars, base, hist, report
 import aplanat.graphics
 from aplanat.util import Colors
 from bokeh.layouts import layout
@@ -105,7 +105,7 @@ def dotplot_assembly(assembly_maf):
 
 def per_assembly(assemblies_file, database, sample_data):
     """Build_per_assembly_tuples."""
-    tup = []
+    tup = {}
     for sample in sample_data:
         dotplot = dotplot_assembly(sample['maf'])
         plot, annotations = run_plannotate(sample['fasta'], database)
@@ -115,14 +115,15 @@ def per_assembly(assemblies_file, database, sample_data):
         min_len = df.loc[filename, 'min_len']
         avg_len = df.loc[filename, 'avg_len']
         max_len = df.loc[filename, 'max_len']
-        tup.append({'sample_name': sample['sample_name'],
+        tup[sample['sample_name']] = {
+                    'sample_name': sample['sample_name'],
                     'num_seqs': num_seqs,
                     'min_len': min_len,
                     'avg_len': avg_len,
                     'max_len': max_len,
                     'plot': plot,
                     'dotplot': dotplot,
-                    'annotations': annotations})
+                    'annotations': annotations}
     return(tup)
 
 
@@ -192,6 +193,8 @@ def tidyup_status_file(status_sheet):
         pass_fail_dic[sample] = 'Pass'
     filter_pass = sample_status[sample_status[1] != 'Pass']
     failures = dict(zip(filter_pass[0], filter_pass[1]))
+    all_sample_names = unique_samples.tolist()
+    all_sample_names.sort()
     passed_list = unique_samples.tolist()
     for k, v in failures.items():
         pass_fail_dic[k] = v
@@ -202,11 +205,14 @@ def tidyup_status_file(status_sheet):
     sort_df = status_df['Sample'].astype(str).argsort()
     status_df = status_df.iloc[sort_df]
     status_df.to_csv('sample_status.txt', index=False)
-    return(status_df, passed_list)
+    return(status_df, passed_list, all_sample_names)
 
 
-def output_feature_table(data):
+def output_feature_table(data_dic):
     """Build feature table text file."""
+    data = []
+    for k, v in data_dic.items():
+        data.append(v)
     df = data[0]['annotations']
     sample_column = data[0]['sample_name']
     df.insert(0, 'Sample_name', sample_column)
@@ -231,6 +237,14 @@ def pair_samples_with_mafs(sample_names):
         else:
             print("Missing data required for report: " + sample_name)
     return(fasta_mafs)
+
+
+def read_files(summaries, sep='\t'):
+    """Read a set of files and join to single dataframe."""
+    dfs = list()
+    for fname in sorted(summaries):
+        dfs.append(pd.read_csv(fname, sep=sep))
+    return pd.concat(dfs)
 
 
 def main():
@@ -273,6 +287,9 @@ def main():
     parser.add_argument(
         "--status", nargs='+',
         help="status")
+    parser.add_argument(
+        "--per_barcode_stats", nargs='+',
+        help="fastcat stats file for each sample")
     args = parser.parse_args()
     report_doc = report.WFReport(
         "Clone Validation Report",
@@ -283,6 +300,28 @@ def main():
     section.markdown("Results generated through the wf-clone-validation "
                      "nextflow workflow provided by Oxford Nanopore "
                      "Technologies")
+    seq_summary = read_files(args.per_barcode_stats)
+    section = report_doc.add_section()
+    section.markdown("###Number of reads per barcode")
+    barcode_counts = (
+        pd.DataFrame(seq_summary['sample_name'].value_counts())
+        .sort_index()
+        .reset_index()
+        .rename(
+            columns={'index': 'sample', 'sample_name': 'count'})
+    )
+    bc_counts = bars.simple_bar(
+        barcode_counts['sample'].astype(str), barcode_counts['count'],
+        colors=[Colors.cerulean]*len(barcode_counts),
+        title=(
+            'Number of reads per barcode'),
+        plot_width=None
+    )
+    bc_counts.xaxis.major_label_orientation = 3.14/2
+    section.plot(
+        layout(
+            [[bc_counts]],
+            sizing_mode="stretch_width"))
     section = report_doc.add_section()
     section.markdown("""
 ## Assemblies
@@ -304,7 +343,6 @@ cloning steps.
 The Plasmid annotation plot and feature table are produced using
 [Plannotate](http://plannotate.barricklab.org/).
 """)
-
     assembly = args.assembly_summary
     mafs = args.assembly_mafs
     status = args.status
@@ -314,42 +352,56 @@ The Plasmid annotation plot and feature table are produced using
     reads_summ = args.reads_summary
     database = args.database
     if (mafs[0] != 'assembly_maf/OPTIONAL_FILE'):
+        summary_stats_dic = build_samples_panel(fastq_summ, reads_summ)
         alldata = per_assembly(assembly, database, sample_data)
         output_feature_table(alldata)
-        summary_stats_dic = build_samples_panel(fastq_summ, reads_summ)
-        for i in alldata:
-            section = report_doc.add_section()
-            section.markdown('### Sample: {}'.format(i['sample_name']))
-            exec_summary = aplanat.graphics.InfoGraphItems()
-            exec_summary.append(
-                "No. Seqs",
-                str(i['num_seqs']),
-                "bars", '')
-            exec_summary.append(
-                "Min Length",
-                str(i['min_len']),
-                "align-left", '')
-            exec_summary.append(
-                "Average Length",
-                str(int(i['avg_len'])),
-                "align-center", '')
-            exec_summary.append(
-                "Max Length",
-                str(i['max_len']),
-                'align-right')
-            exec_plot = aplanat.graphics.infographic(
-                exec_summary.values(), ncols=4)
-            section.plot(exec_plot, key="exec-plot"+(i['sample_name']))
-            dotplot = [i['dotplot']]
-            lengthplot = summary_stats_dic[str(i['sample_name'])][0]
-            qstatplot = summary_stats_dic[i['sample_name']][1]
-            plasmidplot = [i['plot']]
-            section.plot(
-                layout(
-                    [[lengthplot, qstatplot], [dotplot, plasmidplot]],
-                    sizing_mode='scale_width'))
-            section.table((i['annotations'].drop(columns=['Plasmid length'])),
-                          index=False, key="table"+(str(i['sample_name'])))
+        sample_names = pass_fail[2]
+        for item in sample_names:
+            if (item in alldata):
+                tup_dic = alldata[item]
+                section = report_doc.add_section()
+                section.markdown('### Sample: {}'.format(str(item)))
+                exec_summary = aplanat.graphics.InfoGraphItems()
+                exec_summary.append(
+                    "No. Seqs",
+                    str(tup_dic['num_seqs']),
+                    "bars", '')
+                exec_summary.append(
+                    "Min Length",
+                    str(tup_dic['min_len']),
+                    "align-left", '')
+                exec_summary.append(
+                    "Average Length",
+                    str(int(tup_dic['avg_len'])),
+                    "align-center", '')
+                exec_summary.append(
+                    "Max Length",
+                    str(tup_dic['max_len']),
+                    'align-right')
+                exec_plot = aplanat.graphics.infographic(
+                    exec_summary.values(), ncols=4)
+                section.plot(exec_plot, key="exec-plot"+(str(item)))
+                dotplot = [tup_dic['dotplot']]
+                lengthplot = summary_stats_dic[(str(item))][0]
+                qstatplot = summary_stats_dic[(str(item))][1]
+                plasmidplot = [tup_dic['plot']]
+                section.plot(layout(
+                                [[lengthplot, qstatplot],
+                                 [dotplot, plasmidplot]],
+                                sizing_mode='scale_width'))
+                section.table((tup_dic['annotations']).drop(
+                    columns=['Plasmid length']),
+                    index=False, key="table"+str(item))
+            else:
+                section.markdown('### Sample Failed: {}'.format(str(item)))
+                if str(item) in summary_stats_dic:
+                    lengthplot = summary_stats_dic[(str(item))][0]
+                    qstatplot = summary_stats_dic[(str(item))][1]
+                    section.plot(layout(
+                        [[lengthplot, qstatplot]],
+                        sizing_mode='scale_width'))
+                else:
+                    pass
     else:
         open("feature_table.txt", "w")
 
