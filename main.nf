@@ -58,16 +58,20 @@ process combineFastq {
         tuple file(directory), val(sample_name) 
     output:
         path "${sample_name}.fastq.gz", optional: true, emit: sample
+        path "${sample_name}.stats", emit: stats
         env STATUS, emit: status
     script:
         def expected_depth = "$params.assm_coverage"
         // a little heuristic to decide if we have enough data
-        int value = (expected_depth.toInteger()) * 0.8 * 4
+        int value = (expected_depth.toInteger()) * 0.8
+        def expected_length_max = "$params.approx_size" 
+        def expected_length_min = "$params.approx_size" 
+        int max = (expected_length_max.toInteger()) * 1.5
+        int min = (expected_length_min.toInteger()) * 0.5
     """
     STATUS=${sample_name}",Insufficient reads"
-    fastcat -x ${directory} > interim.fastq
-    if [[ "\$(wc -l <"interim.fastq")" -ge "$value" ]];  then 
-        mv interim.fastq ${sample_name}.fastq
+    fastcat -a "$min" -b "$max" -s ${sample_name} -r ${sample_name}.stats -x ${directory} > ${sample_name}.fastq
+    if [[ "\$(wc -l <"${sample_name}.stats")" -ge "$value" ]];  then 
         gzip ${sample_name}.fastq  
         STATUS=${sample_name}",Pass"
     fi
@@ -166,7 +170,7 @@ process assembleFlye {
     script:
         name = subset_files[0]
     """
-    STATUS=${name.simpleName}",Assemble Flye"
+    STATUS="${name.simpleName},Assemble Flye"
     (mkdir assm
     for FASTQ in $subset_files
     do
@@ -175,8 +179,8 @@ process assembleFlye {
         --meta --plasmids \
         --out-dir assm \
         --min-overlap $params.flye_overlap \
-        --threads $task.cpus && mv assm/assembly.fasta \$FASTQ.fasta) \
-    done ) && STATUS=${name.simpleName}",Pass"
+        --threads $task.cpus && mv assm/assembly.fasta \$FASTQ.fasta)
+    done) && STATUS="${name.simpleName},Pass"
     """
 }
 
@@ -309,6 +313,7 @@ process report {
         path "samples_reads/*"
         path "samples_summary/*"
         file final_status
+        path per_barcode_stats
     output:
         path "*report.html", emit: html
         path "sample_status.txt", emit: sample_stat
@@ -323,7 +328,8 @@ process report {
     --revision $workflow.revision \
     --commit $workflow.commitId \
     --database $annotation_database \
-    --status $final_status 
+    --status $final_status \
+    --per_barcode_stats $per_barcode_stats
     """
 }
 
@@ -375,6 +381,7 @@ workflow pipeline {
             polished = medakaPolishAssembly(named_reconciled)
             final_status = sample_fastqs.status.join(downsampled_fastqs.status,remainder: true)
                            .join(updated_status,remainder: true)
+                           .join(assemblies.status,remainder: true)
                            .join(subsets.status,remainder: true)
                            .join(assemblies.status,remainder: true)
                            .join(deconcatenated.status,remainder: true)
@@ -397,7 +404,7 @@ workflow pipeline {
             polished = medakaPolishAssembly(named_deconcatenated)
             final_status = sample_fastqs.status.join(downsampled_fastqs.status,remainder: true)
                            .join(updated_status,remainder: true)
-                           .join(assemblies.status,remainder: true)
+                           .join(assemblies.status, remainder: true)
                            .join(deconcatenated.status,remainder: true)
                            .join(polished.status,remainder: true)
                            .collectFile(name: 'final_status.csv', newLine: true)
@@ -412,7 +419,8 @@ workflow pipeline {
                  assembly_stats.assembly_stat.ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
                  assembly_stats.samples_reads.ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
                  assembly_stats.sample_summary.ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
-                 final_status)
+                 final_status,
+                 sample_fastqs.stats.collect())
         results = polished.polished.concat(
                   report.html,
                   report.sample_stat,
