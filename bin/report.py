@@ -4,10 +4,12 @@
 import argparse
 import os
 
-from aplanat import bars, base, hist, report
+from aplanat import bars, base, report
+from aplanat.components import fastcat
 import aplanat.graphics
 from aplanat.util import Colors
 from bokeh.layouts import layout
+from bokeh.models import Panel, Tabs
 import numpy as np
 import pandas as pd
 from plannotate import annotate
@@ -103,85 +105,25 @@ def dotplot_assembly(assembly_maf):
     return dotplot
 
 
-def per_assembly(assemblies_file, database, sample_data):
+def per_assembly(assemblies_file, database, sample_files, item):
     """Build_per_assembly_tuples."""
-    tup = {}
-    for sample in sample_data:
-        dotplot = dotplot_assembly(sample['maf'])
-        plot, annotations = run_plannotate(sample['fasta'], database)
-        df = pd.read_csv(assemblies_file, sep='\t', index_col=0)
-        filename = str(sample['sample_name']) + '.final.fasta'
-        num_seqs = df.loc[filename, 'num_seqs']
-        min_len = df.loc[filename, 'min_len']
-        avg_len = df.loc[filename, 'avg_len']
-        max_len = df.loc[filename, 'max_len']
-        tup[sample['sample_name']] = {
-                    'sample_name': sample['sample_name'],
-                    'num_seqs': num_seqs,
-                    'min_len': min_len,
-                    'avg_len': avg_len,
-                    'max_len': max_len,
-                    'plot': plot,
-                    'dotplot': dotplot,
-                    'annotations': annotations}
+    dotplot = dotplot_assembly(sample_files['maf'])
+    plot, annotations = run_plannotate(sample_files['fasta'], database)
+    df = pd.read_csv(assemblies_file, sep='\t', index_col=0)
+    filename = str(item) + '.final.fasta'
+    num_seqs = df.loc[filename, 'num_seqs']
+    min_len = df.loc[filename, 'min_len']
+    avg_len = df.loc[filename, 'avg_len']
+    max_len = df.loc[filename, 'max_len']
+    tup = {'sample_name': item,
+           'num_seqs': num_seqs,
+           'min_len': min_len,
+           'avg_len': avg_len,
+           'max_len': max_len,
+           'plot': plot,
+           'dotplot': dotplot,
+           'annotations': annotations}
     return(tup)
-
-
-def plot_read_length_distribution(
-            fname, nseqs, nbases, minl, maxl, data):
-    """Plot_read_length_distribution."""
-    kilobases = int(nbases//1000)
-    plot = hist.histogram(
-        [data['read_length'].tolist()],
-        # bins=1000,
-        height=300,
-        width=400,
-        xlim=(0, max(data['read_length']) + 200),
-        colors=[Colors.light_cornflower_blue],
-        x_axis_label='Length',
-        y_axis_label='Count',
-        title=f"{nseqs} reads, {kilobases} Kb total, {minl} min, {maxl} max"
-    )
-    return plot
-
-
-def plot_qscore_distribution(fname, mean, data):
-    """Plot_qscore_distribution."""
-    plot = hist.histogram(
-        [data['mean_quality'].tolist()],
-        # bins=600,
-        height=300,
-        width=400,
-        xlim=(0, 30),
-        colors=[Colors.light_cornflower_blue],
-        x_axis_label='Mean Quality',
-        y_axis_label='Count',
-        title=f"Mean Q-score: {mean}"
-    )
-
-    return plot
-
-
-def build_samples_panel(summary_file, reads_file):
-    """Build_length_tab."""
-    summary_df = pd.read_csv(summary_file, sep="\t")
-    reads_df = pd.read_csv(reads_file, sep="\t")
-    qc_plots_dic = {}
-    filenames = set(reads_df['filename'].tolist())
-    for fname in filenames:
-        fname_read = reads_df.loc[reads_df['filename'] == fname]
-        fname_summary = summary_df.loc[summary_df['filename'] == fname]
-        length_plot = plot_read_length_distribution(
-            fname, int(fname_summary['n_seqs']),
-            int(fname_summary['n_bases']),
-            int(fname_summary['min_length']),
-            int(fname_summary['max_length']), fname_read)
-        qual_plot = plot_qscore_distribution(
-            fname, float(fname_summary['mean_quality']), fname_read)
-        file_name = str(fname)[:-18:]
-        qc_plots_dic[file_name] = (length_plot, qual_plot)
-
-    return qc_plots_dic
 
 
 def tidyup_status_file(status_sheet):
@@ -208,32 +150,35 @@ def tidyup_status_file(status_sheet):
     return(status_df, passed_list, all_sample_names)
 
 
-def output_feature_table(data_dic):
-    """Build feature table text file."""
-    data = []
-    for k, v in data_dic.items():
-        data.append(v)
-    df = data[0]['annotations']
-    sample_column = data[0]['sample_name']
-    df.insert(0, 'Sample_name', sample_column)
-    df.to_csv('feature_table.txt', mode='a', header=True, index=False)
-    for sample in data[1:]:
-        df = sample['annotations']
-        sample_column = sample['sample_name']
+def output_feature_table(data):
+    """Build feature table text file or if no data output empty file."""
+    if data:
+        df = data[0]['annotations']
+        sample_column = data[0]['sample_name']
         df.insert(0, 'Sample_name', sample_column)
-        df.to_csv('feature_table.txt', mode='a', header=False, index=False)
+        df.to_csv('feature_table.txt', mode='a', header=True, index=False)
+        for sample in data[1:]:
+            df = sample['annotations']
+            sample_column = sample['sample_name']
+            df.insert(0, 'Sample_name', sample_column)
+            df.to_csv('feature_table.txt', mode='a', header=False, index=False)
+    else:
+        # If no samples passed create empty feature_table file
+        feature_file = open("feature_table.txt", "w")
+        feature_file.write(
+"""Sample_name,Feature,Uniprot ID,Database,Identity,Match Length,Description,Start Location,End Location,Length,Strand,Plasmid length""") # noqa
+        feature_file.close()
 
 
 def pair_samples_with_mafs(sample_names):
     """Match Assembly sequences with mafs."""
-    fasta_mafs = []
+    fasta_mafs = {}
     for sample_name in sample_names:
         fasta = 'assemblies/' + sample_name + '.final.fasta'
         maf = 'assembly_maf/' + sample_name + '.final.fasta.maf'
         if os.path.exists(fasta) and os.path.exists(maf):
-            fasta_mafs.append({'sample_name': sample_name,
-                               'fasta': fasta,
-                               'maf': maf})
+            fasta_mafs[sample_name] = {'fasta': fasta,
+                                       'maf': maf}
         else:
             print("Missing data required for report: " + sample_name)
     return(fasta_mafs)
@@ -245,6 +190,74 @@ def read_files(summaries, sep='\t'):
     for fname in sorted(summaries):
         dfs.append(pd.read_csv(fname, sep=sep))
     return pd.concat(dfs)
+
+
+def fastcat_report_tab(file_name, tab_name):
+    """Read fastcat dataframe and create a tab with qual and len plots."""
+    df = pd.read_csv(file_name, sep='\t')
+    depth = len(df.index)
+    min_length = df["read_length"].min()
+    max_length = df["read_length"].max()
+    lengthplot = fastcat.read_length_plot(
+                df,
+                min_len=min_length,
+                max_len=max_length)
+    qstatplot = fastcat.read_quality_plot(df)
+    exec_summary = aplanat.graphics.InfoGraphItems()
+    exec_summary.append('Total No. samples',
+                        str(depth),
+                        "bars", '')
+    exec_plot = aplanat.graphics.infographic(
+        exec_summary.values(), ncols=1)
+    tab = Panel(child=layout(
+        [[exec_plot], [lengthplot, qstatplot]],
+        aspect_ratio="auto",
+        sizing_mode='stretch_width'),
+        title=tab_name)
+    return tab
+
+
+def create_fastcat_dic(sample_names, raw, hostfilt, downsampled):
+    """Create dictionary using sample names and fastcat files available."""
+    per_sample_dic = {}
+    lists = {'raw': raw, 'hostfilt': hostfilt, 'downsampled': downsampled}
+    for sample in sample_names:
+        new_dic = {}
+        item_search = '/' + sample + '.'
+        for list_name, fc_list in lists.items():
+            #  find index of item that contains the sample name as a substring
+            item_index = [i for i, s in enumerate(fc_list) if item_search in s]
+            if item_index:
+                indice = item_index[0]
+                new_dic[list_name] = fc_list[indice]
+            else:
+                pass
+        per_sample_dic[sample] = new_dic
+    return per_sample_dic
+
+
+def exec_summary_plot(tup_dic):
+    """Create and return the infographic summary."""
+    exec_summary = aplanat.graphics.InfoGraphItems()
+    exec_summary.append(
+        "No. Seqs",
+        str(tup_dic['num_seqs']),
+        "bars", '')
+    exec_summary.append(
+        "Min Length",
+        str(tup_dic['min_len']),
+        "align-left", '')
+    exec_summary.append(
+        "Average Length",
+        str(int(tup_dic['avg_len'])),
+        "align-center", '')
+    exec_summary.append(
+        "Max Length",
+        str(tup_dic['max_len']),
+        'align-right')
+    exec_plot = aplanat.graphics.infographic(
+        exec_summary.values(), ncols=4)
+    return(exec_plot)
 
 
 def main():
@@ -263,11 +276,8 @@ def main():
         required=True
     )
     parser.add_argument(
-        "--reads_summary",
-        required=True
-    )
-    parser.add_argument(
-        "--fastq_summary",
+        "--downsampled_stats",
+        nargs='+',
         required=True
     )
     parser.add_argument(
@@ -289,7 +299,10 @@ def main():
         help="status")
     parser.add_argument(
         "--per_barcode_stats", nargs='+',
-        help="fastcat stats file for each sample")
+        help="fastcat stats file for each sample before filtering")
+    parser.add_argument(
+        "--host_filter_stats", nargs='+',
+        help="fastcat stats file after host filtering")
     args = parser.parse_args()
     report_doc = report.WFReport(
         "Clone Validation Report",
@@ -344,67 +357,63 @@ The Plasmid annotation plot and feature table are produced using
 [Plannotate](http://plannotate.barricklab.org/).
 """)
     assembly = args.assembly_summary
-    mafs = args.assembly_mafs
     status = args.status
     pass_fail = tidyup_status_file(status)
     sample_data = pair_samples_with_mafs(pass_fail[1])
-    fastq_summ = args.fastq_summary
-    reads_summ = args.reads_summary
+    passed_samples = pass_fail[1]
+    host_ref_stats = args.host_filter_stats
+    downsampled_stats = args.downsampled_stats
     database = args.database
-    if (mafs[0] != 'assembly_maf/OPTIONAL_FILE'):
-        summary_stats_dic = build_samples_panel(fastq_summ, reads_summ)
-        alldata = per_assembly(assembly, database, sample_data)
-        output_feature_table(alldata)
-        sample_names = pass_fail[2]
-        for item in sample_names:
-            if (item in alldata):
-                tup_dic = alldata[item]
-                section = report_doc.add_section()
-                section.markdown('### Sample: {}'.format(str(item)))
-                exec_summary = aplanat.graphics.InfoGraphItems()
-                exec_summary.append(
-                    "No. Seqs",
-                    str(tup_dic['num_seqs']),
-                    "bars", '')
-                exec_summary.append(
-                    "Min Length",
-                    str(tup_dic['min_len']),
-                    "align-left", '')
-                exec_summary.append(
-                    "Average Length",
-                    str(int(tup_dic['avg_len'])),
-                    "align-center", '')
-                exec_summary.append(
-                    "Max Length",
-                    str(tup_dic['max_len']),
-                    'align-right')
-                exec_plot = aplanat.graphics.infographic(
-                    exec_summary.values(), ncols=4)
-                section.plot(exec_plot, key="exec-plot"+(str(item)))
-                dotplot = [tup_dic['dotplot']]
-                lengthplot = summary_stats_dic[(str(item))][0]
-                qstatplot = summary_stats_dic[(str(item))][1]
-                plasmidplot = [tup_dic['plot']]
-                section.plot(layout(
-                                [[lengthplot, qstatplot],
-                                 [dotplot, plasmidplot]],
-                                sizing_mode='scale_width'))
-                section.table((tup_dic['annotations']).drop(
-                    columns=['Plasmid length']),
-                    index=False, key="table"+str(item))
-            else:
-                section.markdown('### Sample Failed: {}'.format(str(item)))
-                if str(item) in summary_stats_dic:
-                    lengthplot = summary_stats_dic[(str(item))][0]
-                    qstatplot = summary_stats_dic[(str(item))][1]
-                    section.plot(layout(
-                        [[lengthplot, qstatplot]],
-                        sizing_mode='scale_width'))
-                else:
-                    pass
+    initial_stats = args.per_barcode_stats
+    if ('host_filter_stats/OPTIONAL_FILE' in host_ref_stats):
+        host_filt = host_ref_stats.remove('host_filter_stats/OPTIONAL_FILE')
+        if host_filt is None:
+            host_filt = []
     else:
-        open("feature_table.txt", "w")
-
+        host_filt = host_ref_stats
+    if ('host_filter_stats/OPTIONAL_FILE' in downsampled_stats):
+        summary_stats = downsampled_stats.remove(
+                        'downsampled_stats/OPTIONAL_FILE')
+        if summary_stats is None:
+            summary_stats = []
+    else:
+        summary_stats = downsampled_stats
+    sample_names = pass_fail[2]
+    final_samples = []
+    fast_cat_dic = create_fastcat_dic(sample_names, initial_stats,
+                                      host_filt, summary_stats)
+    for item in sample_names:
+        if item in passed_samples:
+            sample_files = sample_data[item]
+            tup_dic = per_assembly(assembly, database, sample_files, item)
+            final_samples.append(tup_dic)
+            section = report_doc.add_section()
+            section.markdown('### Sample: {}'.format(str(item)))
+            infographic_plot = exec_summary_plot(tup_dic)
+            section.plot(infographic_plot, key="exec-plot"+(str(item)))
+            fast_cat_tabs = fast_cat_dic[item]
+            alltabs = []
+            for key, value in fast_cat_tabs.items():
+                alltabs.append(fastcat_report_tab(value, key))
+            cover_panel = Tabs(tabs=alltabs)
+            dotplot = [tup_dic['dotplot']]
+            plasmidplot = [tup_dic['plot']]
+            section.plot(layout(
+                            [cover_panel,
+                                [dotplot, plasmidplot]],
+                            sizing_mode='scale_width'))
+            section.table((tup_dic['annotations']).drop(
+                columns=['Plasmid length']),
+                index=False, key="table"+str(item))
+        else:
+            section.markdown('### Sample Failed: {}'.format(str(item)))
+            fast_cat_tabs = fast_cat_dic[item]
+            alltabs = []
+            for key, value in fast_cat_tabs.items():
+                alltabs.append(fastcat_report_tab(value, key))
+            cover_panel = Tabs(tabs=alltabs)
+            section.plot(cover_panel)
+    output_feature_table(final_samples)
     section = report_doc.add_section()
     status = args.status
     pass_fail = tidyup_status_file(status)
