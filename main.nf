@@ -89,6 +89,7 @@ process filterHostReads {
         file regions_bedfile
     output:
         path "*.filtered.fastq", optional: true, emit: unmapped
+        path "*.stats", optional: true, emit: host_filter_stats
         env STATUS, emit: status
     script:
         def name = fastq.simpleName
@@ -101,6 +102,7 @@ process filterHostReads {
     samtools view -b -f 4  ${name}.sorted.aligned.bam > unmapped.bam
     samtools view -b -F 4  ${name}.sorted.aligned.bam > mapped.bam
     samtools fastq unmapped.bam > ${name}.filtered.fastq
+    fastcat -s ${name} -r ${name}.stats ${name}.filtered.fastq > /dev/null
     if [[ -f "$regs" ]]; then
         bedtools intersect -a mapped.bam -b $regs -wa \
             | samtools view -bh - > retained.bam
@@ -251,15 +253,24 @@ process assemblyStats {
     label "wfplasmid"
     cpus 1
     input:
-        file samples
         file assemblies
     output:
         path "assemblies.tsv", emit: assembly_stat
-        path "samples_reads.txt", emit: samples_reads
-        path "samples_summary.txt", emit: sample_summary
     """
     seqkit stats -T $assemblies > assemblies.tsv
-    fastcat --read samples_reads.txt --file samples_summary.txt $samples
+    """
+}
+
+
+process downsampledStats {
+    label "wfplasmid"
+    cpus 1 
+    input:
+        file sample
+    output:
+        path "*.stats"
+    """
+    fastcat -s ${sample.simpleName} -r ${sample.simpleName}.stats $sample > /dev/null
     """
 }
 
@@ -310,10 +321,10 @@ process report {
         path "assemblies/*"
         file "assembly_maf/*"
         path "assembly_stat/*"
-        path "samples_reads/*"
-        path "samples_summary/*"
+        path "downsampled_stats/*"
         file final_status
-        path per_barcode_stats
+        path "per_barcode_stats/*"
+        path "host_filter_stats/*"
     output:
         path "*report.html", emit: html
         path "sample_status.txt", emit: sample_stat
@@ -322,14 +333,14 @@ process report {
     report.py \
     --assembly_summary assembly_stat/* \
     --assembly_mafs assembly_maf/* \
-    --reads_summary samples_reads/* \
-    --fastq_summary samples_summary/* \
+    --downsampled_stats downsampled_stats/* \
     --consensus assemblies/* \
     --revision $workflow.revision \
     --commit $workflow.commitId \
     --database $annotation_database \
     --status $final_status \
-    --per_barcode_stats $per_barcode_stats
+    --per_barcode_stats per_barcode_stats/* \
+    --host_filter_stats host_filter_stats/*
     """
 }
 
@@ -351,10 +362,13 @@ workflow pipeline {
                     sample_fastqs.sample, host_reference, regions_bedfile)
             samples_filtered = filtered.unmapped
             updated_status = filtered.status
+            filtered_stats = filtered.host_filter_stats.collect()
+                             .ifEmpty(file("$projectDir/data/OPTIONAL_FILE"))
         }
         else {
             samples_filtered = sample_fastqs.sample
             updated_status = sample_fastqs.status
+            filtered_stats = file("$projectDir/data/OPTIONAL_FILE")
         }
         // After host filtering, we reduce our overall read depth
         // to the desired level
@@ -410,17 +424,20 @@ workflow pipeline {
                            .collectFile(name: 'final_status.csv', newLine: true)
             
         }
-        assembly_stats = assemblyStats(downsampled_fastqs.downsampled.collect(), 
-                         polished.polished.collect())
+       
+        downsampled_stats = downsampledStats(downsampled_fastqs.downsampled)
+        assembly_stats = assemblyStats(polished.polished.collect())
+        
         assembly_mafs = assemblyMafs(polished.polished.collect())
+
         report = report(database,
                  polished.polished.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
                  assembly_mafs.assembly_maf.ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
                  assembly_stats.assembly_stat.ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
-                 assembly_stats.samples_reads.ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
-                 assembly_stats.sample_summary.ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
+                 downsampled_stats.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
                  final_status,
-                 sample_fastqs.stats.collect())
+                 sample_fastqs.stats.collect(),
+                 filtered_stats)
         results = polished.polished.concat(
                   report.html,
                   report.sample_stat,
