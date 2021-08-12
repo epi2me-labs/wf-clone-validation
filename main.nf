@@ -329,6 +329,7 @@ process report {
         path "*report.html", emit: html
         path "sample_status.txt", emit: sample_stat
         path "feature_table.txt", emit: feature_table
+        path "plannotate.json", emit: plannotate_json
     """ 
     report.py \
     --assembly_summary assembly_stat/* \
@@ -441,7 +442,8 @@ workflow pipeline {
         results = polished.polished.concat(
                   report.html,
                   report.sample_stat,
-                  report.feature_table)
+                  report.feature_table,
+                  report.plannotate_json)
 
     emit:
         results
