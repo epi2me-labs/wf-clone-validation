@@ -2,9 +2,11 @@
 
 """Report component for displaying information from wf-clone-validation."""
 import argparse
+import json
 import os
 
 from aplanat import bars, base, report
+from aplanat import json_item
 from aplanat.components import fastcat
 import aplanat.graphics
 from aplanat.util import Colors
@@ -29,6 +31,7 @@ def run_plannotate(fasta, blast_db, linear=False):
     plot.xgrid.grid_line_color = None
     plot.ygrid.grid_line_color = None
     df = clean_results(df)
+
     return plot, df
 
 
@@ -382,6 +385,8 @@ The Plasmid annotation plot and feature table are produced using
     final_samples = []
     fast_cat_dic = create_fastcat_dic(sample_names, initial_stats,
                                       host_filt, summary_stats)
+    json_file = open("plannotate.json", "a")
+    plannotate_collection = {}
     for item in sample_names:
         if item in passed_samples:
             sample_files = sample_data[item]
@@ -405,6 +410,16 @@ The Plasmid annotation plot and feature table are produced using
             section.table((tup_dic['annotations']).drop(
                 columns=['Plasmid length']),
                 index=False, key="table"+str(item))
+            plasmid_len = tup_dic['annotations']['Plasmid length'][0]
+            plannotate_dic = {"barcode": item, "reflen": plasmid_len}
+            feature_dic = tup_dic['annotations'].drop(
+                          ['Plasmid length'], axis=1)
+            features = feature_dic.to_dict('records')
+            output_json = json_item(tup_dic['plot'])
+            plannotate_dic = {"reflen": float(plasmid_len),
+                              "features": features,
+                              "plot": output_json['doc']}
+            plannotate_collection[item] = plannotate_dic
         else:
             section.markdown('### Sample Failed: {}'.format(str(item)))
             fast_cat_tabs = fast_cat_dic[item]
@@ -413,6 +428,9 @@ The Plasmid annotation plot and feature table are produced using
                 alltabs.append(fastcat_report_tab(value, key))
             cover_panel = Tabs(tabs=alltabs)
             section.plot(cover_panel)
+    json_object = json.dumps(plannotate_collection, indent=4)
+    json_file.write(json_object)
+    json_file.close()
     output_feature_table(final_samples)
     section = report_doc.add_section()
     status = args.status
