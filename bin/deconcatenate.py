@@ -76,6 +76,9 @@ def main(sequence_fasta, output):
     for name, seq, _ in mp.fastx_read(sequence_fasta):
         corrected.append([name, deconcatenate(seq)])
 
+    if not corrected:
+        return
+
     handler = get_output_handler(output)
     for n, s in corrected:
         handler.write(f">{n}\n{s}\n")

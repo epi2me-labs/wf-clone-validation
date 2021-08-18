@@ -19,10 +19,8 @@ Script Options:
     --out_dir           DIR     Path to output directory (default: output)
     --host_reference    FILE    FASTA file, reads which map to it are discarded.
     --regions_bedfile   FILE    BED file, mask regions within host_reference from filtering.
-    --approx_size       INT     Approximate size of the plasmid in base pairs (default: 7000).
+    --approx_size       INT     Approximate size of the plasmid in base pairs (default: 3000).
     --assm_coverage     INT     Try to use this many fold coverage per assembly (default: 60).
-    --flye_overlap      INT     Sets the min overlap that flye requires of reads (default: 2000).
-    --no_reconcile      BOOL    If enabled, only a single assembly will be made and polished.
     --prefix            STR     The prefix attached to each of the output filenames.
     --min_barcode       INT     Minimum number in barcode range.
     --max_barcode       INT     Maximmum number in barcode range.
@@ -58,7 +56,7 @@ process combineFastq {
         tuple file(directory), val(sample_name) 
     output:
         path "${sample_name}.fastq.gz", optional: true, emit: sample
-        path "${sample_name}.stats", emit: stats
+        path "${sample_name}.stats", optional: true, emit: stats
         env STATUS, emit: status
     script:
         def expected_depth = "$params.assm_coverage"
@@ -69,11 +67,12 @@ process combineFastq {
         int max = (expected_length_max.toInteger()) * 1.5
         int min = (expected_length_min.toInteger()) * 0.5
     """
-    STATUS=${sample_name}",Insufficient reads"
-    fastcat -a "$min" -b "$max" -s ${sample_name} -r ${sample_name}.stats -x ${directory} > ${sample_name}.fastq
-    if [[ "\$(wc -l <"${sample_name}.stats")" -ge "$value" ]];  then 
-        gzip ${sample_name}.fastq  
-        STATUS=${sample_name}",Pass"
+    STATUS=${sample_name}",Failed due to insufficient reads"
+    fastcat -s ${sample_name} -r ${sample_name}.stats -x ${directory} > /dev/null
+    fastcat -a "$min" -b "$max" -s ${sample_name} -r ${sample_name}.interim -x ${directory} > ${sample_name}.fastq
+    if [[ "\$(wc -l <"${sample_name}.interim")" -ge "$value" ]];  then 
+        gzip ${sample_name}.fastq
+        STATUS=${sample_name}",Completed successfully"
     fi
     """
 }
@@ -95,7 +94,7 @@ process filterHostReads {
         def name = fastq.simpleName
         def regs = regions_bedfile.name != 'NO_REG_BED' ? regs : 'none'
     """
-    STATUS="${name},Filter host read Fail"
+    STATUS="${name},Failed due to filtered host reads"
     (minimap2 -t $task.cpus -y -ax map-ont $reference $fastq \
         | samtools sort -o ${name}.sorted.aligned.bam -
     samtools index ${name}.sorted.aligned.bam
@@ -107,127 +106,134 @@ process filterHostReads {
         bedtools intersect -a mapped.bam -b $regs -wa \
             | samtools view -bh - > retained.bam
         samtools fastq retained.bam >> ${name}.filtered.fastq
-    fi ) && STATUS="${name},Pass"
+    fi ) && STATUS="${name},Completed successfully"
     """
 }
 
 
-process downsampleReads {
-    errorStrategy 'ignore'
+process assembleCore {
+    errorStrategy = {task.attempt <= 5? 'retry' : 'ignore'}
+    maxRetries 5
     label "wfplasmid"
-    cpus 1
+    cpus params.threads
     input:
         path fastq
     output:
+        path "*.reconciled.fasta", optional: true, emit: assembly
         path "*.downsampled.fastq", optional: true, emit: downsampled
         env STATUS, emit: status
     script:
-        def target = params.approx_size * params.assm_coverage * 3
+        name = fastq.simpleName
+        cluster_dir = "trycycler/cluster_001"
+        int target = params.approx_size * params.assm_coverage * 3
+        int min_dep = (params.assm_coverage / 3) * 2
+        int min_len = 1000
+        int max_len = params.approx_size * 1.2
+        int min_q = 12
+        int exit_number = task.attempt <= 5 ? 1 : 0
     """
-    STATUS=${fastq.simpleName}",Downsample reads"
-    (filtlong \
-        --min_length 1000 \
-        --min_mean_q 12 \
-        --keep_percent 99 \
-        -t $target \
-        $fastq > ${fastq.simpleName}.downsampled.fastq ) && STATUS=${fastq.simpleName}",Pass"
-    """
-}
+    ############################################################
+    # Trimming
+    ############################################################
 
+    (seqkit subseq -j $params.threads -r $params.trim_length:-$params.trim_length $fastq | \
+        seqkit subseq -j $params.threads -r 1:$max_len | \
+        seqkit seq -j $params.threads -m $min_len -Q $min_q -g > ${name}.trimmed.fastq) \
+        && STATUS="${name},Failed to Subset reads" &&
 
-process subsetReads {
-    errorStrategy 'ignore'
-    label "wfplasmid"
-    input:
-        file fastq
-    output:
-        path "*.fastq", optional: true, emit: subset
-        env STATUS, emit: status
-    shell:
-    '''
-    STATUS="!{fastq.simpleName},Subset reads"
+    ############################################################
+    # Downsampling
+    ############################################################
+    
+    STATUS="${name},Failed to downsample reads"
+    echo "downsampling reads"
+    (rasusa \
+        --coverage $target \
+        --genome-size $params.approx_size \
+        --input ${name}.trimmed.fastq > ${name}.downsampled.fastq) \
+        && STATUS="${name},Failed to trim reads" &&
+
+    ############################################################
+    # Subsetting
+    ############################################################
+    
     (trycycler subsample \
         --count 3 \
-        --min_read_depth !{(params.assm_coverage / 3) * 2} \
-        --reads !{fastq} \
+        --min_read_depth $min_dep \
+        --reads ${name}.downsampled.fastq \
         --out_dir sets \
-        --genome_size !{params.approx_size} \
-    && for sub in $(ls sets/sample_*.fastq)
+        --genome_size $params.approx_size) \
+        && STATUS="${name},Failed to assemble using Canu" &&
+    
+    ############################################################
+    # Assembly
+    ############################################################
+
+    (for SUBSET in \$(ls sets/sample_*.fastq)
     do
-        mv $sub ./!{fastq.simpleName}.sub$(basename $sub)
-    done) && STATUS="!{fastq.simpleName},Pass"
-    '''
-}
+        SUBSET_NAME=\$(basename -s .fastq \$SUBSET)
+        canu \
+            -p \$SUBSET_NAME \
+            -d assm_\${SUBSET_NAME} \
+            useGrid=$params.canu_useGrid \
+            genomeSize=$params.approx_size \
+            -nanopore \$SUBSET
+    done) && STATUS="${name},Failed to trim Assembly" &&
 
+    ############################################################
+    # Trim assemblies
+    ############################################################
 
-process assembleFlye {
-    errorStrategy 'ignore'
-    label "wfplasmid"
-    cpus params.threads
-    input:
-        file subset_files  
-    output:
-        path "*.fasta", optional: true, emit: assembly
-        env STATUS, emit: status
-    script:
-        name = subset_files[0]
-    """
-    STATUS="${name.simpleName},Assemble Flye"
-    (mkdir assm
-    for FASTQ in $subset_files
+    (for ASSEMBLY in \$(ls assm_*/*.contigs.fasta)
     do
-    (flye \
-        --nano-raw \$FASTQ \
-        --meta --plasmids \
-        --out-dir assm \
-        --min-overlap $params.flye_overlap \
-        --threads $task.cpus && mv assm/assembly.fasta \$FASTQ.fasta)
-    done) && STATUS="${name.simpleName},Pass"
-    """
-}
+        ASSEMBLY_NAME=\$(basename -s .fasta \$ASSEMBLY)
+        trim.py \
+            \$ASSEMBLY \
+            -o \${ASSEMBLY_NAME}.trimmed.fasta
+        deconcatenate.py \
+            \${ASSEMBLY_NAME}.trimmed.fasta \
+            -o \${ASSEMBLY_NAME}.deconcat.fasta
+    done
+    ls *.deconcat.fasta 1> /dev/null 2>&1) \
+    && STATUS="${name},Failed to reconcile assemblies" &&
 
+    ############################################################
+    # Reconciliation
+    ############################################################
 
-process deconcatenateAssembly {
-    errorStrategy 'ignore'
-    label "wfplasmid"
-    input:
-        file assemblies
-    output:
-        tuple val(sample_name), path("*.deconcatenated.fasta"), optional: true, emit: deconcatenated
-        env STATUS, emit: status
-    script:
-        name = assemblies[0]
-        sample_name = name.toString().split("\\.")[0]
-    """
-    STATUS="${name.simpleName},Deconcatenate Assembly"
-    (for ASSEMBLY in $assemblies
-    do
-    (deconcatenate.py \$ASSEMBLY -o \$ASSEMBLY.deconcatenated.fasta)
-    done) && STATUS="${name.simpleName},Pass"
-    """
-}
+    (trycycler cluster \
+        --assemblies *.deconcat.fasta \
+        --reads ${name}.downsampled.fastq \
+        --out_dir trycycler) &&
+    (trycycler reconcile \
+        --reads ${name}.downsampled.fastq \
+        --cluster_dir $cluster_dir \
+        --max_trim_seq_percent 20 \
+        --max_add_seq_percent 10) &&
+    (trycycler msa --cluster_dir $cluster_dir) &&
+    (trycycler partition --reads ${name}.downsampled.fastq --cluster_dirs $cluster_dir) &&
+    (trycycler consensus --cluster_dir $cluster_dir)
 
+    ############################################################
+    # Exit handling
+    ############################################################
 
-process reconcileAssemblies {
-    errorStrategy 'ignore'
-    label "wfplasmid"
-    cpus params.threads
-    input:
-        tuple val(sample), file(fastq), file(assemblies)
-    output:
-        path "*.reconciled.fasta", optional: true, emit: reconciled
-        env STATUS, emit: status
-    script:
-        def cluster_dir = "trycycler/cluster_001" 
-    """
-    STATUS=${fastq.simpleName}",Reconcile Assemblies"
-    (trycycler cluster --assemblies $assemblies --reads $fastq --out_dir trycycler \
-    && trycycler reconcile --reads $fastq --cluster_dir ${cluster_dir} \
-    && trycycler msa --cluster_dir ${cluster_dir} \
-    && trycycler partition --reads $fastq --cluster_dirs ${cluster_dir} \
-    && trycycler consensus --cluster_dir ${cluster_dir} \
-    && mv ${cluster_dir}/7_final_consensus.fasta ${fastq.simpleName}.reconciled.fasta) \
-    && STATUS=${fastq.simpleName}",Pass"
+    if [ ! -f "${cluster_dir}/7_final_consensus.fasta" ]; then
+        if ls ${cluster_dir}/1_contigs/*.fasta 1> /dev/null 2>&1; then
+            STATUS=${name}",Completed but failed to reconcile"
+            (seqkit sort ${cluster_dir}/1_contigs/*.fasta --by-length \
+                | seqkit head -n 1 > ${name}.reconciled.fasta) \
+                && echo "Trycycler failed, outputting un-reconciled assembly"
+        elif [ "$exit_number" == "1" ]; then
+            echo "Assembly failed, retrying process"
+            exit 1
+        elif [ "$exit_number" == "0" ]; then
+            echo "Failed final attempt"
+        fi
+    else
+        mv ${cluster_dir}/7_final_consensus.fasta ${name}.reconciled.fasta
+        STATUS=${name}",Completed successfully"
+    fi
     """
 }
 
@@ -241,10 +247,10 @@ process medakaPolishAssembly {
         path "*.final.fasta", emit: polished
         env STATUS, emit: status
     """
-    STATUS=${fastq.simpleName}",Medaka Polish Assembly"
+    STATUS=${fastq.simpleName}",Failed to polish assembly with Medaka"
     medaka_consensus -i $fastq -d $draft -m r941_min_high_g360 -o . -t $task.cpus -f
     mv consensus.fasta ${fastq.simpleName}.final.fasta
-    STATUS=${fastq.simpleName}",Pass"
+    STATUS=${fastq.simpleName}",Completed successfully"
     """
 }
 
@@ -268,12 +274,14 @@ process downsampledStats {
     input:
         file sample
     output:
-        path "*.stats"
+        path "*.stats", optional: true
     """
-    fastcat -s ${sample.simpleName} -r ${sample.simpleName}.stats $sample > /dev/null
+    fastcat -s ${sample.simpleName} -r ${sample.simpleName}.downsampled $sample > /dev/null
+    if [[ "\$(wc -l <"${sample.simpleName}.downsampled")" -ge "2" ]];  then 
+        mv ${sample.simpleName}.downsampled ${sample.simpleName}.stats
+    fi
     """
 }
-
 
 process assemblyMafs {
     label "wfplasmid"
@@ -371,74 +379,41 @@ workflow pipeline {
             updated_status = sample_fastqs.status
             filtered_stats = file("$projectDir/data/OPTIONAL_FILE")
         }
-        // After host filtering, we reduce our overall read depth
-        // to the desired level
-        downsampled_fastqs = downsampleReads(samples_filtered)
-        all_status = downsampled_fastqs.status.join(sample_fastqs.status)
-        // Now we branch depeneding on whether reconciliaton is
-        // enabled, if so we will subset the data and create an
-        // assembly for each subset, then use trycyler to reconcile
-        // them, this can produce a better, circularised assembly
-        // more frequently than not.
-        if (!params.no_reconcile) {
-            // For each sample split the reads into subsets
-            subsets = subsetReads(downsampled_fastqs.downsampled)
-            // Assemble each subset independently
-            assemblies = assembleFlye(subsets.subset)
-            // Deconcatenate assemblies
-            deconcatenated = deconcatenateAssembly(assemblies.assembly)
-            // Group assemblies back together for reconciliation
-            named_samples = nameIt(downsampled_fastqs.downsampled)
-            named_deconcatenated = named_samples.join(deconcatenated.deconcatenated)
-            reconciled = reconcileAssemblies(named_deconcatenated)
-            // Re-group reconciled assemblies together for final polish
-            named_reconciled = nameIt(reconciled.reconciled).join(named_samples)
-            polished = medakaPolishAssembly(named_reconciled)
-            final_status = sample_fastqs.status.join(downsampled_fastqs.status,remainder: true)
-                           .join(updated_status,remainder: true)
-                           .join(assemblies.status,remainder: true)
-                           .join(subsets.status,remainder: true)
-                           .join(assemblies.status,remainder: true)
-                           .join(deconcatenated.status,remainder: true)
-                           .join(reconciled.status, remainder: true)
-                           .join(polished.status,remainder: true)
-                           .collectFile(name: 'final_status.csv', newLine: true)
 
-            
-        } else {
-            // Given reconciliation is not enabled
-            // Assemble the downsampled dataset in one go
-            assemblies = assembleFlye(downsampled_fastqs.downsampled)
-            // Deconcatenate assemblies
-            deconcatenated = deconcatenateAssembly(assemblies.assembly)
-            // Final polish
-            named_samples = nameIt(downsampled_fastqs.downsampled)
-      
-            named_deconcatenated = (deconcatenated.deconcatenated).join(named_samples)
-         
-            polished = medakaPolishAssembly(named_deconcatenated)
-            final_status = sample_fastqs.status.join(downsampled_fastqs.status,remainder: true)
-                           .join(updated_status,remainder: true)
-                           .join(assemblies.status, remainder: true)
-                           .join(deconcatenated.status,remainder: true)
-                           .join(polished.status,remainder: true)
-                           .collectFile(name: 'final_status.csv', newLine: true)
-            
-        }
-       
-        downsampled_stats = downsampledStats(downsampled_fastqs.downsampled)
-        assembly_stats = assemblyStats(polished.polished.collect())
+        // Core assembly and reconciliation
+        assemblies = assembleCore(samples_filtered)
+
+        named_drafts = nameIt(assemblies.assembly)
+        named_samples = nameIt(samples_filtered)
+        named_drafts_samples = named_drafts.join(named_samples)
+
+        // Polish draft assembly
+        polished = medakaPolishAssembly(named_drafts_samples)
+
+        final_status = sample_fastqs.status
+            .join(assemblies.status,remainder: true)
+            .join(polished.status,remainder: true)
+            .collectFile(name: 'final_status.csv', newLine: true)
+
+        downsampled_stats = downsampledStats(
+            assemblies.downsampled)
+
+        assembly_stats = assemblyStats(
+            polished.polished.collect())
         
-        assembly_mafs = assemblyMafs(polished.polished.collect())
+        assembly_mafs = assemblyMafs(
+            polished.polished.collect())
 
-        report = report(database,
-                 polished.polished.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
-                 assembly_mafs.assembly_maf.ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
-                 assembly_stats.assembly_stat.ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
-                 downsampled_stats.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
-                 final_status,
-                 sample_fastqs.stats.collect(),
-                 filtered_stats)
+        report = report(
+            database,
+            polished.polished.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
+            assembly_mafs.assembly_maf.ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
+            assembly_stats.assembly_stat.ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
+            downsampled_stats.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
+            final_status,
+            sample_fastqs.stats.collect(),
+            filtered_stats)
+        
         results = polished.polished.concat(
                   report.html,
                   report.sample_stat,

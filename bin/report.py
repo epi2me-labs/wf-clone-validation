@@ -135,22 +135,23 @@ def tidyup_status_file(status_sheet):
     unique_samples = sample_status[0].unique()
     pass_fail_dic = {}
     for sample in unique_samples:
-        pass_fail_dic[sample] = 'Pass'
-    filter_pass = sample_status[sample_status[1] != 'Pass']
+        pass_fail_dic[sample] = 'Completed successfully'
+    filter_pass = sample_status[sample_status[1] != 'Completed successfully']
     failures = dict(zip(filter_pass[0], filter_pass[1]))
     all_sample_names = unique_samples.tolist()
     all_sample_names.sort()
     passed_list = unique_samples.tolist()
     for k, v in failures.items():
         pass_fail_dic[k] = v
-        passed_list.remove(k)
+        if v != 'Completed but failed to reconcile':
+            passed_list.remove(k)
     passed_list.sort()
     status_df = pd.DataFrame(pass_fail_dic.items(),
                              columns=['Sample', 'pass/failed reason'])
     sort_df = status_df['Sample'].astype(str).argsort()
     status_df = status_df.iloc[sort_df]
     status_df.to_csv('sample_status.txt', index=False)
-    return(status_df, passed_list, all_sample_names)
+    return(status_df, passed_list, all_sample_names, pass_fail_dic)
 
 
 def output_feature_table(data):
@@ -393,7 +394,8 @@ The Plasmid annotation plot and feature table are produced using
             tup_dic = per_assembly(assembly, database, sample_files, item)
             final_samples.append(tup_dic)
             section = report_doc.add_section()
-            section.markdown('### Sample: {}'.format(str(item)))
+            section.markdown('## Sample: {}'.format(str(item)))
+            section.markdown('####{}'.format(pass_fail[3][item]))
             infographic_plot = exec_summary_plot(tup_dic)
             section.plot(infographic_plot, key="exec-plot"+(str(item)))
             fast_cat_tabs = fast_cat_dic[item]
@@ -421,7 +423,8 @@ The Plasmid annotation plot and feature table are produced using
                               "plot": output_json['doc']}
             plannotate_collection[item] = plannotate_dic
         else:
-            section.markdown('### Sample Failed: {}'.format(str(item)))
+            section.markdown('## Sample: {}'.format(str(item)))
+            section.markdown('####{}'.format(pass_fail[3][item]))
             fast_cat_tabs = fast_cat_dic[item]
             alltabs = []
             for key, value in fast_cat_tabs.items():

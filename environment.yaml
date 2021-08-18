@@ -10,15 +10,16 @@ dependencies:
     - seqkit
     - scikit-learn
     - trycycler
-    - filtlong
     - porechop
     - pysam
     - minimap2
     - samtools
     - bedtools
     - mappy
-    - flye
+    - canu
     - medaka
     - plannotate
     - fastcat==0.3.6
     - last
+    - rasusa
+    - backports.zoneinfo
