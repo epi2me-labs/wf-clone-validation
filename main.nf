@@ -101,7 +101,10 @@ process filterHostReads {
     samtools view -b -f 4  ${name}.sorted.aligned.bam > unmapped.bam
     samtools view -b -F 4  ${name}.sorted.aligned.bam > mapped.bam
     samtools fastq unmapped.bam > ${name}.filtered.fastq
-    fastcat -s ${name} -r ${name}.stats ${name}.filtered.fastq > /dev/null
+    fastcat -s ${name} -r ${name}.interim ${name}.filtered.fastq > /dev/null
+    if [[ "\$(wc -l <"${name}.stats")" -ge "1" ]];  then 
+        mv ${name}.interim ${name}.stats 
+    fi
     if [[ -f "$regs" ]]; then
         bedtools intersect -a mapped.bam -b $regs -wa \
             | samtools view -bh - > retained.bam
@@ -112,7 +115,7 @@ process filterHostReads {
 
 
 process assembleCore {
-    errorStrategy = {task.attempt <= 5? 'retry' : 'ignore'}
+    errorStrategy = {task.attempt <= 5 ? 'retry' : 'ignore'}
     maxRetries 5
     label "wfplasmid"
     cpus params.threads
@@ -135,23 +138,22 @@ process assembleCore {
     ############################################################
     # Trimming
     ############################################################
-
+    STATUS="${name},Failed to trim reads"
     (seqkit subseq -j $params.threads -r $params.trim_length:-$params.trim_length $fastq | \
         seqkit subseq -j $params.threads -r 1:$max_len | \
         seqkit seq -j $params.threads -m $min_len -Q $min_q -g > ${name}.trimmed.fastq) \
-        && STATUS="${name},Failed to Subset reads" &&
+        && STATUS="${name},Failed to downsample reads" &&
 
     ############################################################
     # Downsampling
     ############################################################
     
-    STATUS="${name},Failed to downsample reads"
-    echo "downsampling reads"
+    
     (rasusa \
         --coverage $target \
         --genome-size $params.approx_size \
         --input ${name}.trimmed.fastq > ${name}.downsampled.fastq) \
-        && STATUS="${name},Failed to trim reads" &&
+        && STATUS="${name},Failed to Subset reads" &&
 
     ############################################################
     # Subsetting
@@ -176,8 +178,9 @@ process assembleCore {
             -p \$SUBSET_NAME \
             -d assm_\${SUBSET_NAME} \
             useGrid=$params.canu_useGrid \
+            -maxThreads=$params.threads \
             genomeSize=$params.approx_size \
-            -nanopore \$SUBSET
+            -nanopore \$SUBSET 
     done) && STATUS="${name},Failed to trim Assembly" &&
 
     ############################################################
