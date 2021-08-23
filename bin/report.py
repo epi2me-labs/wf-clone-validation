@@ -5,9 +5,10 @@ import argparse
 import json
 import os
 
-from aplanat import bars, base, report
+from aplanat import bars, report
 from aplanat import json_item
 from aplanat.components import fastcat
+from aplanat.components import simple as scomponents
 import aplanat.graphics
 from aplanat.util import Colors
 from bokeh.layouts import layout
@@ -63,69 +64,16 @@ def clean_results(df):
     return df
 
 
-def dotplot_assembly(assembly_maf):
-    """Dotplot the assembly."""
-    records = list()
-    with open(assembly_maf) as maf:
-        while True:
-            line = maf.readline()
-            print(line)
-            if line.startswith('#'):
-                continue
-            elif line.startswith('a'):
-                r1 = maf.readline().split()[1:5]
-                r2 = maf.readline().split()[1:5]
-                maf.readline()
-                records.append(r1 + r2)
-            elif line == "":
-                break
-            else:
-                print(line)
-                raise IOError("Cannot read alignment file")
-
-    names = ['ref', 'rstart', 'rlen', 'rorient',
-             'query', 'qstart', 'qlen', 'qorient']
-    df = pd.DataFrame(records, columns=names)
-    df = df.loc[df['qorient'] == '+']
-    for f in ['qstart', 'qlen', 'rstart', 'rlen']:
-        df[f] = df[f].astype(int)
-    df['qend'] = df['qstart'] + df['qlen']
-    df['rend'] = df['rstart'] + df['rlen']
-
-    df['qend'] = df['qend'].astype(int)
-    df['rend'] = df['rend'].astype(int)
-    dotplot = base.simple(
-        [], [],
-        xlim=(0, max(df['rend'])),
-        ylim=(0, max(df['qend'])),
-        width=440,
-        height=400,
-        x_axis_label='position',
-        y_axis_label='position',
-        title=f"Dot plot for: {assembly_maf}"
-    )
-    dotplot.segment(df['rstart'], df['qstart'], df['rend'], df['qend'])
-    return dotplot
-
-
 def per_assembly(assemblies_file, database, sample_files, item):
     """Build_per_assembly_tuples."""
-    dotplot = dotplot_assembly(sample_files['maf'])
     plot, annotations = run_plannotate(sample_files['fasta'], database)
     df = pd.read_csv(assemblies_file, sep='\t', index_col=0)
     filename = str(item) + '.final.fasta'
-    num_seqs = df.loc[filename, 'num_seqs']
-    min_len = df.loc[filename, 'min_len']
     avg_len = df.loc[filename, 'avg_len']
-    max_len = df.loc[filename, 'max_len']
     tup = {'sample_name': item,
-           'num_seqs': num_seqs,
-           'min_len': min_len,
-           'avg_len': avg_len,
-           'max_len': max_len,
            'plot': plot,
-           'dotplot': dotplot,
-           'annotations': annotations}
+           'annotations': annotations,
+           'avg_len': avg_len}
     return(tup)
 
 
@@ -208,13 +156,13 @@ def fastcat_report_tab(file_name, tab_name):
                 max_len=max_length)
     qstatplot = fastcat.read_quality_plot(df)
     exec_summary = aplanat.graphics.InfoGraphItems()
-    exec_summary.append('Total No. samples',
+    exec_summary.append('No. reads',
                         str(depth),
                         "bars", '')
     exec_plot = aplanat.graphics.infographic(
         exec_summary.values(), ncols=1)
     tab = Panel(child=layout(
-        [[exec_plot], [lengthplot, qstatplot]],
+        [[exec_plot], [lengthplot], [qstatplot]],
         aspect_ratio="auto",
         sizing_mode='stretch_width'),
         title=tab_name)
@@ -238,30 +186,6 @@ def create_fastcat_dic(sample_names, raw, hostfilt, downsampled):
                 pass
         per_sample_dic[sample] = new_dic
     return per_sample_dic
-
-
-def exec_summary_plot(tup_dic):
-    """Create and return the infographic summary."""
-    exec_summary = aplanat.graphics.InfoGraphItems()
-    exec_summary.append(
-        "No. Seqs",
-        str(tup_dic['num_seqs']),
-        "bars", '')
-    exec_summary.append(
-        "Min Length",
-        str(tup_dic['min_len']),
-        "align-left", '')
-    exec_summary.append(
-        "Average Length",
-        str(int(tup_dic['avg_len'])),
-        "align-center", '')
-    exec_summary.append(
-        "Max Length",
-        str(tup_dic['max_len']),
-        'align-right')
-    exec_plot = aplanat.graphics.infographic(
-        exec_summary.values(), ncols=4)
-    return(exec_plot)
 
 
 def main():
@@ -307,12 +231,19 @@ def main():
     parser.add_argument(
         "--host_filter_stats", nargs='+',
         help="fastcat stats file after host filtering")
+    parser.add_argument(
+        "--params", default=None,
+        help="A csv containing the parameter key/values")
+    parser.add_argument(
+        "--versions",
+        help="directory contained CSVs containing name,version.")
     args = parser.parse_args()
     report_doc = report.WFReport(
         "Clone Validation Report",
         "wf-clone-validation",
         revision=args.revision,
         commit=args.commit)
+
     section = report_doc.add_section()
     section.markdown("Results generated through the wf-clone-validation "
                      "nextflow workflow provided by Oxford Nanopore "
@@ -339,14 +270,13 @@ def main():
         layout(
             [[bc_counts]],
             sizing_mode="stretch_width"))
+    placeholder = report_doc.add_section(key='stats_table')
     section = report_doc.add_section()
     section.markdown("""
 ## Assemblies
 For each assembly read length statistics are displayed a [pLannotate
-plot](https://github.com/barricklab/pLannotate), a plot of the quality, a
-dotplot generated by self-alignment.  These dotplots should be a near-perfect
-diagonal line with little of no off-diagonal elements.  The feature table
-provides descriptions of the annotated sequence.
+plot](https://github.com/barricklab/pLannotate), a plot of the quality.
+The feature table provides descriptions of the annotated sequence.
 
 Unfilled features on the plannotate plots are incomplete features; the sequence
 match in the plasmid covers less than 95% of the full length of the feature in
@@ -387,6 +317,7 @@ The Plasmid annotation plot and feature table are produced using
     fast_cat_dic = create_fastcat_dic(sample_names, initial_stats,
                                       host_filt, summary_stats)
     json_file = open("plannotate.json", "a")
+    sample_stats = []
     plannotate_collection = {}
     for item in sample_names:
         if item in passed_samples:
@@ -396,18 +327,16 @@ The Plasmid annotation plot and feature table are produced using
             section = report_doc.add_section()
             section.markdown('## Sample: {}'.format(str(item)))
             section.markdown('####{}'.format(pass_fail[3][item]))
-            infographic_plot = exec_summary_plot(tup_dic)
-            section.plot(infographic_plot, key="exec-plot"+(str(item)))
             fast_cat_tabs = fast_cat_dic[item]
             alltabs = []
             for key, value in fast_cat_tabs.items():
                 alltabs.append(fastcat_report_tab(value, key))
             cover_panel = Tabs(tabs=alltabs)
-            dotplot = [tup_dic['dotplot']]
             plasmidplot = [tup_dic['plot']]
+            stats_table = [item] + [int(tup_dic['avg_len'])]
+            sample_stats.append(stats_table)
             section.plot(layout(
-                            [cover_panel,
-                                [dotplot, plasmidplot]],
+                            [[cover_panel, plasmidplot]],
                             sizing_mode='scale_width'))
             section.table((tup_dic['annotations']).drop(
                 columns=['Plasmid length']),
@@ -423,14 +352,16 @@ The Plasmid annotation plot and feature table are produced using
                               "plot": output_json['doc']}
             plannotate_collection[item] = plannotate_dic
         else:
-            section.markdown('## Sample: {}'.format(str(item)))
-            section.markdown('####{}'.format(pass_fail[3][item]))
+            section.markdown('## Sample Failed: {}'.format(str(item)))
+            section.markdown('#{}'.format(pass_fail[3][item]))
             fast_cat_tabs = fast_cat_dic[item]
             alltabs = []
             for key, value in fast_cat_tabs.items():
                 alltabs.append(fastcat_report_tab(value, key))
             cover_panel = Tabs(tabs=alltabs)
             section.plot(cover_panel)
+            stats_table = [item] + ['N/A']
+            sample_stats.append(stats_table)
     json_object = json.dumps(plannotate_collection, indent=4)
     json_file.write(json_object)
     json_file.close()
@@ -438,8 +369,17 @@ The Plasmid annotation plot and feature table are produced using
     section = report_doc.add_section()
     status = args.status
     pass_fail = tidyup_status_file(status)
-    section.markdown("##Sample status")
-    section.table(pass_fail[0], index=False)
+    placeholder.markdown("##Sample status")
+    stats_df = pd.DataFrame(sample_stats, columns=["Sample",
+                                                   "Length"])
+    merged_inner = pd.merge(pass_fail[0], stats_df)
+    placeholder.table(merged_inner, index=False, key='stats_table')
+    section = report_doc.add_section(
+        section=scomponents.version_table(args.versions))
+
+    # Params reporting
+    report_doc.add_section(
+        section=scomponents.params_table(args.params))
 
     report_doc.write('wf-clone-validation-report.html')
 
