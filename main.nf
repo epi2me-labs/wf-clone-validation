@@ -1,5 +1,6 @@
 #!/usr/bin/env nextflow
 
+import groovy.json.JsonBuilder
 nextflow.enable.dsl = 2
 
 include { fastq_ingress } from './lib/fastqingress' 
@@ -323,6 +324,41 @@ process sampleStatus {
     '''
 }
 
+process get_versions {
+    label "wfplasmid"
+    cpus 1
+    output:
+        path "versions.txt"
+    script:
+    """
+    medaka --version | sed 's/ /,/' >> versions.txt
+    minimap2 --version | sed 's/^/minimap2,/' >> versions.txt
+    samtools --version | head -n 1 | sed 's/ /,/' >> versions.txt
+    seqkit version | sed 's/ /,/' >> versions.txt
+    trycycler --version | sed 's/ /,/' >> versions.txt
+    porechop --version | sed 's/^/porechop,/'  >> versions.txt
+    bedtools --version | sed 's/ /,/' >> versions.txt
+    canu -version | sed 's/ /,/' >> versions.txt
+    fastcat --version | sed 's/^/fastcat,/' >> versions.txt
+    last --version | sed 's/ /,/' >> versions.txt
+    rasusa --version | sed 's/ /,/' >> versions.txt
+    """
+}
+
+
+process getParams {
+    label "pysam"
+    cpus 1
+    output:
+        path "params.json"
+    script:
+        def paramsJSON = new JsonBuilder(params).toPrettyString()
+    """
+    # Output nextflow params object to JSON
+    echo '$paramsJSON' > params.json
+    """
+}
+
 
 process report {
     label "wfplasmid"
@@ -336,12 +372,14 @@ process report {
         file final_status
         path "per_barcode_stats/*"
         path "host_filter_stats/*"
+        path "versions/*"
+        path "params.json"
     output:
         path "*report.html", emit: html
         path "sample_status.txt", emit: sample_stat
         path "feature_table.txt", emit: feature_table
-        path "plannotate.json", emit: plannotate_json
-    """ 
+
+    """
     report.py \
     --assembly_summary assembly_stat/* \
     --assembly_mafs assembly_maf/* \
@@ -352,7 +390,9 @@ process report {
     --database $annotation_database \
     --status $final_status \
     --per_barcode_stats per_barcode_stats/* \
-    --host_filter_stats host_filter_stats/*
+    --host_filter_stats host_filter_stats/* \
+    --params params.json \
+    --versions versions
     """
 }
 
@@ -406,6 +446,9 @@ workflow pipeline {
         
         assembly_mafs = assemblyMafs(
             polished.polished.collect())
+        
+        software_versions = get_versions()
+        workflow_params = getParams()
 
         report = report(
             database,
@@ -415,14 +458,14 @@ workflow pipeline {
             downsampled_stats.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
             final_status,
             sample_fastqs.stats.collect(),
-            filtered_stats)
+            filtered_stats,
+            software_versions.collect(),
+            workflow_params)
         
         results = polished.polished.concat(
-                  report.html,
-                  report.sample_stat,
-                  report.feature_table,
-                  report.plannotate_json)
-
+            report.html,
+            report.sample_stat,
+            report.feature_table)
     emit:
         results
 }
