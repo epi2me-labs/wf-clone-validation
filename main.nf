@@ -436,6 +436,7 @@ workflow pipeline {
         final_status = sample_fastqs.status
             .join(assemblies.status,remainder: true)
             .join(polished.status,remainder: true)
+            .join(updated_status,remainder: true)
             .collectFile(name: 'final_status.csv', newLine: true)
 
         downsampled_stats = downsampledStats(
