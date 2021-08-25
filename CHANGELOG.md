@@ -5,14 +5,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [unreleased]
+### Added
+- Fastcat stats plots in tabs for pass and failed samples.
+- Version and parameter tables.
+- Per barcode number of reads.
 ### Fixed
-- Order samples lexicographically 
+- Order samples lexicographically.
+### Changed
+- Use Canu for assembly instead of Flye.
 
 ## [v0.1.1]
 ### Fixed
-- Corrected number of input channels for host_reference process
-- Remove duplicate output files
-- Help message parameters reflect config
+- Corrected number of input channels for host_reference process.
+- Remove duplicate output files.
+- Help message parameters reflect config.
 
 ## [v0.1.0]
 ### Added
