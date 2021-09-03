@@ -5,6 +5,7 @@ import argparse
 import json
 import os
 
+
 from aplanat import bars, report
 from aplanat import json_item
 from aplanat.components import fastcat
@@ -19,6 +20,7 @@ from plannotate import annotate
 from plannotate import BLAST_hit_details
 from plannotate import get_bokeh
 import pysam
+from spoa import poa
 
 
 def run_plannotate(fasta, blast_db, linear=False):
@@ -144,6 +146,44 @@ def read_files(summaries, sep='\t'):
     return pd.concat(dfs)
 
 
+def reverse_complement(seq):
+    """Read a seq return reverse complement."""
+    comp = {
+        'A': 'T', 'T': 'A', 'C': 'G', 'G': 'C', 'X': 'X', 'N': 'N'}
+    comp_trans = seq.maketrans(''.join(comp.keys()), ''.join(comp.values()))
+    return seq.translate(comp_trans)[::-1]
+
+
+def read_seqkit(bed_files, sep='\t'):
+    """Read seqkit bed files and join to single dataframe."""
+    dfs = list()
+    bed_dic = {}
+    for fname in sorted(bed_files):
+        df = pd.read_csv(fname, sep=sep,
+                         header=None, names=(
+                             ['Sample', 'start',
+                              'end', 'primer', 'score',
+                              'strand', 'sequence']))
+        seq = str(df['sequence'][0])
+        # need to find the sequence if seq spans origin
+        if seq == 'nan':
+            file_name = os.path.join(
+                        'assemblies/', df['Sample'][0] + '.final.fasta')
+            with open(file_name, "r") as fp:
+                whole_seq = fp.readlines()[1][:-1:]
+            rev_comp = reverse_complement(whole_seq)
+            strand_seq = {'-': rev_comp, '+': whole_seq}
+            parse_seq = strand_seq[str(df['strand'][0])]
+            final_seq = parse_seq[df['start'][0]::] + parse_seq[:df['end'][0]:]
+            df['sequence'][0] = final_seq
+        else:
+            pass
+        bed_dic[df['Sample'][0]] = df['sequence'][0]
+        dfs.append(df)
+    bed_df = pd.concat(dfs).drop(['score', 'sequence'], axis=1)
+    return (bed_df, bed_dic)
+
+
 def fastcat_report_tab(file_name, tab_name):
     """Read fastcat dataframe and create a tab with qual and len plots."""
     df = pd.read_csv(file_name, sep='\t')
@@ -232,6 +272,12 @@ def main():
         "--host_filter_stats", nargs='+',
         help="fastcat stats file after host filtering")
     parser.add_argument(
+        "--primer_beds", nargs='+',
+        help="bed files of extracted sequences")
+    parser.add_argument(
+        "--align_ref", nargs='+',
+        help="insert alignment reference file")
+    parser.add_argument(
         "--params", default=None,
         help="A csv containing the parameter key/values")
     parser.add_argument(
@@ -243,7 +289,6 @@ def main():
         "wf-clone-validation",
         revision=args.revision,
         commit=args.commit)
-
     section = report_doc.add_section()
     section.markdown("Results generated through the wf-clone-validation "
                      "nextflow workflow provided by Oxford Nanopore "
@@ -374,13 +419,57 @@ The Plasmid annotation plot and feature table are produced using
                                                    "Length"])
     merged_inner = pd.merge(pass_fail[0], stats_df)
     placeholder.table(merged_inner, index=False, key='stats_table')
-    section = report_doc.add_section(
-        section=scomponents.version_table(args.versions))
+    section = report_doc.add_section()
+    # find inserts and put in dir
+    current_directory = os.getcwd()
+    make_directory = os.path.join(current_directory, r'inserts')
+    if not os.path.exists(make_directory):
+        os.makedirs(make_directory)
+    if args.primer_beds[0] != "primer_beds/OPTIONAL_FILE":
+        seq_segment = read_seqkit(args.primer_beds)[0]
+        section.markdown("""
+### Insert sequences
+This table shows which primers were found in the consensus sequence
+of each sample and where the inserts were found.
+""")
+        section.table(seq_segment, key='sequences')
+        inserts = ''
+        allseq = []
+        names = []
+        # Align with reference if included
+        if args.align_ref[0] != 'OPTIONAL_FILE':
+            with open(args.align_ref[0]) as f:
+                ref_seq = f.readline().strip()
+                allseq.append(ref_seq)
+                names.append('Reference')
+        for k, v in read_seqkit(args.primer_beds)[1].items():
+            inserts += str(k) + ' ' + str(v) + '</br>'
+            insert_fn = os.path.join('inserts/', str(k) + '.insert.fasta')
+            with open(insert_fn, "a") as fp:
+                fp.write('>' + k + '\n' + v + '\n')
+            allseq.append(v)
+            names.append(k)
+        msa_report = []
+        msa = poa(allseq)[1]
+        section.markdown("""
+### Multiple sequence alignment
+This section shows the inserts aligned with each other or a reference
+sequence if provided.
+""")
+        # make sure names are all same length for MSA
+        msa_names = []
+        for name in names:
+            new_name = name + (' '*(max(map(len, names))-len(name)))
+            msa_names.append(new_name)
+        for i in range(0, len(msa)):
+            msa_report.append(msa_names[i] + ' ' + msa[i])
+        section.markdown("<pre>" + os.linesep.join(msa_report) + "</pre>")
 
-    # Params reporting
+    # Versions and params
+    report_doc.add_section(
+        section=scomponents.version_table(args.versions))
     report_doc.add_section(
         section=scomponents.params_table(args.params))
-
     report_doc.write('wf-clone-validation-report.html')
 
 

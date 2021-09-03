@@ -22,4 +22,5 @@ dependencies:
     - fastcat==0.3.6
     - last
     - rasusa
-    - backports.zoneinfo
+    - pyspoa
+
