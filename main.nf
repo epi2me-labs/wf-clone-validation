@@ -26,6 +26,9 @@ Script Options:
     --min_barcode       INT     Minimum number in barcode range.
     --max_barcode       INT     Maximmum number in barcode range.
     --threads           INT     Number of threads per process where applicable (default: 4)
+    --primers           FILE    File containing primers or null if you want to turn off 
+                                primer search (default: primers.tsv)
+    --reference         FILE    Optional file containing reference sequence to align inserts with. 
     --help
 
 Notes:
@@ -253,7 +256,8 @@ process medakaPolishAssembly {
     """
     STATUS=${fastq.simpleName}",Failed to polish assembly with Medaka"
     medaka_consensus -i $fastq -d $draft -m r941_min_high_g360 -o . -t $task.cpus -f
-    mv consensus.fasta ${fastq.simpleName}.final.fasta
+    echo ">${fastq.simpleName}" >> ${fastq.simpleName}.final.fasta
+    sed "2q;d" consensus.fasta >> ${fastq.simpleName}.final.fasta
     STATUS=${fastq.simpleName}",Completed successfully"
     """
 }
@@ -324,7 +328,25 @@ process sampleStatus {
     '''
 }
 
-process get_versions {
+process findPrimers {
+    errorStrategy 'ignore'
+    label "wfplasmid"
+    cpus params.threads
+    input:
+        file primers
+        file sequence 
+    output:
+        path "*.bed", optional: true 
+    shell:
+    '''
+    cat !{sequence} | seqkit amplicon -p !{primers} -m 3 -j !{params.threads} --bed >> !{sequence.simpleName}.interim
+    if [[ "$(wc -l <"!{sequence.simpleName}.interim")" -ge "1" ]];  then 
+        mv !{sequence.simpleName}.interim !{sequence.simpleName}.bed
+    fi
+    '''
+}
+
+process getVersions {
     label "wfplasmid"
     cpus 1
     output:
@@ -342,12 +364,13 @@ process get_versions {
     fastcat --version | sed 's/^/fastcat,/' >> versions.txt
     last --version | sed 's/ /,/' >> versions.txt
     rasusa --version | sed 's/ /,/' >> versions.txt
+    python -c "import spoa; print(spoa.__version__)" | sed 's/^/spoa,/'  >> versions.txt
     """
 }
 
 
 process getParams {
-    label "pysam"
+    label "wfplasmid"
     cpus 1
     output:
         path "params.json"
@@ -374,10 +397,13 @@ process report {
         path "host_filter_stats/*"
         path "versions/*"
         path "params.json"
+        path "primer_beds/*"
+        file align_ref
     output:
         path "*report.html", emit: html
         path "sample_status.txt", emit: sample_stat
-        path "feature_table.txt", emit: feature_table
+        path "feature_table.txt", emit: feature_table 
+        path "inserts/*", optional: true, emit: inserts
 
     """
     report.py \
@@ -391,8 +417,10 @@ process report {
     --status $final_status \
     --per_barcode_stats per_barcode_stats/* \
     --host_filter_stats host_filter_stats/* \
+    --primer_beds primer_beds/* \
+    --align_ref $align_ref \
     --params params.json \
-    --versions versions
+    --versions versions 
     """
 }
 
@@ -403,6 +431,9 @@ workflow pipeline {
         host_reference
         regions_bedfile
         database
+        primers
+        align_ref
+       
     main:
         // Combine fastq from each of the sample directories into 
         // a single per-sample fastq file
@@ -448,7 +479,8 @@ workflow pipeline {
         assembly_mafs = assemblyMafs(
             polished.polished.collect())
         
-        software_versions = get_versions()
+        primer_beds = findPrimers(primers, polished.polished)
+        software_versions = getVersions()
         workflow_params = getParams()
 
         report = report(
@@ -461,12 +493,15 @@ workflow pipeline {
             sample_fastqs.stats.collect(),
             filtered_stats,
             software_versions.collect(),
-            workflow_params)
+            workflow_params,
+            primer_beds.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
+            align_ref)
         
         results = polished.polished.concat(
             report.html,
             report.sample_stat,
-            report.feature_table)
+            report.feature_table,
+            report.inserts)
     emit:
         results
 }
@@ -519,8 +554,17 @@ workflow {
     database = file(params.db_directory, type: "dir")
     host_reference = file(params.host_reference, type: "file")
     regions_bedfile = file(params.regions_bedfile, type: "file")
+    primer_file = file("$projectDir/data/OPTIONAL_FILE")
+    if (params.primers != null){
+        primer_file = file(params.primers, type: "file")
+    }
+    align_ref = file("$projectDir/data/OPTIONAL_FILE")
+    if (params.reference != null){
+        align_ref = file(params.reference, type: "file")
+    }
+    
     // Run pipeline
-    results = pipeline(samples, host_reference, regions_bedfile, database)
+    results = pipeline(samples, host_reference, regions_bedfile, database, primer_file, align_ref)
 
     output(results)
 }
