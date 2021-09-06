@@ -136,7 +136,7 @@ process assembleCore {
         int min_dep = (params.assm_coverage / 3) * 2
         int min_len = 1000
         int max_len = params.approx_size * 1.2
-        int min_q = 12
+        int min_q = 7
         int exit_number = task.attempt <= 5 ? 1 : 0
     """
     ############################################################
@@ -181,7 +181,6 @@ process assembleCore {
         canu \
             -p \$SUBSET_NAME \
             -d assm_\${SUBSET_NAME} \
-            useGrid=$params.canu_useGrid \
             -maxThreads=$params.threads \
             genomeSize=$params.approx_size \
             -nanopore \$SUBSET 
