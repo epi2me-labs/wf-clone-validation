@@ -283,6 +283,9 @@ def main():
     parser.add_argument(
         "--versions",
         help="directory contained CSVs containing name,version.")
+    parser.add_argument(
+        "--report_name",
+        help="report name")
     args = parser.parse_args()
     report_doc = report.WFReport(
         "Clone Validation Report",
@@ -470,7 +473,7 @@ sequence if provided.
         section=scomponents.version_table(args.versions))
     report_doc.add_section(
         section=scomponents.params_table(args.params))
-    report_doc.write('wf-clone-validation-report.html')
+    report_doc.write(args.report_name)
 
 
 if __name__ == "__main__":

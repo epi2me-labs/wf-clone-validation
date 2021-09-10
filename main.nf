@@ -29,6 +29,7 @@ Script Options:
     --primers           FILE    File containing primers or null if you want to turn off 
                                 primer search (default: primers.tsv)
     --reference         FILE    Optional file containing reference sequence to align inserts with. 
+    --report_name       STR     Optional report suffix (default: $params.report_name)
     --help
 
 Notes:
@@ -399,11 +400,12 @@ process report {
         path "primer_beds/*"
         file align_ref
     output:
-        path "*report.html", emit: html
+        path "wf-clone-validation-*.html", emit: html
         path "sample_status.txt", emit: sample_stat
         path "feature_table.txt", emit: feature_table 
         path "inserts/*", optional: true, emit: inserts
-
+    script:
+        report_name = "wf-clone-validation-" + params.report_name + '.html'
     """
     report.py \
     --assembly_summary assembly_stat/* \
@@ -419,7 +421,8 @@ process report {
     --primer_beds primer_beds/* \
     --align_ref $align_ref \
     --params params.json \
-    --versions versions 
+    --versions versions \
+    --report_name $report_name
     """
 }
 
@@ -481,7 +484,7 @@ workflow pipeline {
         primer_beds = findPrimers(primers, polished.polished)
         software_versions = getVersions()
         workflow_params = getParams()
-
+        
         report = report(
             database,
             polished.polished.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
@@ -561,6 +564,7 @@ workflow {
     if (params.reference != null){
         align_ref = file(params.reference, type: "file")
     }
+
     
     // Run pipeline
     results = pipeline(samples, host_reference, regions_bedfile, database, primer_file, align_ref)
