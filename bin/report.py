@@ -66,16 +66,20 @@ def clean_results(df):
     return df
 
 
-def per_assembly(assemblies_file, database, sample_files, item):
-    """Build_per_assembly_tuples."""
-    plot, annotations = run_plannotate(sample_files['fasta'], database)
-    df = pd.read_csv(assemblies_file, sep='\t', index_col=0)
-    filename = str(item) + '.final.fasta'
-    avg_len = df.loc[filename, 'avg_len']
+def per_assembly(database, sample_file, item):
+    """Run plannotate for a sample.
+
+    :param database:
+    :param sample_file:
+    :param item: the sample
+    """
+    plot, annotations = run_plannotate(sample_file, database)
+    with pysam.FastxFile(sample_file) as fh:
+        seq_len = len(next(fh).sequence)
     tup = {'sample_name': item,
            'plot': plot,
            'annotations': annotations,
-           'avg_len': avg_len}
+           'seq_len': seq_len}
     return(tup)
 
 
@@ -96,11 +100,10 @@ def tidyup_status_file(status_sheet):
         if v != 'Completed but failed to reconcile':
             passed_list.remove(k)
     passed_list.sort()
-    status_df = pd.DataFrame(pass_fail_dic.items(),
-                             columns=['Sample', 'pass/failed reason'])
+    status_df = pd.DataFrame(
+        pass_fail_dic.items(), columns=['Sample', 'pass/failed reason'])
     sort_df = status_df['Sample'].astype(str).argsort()
     status_df = status_df.iloc[sort_df]
-    status_df.to_csv('sample_status.txt', index=False)
     return(status_df, passed_list, all_sample_names, pass_fail_dic)
 
 
@@ -235,10 +238,6 @@ def main():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         add_help=False)
     parser.add_argument(
-        "--assembly_summary",
-        required=True
-    )
-    parser.add_argument(
         "--assembly_mafs",
         nargs='*',
         required=True
@@ -292,13 +291,12 @@ def main():
         "wf-clone-validation",
         revision=args.revision,
         commit=args.commit)
+
+    # summary section
     section = report_doc.add_section()
-    section.markdown("Results generated through the wf-clone-validation "
-                     "nextflow workflow provided by Oxford Nanopore "
-                     "Technologies")
+    section.markdown("### Summary")
     seq_summary = read_files(args.per_barcode_stats)
     section = report_doc.add_section()
-    section.markdown("###Number of reads per barcode")
     barcode_counts = (
         pd.DataFrame(seq_summary['sample_name'].value_counts())
         .sort_index()
@@ -318,112 +316,13 @@ def main():
         layout(
             [[bc_counts]],
             sizing_mode="stretch_width"))
-    placeholder = report_doc.add_section(key='stats_table')
-    section = report_doc.add_section()
-    section.markdown("""
-## Assemblies
-For each assembly read length statistics are displayed a [pLannotate
-plot](https://github.com/barricklab/pLannotate), a plot of the quality.
-The feature table provides descriptions of the annotated sequence.
 
-Unfilled features on the plannotate plots are incomplete features; the sequence
-match in the plasmid covers less than 95% of the full length of the feature in
-the database. These elements may be leftover fragments from earlier cloning
-steps used to create a plasmid. If they include only a small fraction of the
-feature, they likely do not still have the annotated function. However, even
-small feature fragments may affect plasmid function if they result in cryptic
-gene expression or are inadvertently combined with other elements during later
-cloning steps.
+    # We defer this until processing through all the samples in the loop below
+    summary_placeholder = report_doc.add_section(key='stats_table')
+    pass_fail = tidyup_status_file(args.status)
 
-The Plasmid annotation plot and feature table are produced using
-[Plannotate](http://plannotate.barricklab.org/).
-""")
-    assembly = args.assembly_summary
-    status = args.status
-    pass_fail = tidyup_status_file(status)
-    sample_data = pair_samples_with_mafs(pass_fail[1])
-    passed_samples = pass_fail[1]
-    host_ref_stats = args.host_filter_stats
-    downsampled_stats = args.downsampled_stats
-    database = args.database
-    initial_stats = args.per_barcode_stats
-    if ('host_filter_stats/OPTIONAL_FILE' in host_ref_stats):
-        host_filt = host_ref_stats.remove('host_filter_stats/OPTIONAL_FILE')
-        if host_filt is None:
-            host_filt = []
-    else:
-        host_filt = host_ref_stats
-    if ('host_filter_stats/OPTIONAL_FILE' in downsampled_stats):
-        summary_stats = downsampled_stats.remove(
-                        'downsampled_stats/OPTIONAL_FILE')
-        if summary_stats is None:
-            summary_stats = []
-    else:
-        summary_stats = downsampled_stats
-    sample_names = pass_fail[2]
-    final_samples = []
-    fast_cat_dic = create_fastcat_dic(sample_names, initial_stats,
-                                      host_filt, summary_stats)
-    json_file = open("plannotate.json", "a")
-    sample_stats = []
-    plannotate_collection = {}
-    for item in sample_names:
-        if item in passed_samples:
-            sample_files = sample_data[item]
-            tup_dic = per_assembly(assembly, database, sample_files, item)
-            final_samples.append(tup_dic)
-            section = report_doc.add_section()
-            section.markdown('## Sample: {}'.format(str(item)))
-            section.markdown('####{}'.format(pass_fail[3][item]))
-            fast_cat_tabs = fast_cat_dic[item]
-            alltabs = []
-            for key, value in fast_cat_tabs.items():
-                alltabs.append(fastcat_report_tab(value, key))
-            cover_panel = Tabs(tabs=alltabs)
-            plasmidplot = [tup_dic['plot']]
-            stats_table = [item] + [int(tup_dic['avg_len'])]
-            sample_stats.append(stats_table)
-            section.plot(layout(
-                            [[cover_panel, plasmidplot]],
-                            sizing_mode='scale_width'))
-            section.table((tup_dic['annotations']).drop(
-                columns=['Plasmid length']),
-                index=False, key="table"+str(item))
-            plasmid_len = tup_dic['annotations']['Plasmid length'][0]
-            plannotate_dic = {"barcode": item, "reflen": plasmid_len}
-            feature_dic = tup_dic['annotations'].drop(
-                          ['Plasmid length'], axis=1)
-            features = feature_dic.to_dict('records')
-            output_json = json_item(tup_dic['plot'])
-            plannotate_dic = {"reflen": float(plasmid_len),
-                              "features": features,
-                              "plot": output_json['doc']}
-            plannotate_collection[item] = plannotate_dic
-        else:
-            section.markdown('## Sample Failed: {}'.format(str(item)))
-            section.markdown('#{}'.format(pass_fail[3][item]))
-            fast_cat_tabs = fast_cat_dic[item]
-            alltabs = []
-            for key, value in fast_cat_tabs.items():
-                alltabs.append(fastcat_report_tab(value, key))
-            cover_panel = Tabs(tabs=alltabs)
-            section.plot(cover_panel)
-            stats_table = [item] + ['N/A']
-            sample_stats.append(stats_table)
-    json_object = json.dumps(plannotate_collection, indent=4)
-    json_file.write(json_object)
-    json_file.close()
-    output_feature_table(final_samples)
-    section = report_doc.add_section()
-    status = args.status
-    pass_fail = tidyup_status_file(status)
-    placeholder.markdown("##Sample status")
-    stats_df = pd.DataFrame(sample_stats, columns=["Sample",
-                                                   "Length"])
-    merged_inner = pd.merge(pass_fail[0], stats_df)
-    placeholder.table(merged_inner, index=False, key='stats_table')
-    section = report_doc.add_section()
     # find inserts and put in dir
+    section = report_doc.add_section()
     current_directory = os.getcwd()
     make_directory = os.path.join(current_directory, r'inserts')
     if not os.path.exists(make_directory):
@@ -467,6 +366,107 @@ sequence if provided.
         for i in range(0, len(msa)):
             msa_report.append(msa_names[i] + ' ' + msa[i])
         section.markdown("<pre>" + os.linesep.join(msa_report) + "</pre>")
+
+    # Per sample details
+    section = report_doc.add_section()
+    section.markdown("""
+### Assemblies
+For each assembly read length statistics are displayed a [pLannotate
+plot](https://github.com/barricklab/pLannotate), a plot of the quality.
+The feature table provides descriptions of the annotated sequence.
+
+Unfilled features on the plannotate plots are incomplete features; the sequence
+match in the plasmid covers less than 95% of the full length of the feature in
+the database. These elements may be leftover fragments from earlier cloning
+steps used to create a plasmid. If they include only a small fraction of the
+feature, they likely do not still have the annotated function. However, even
+small feature fragments may affect plasmid function if they result in cryptic
+gene expression or are inadvertently combined with other elements during later
+cloning steps.
+
+The Plasmid annotation plot and feature table are produced using
+[Plannotate](http://plannotate.barricklab.org/).
+""")
+    sample_data = pair_samples_with_mafs(pass_fail[1])
+    passed_samples = pass_fail[1]
+    host_ref_stats = args.host_filter_stats
+    downsampled_stats = args.downsampled_stats
+    database = args.database
+    initial_stats = args.per_barcode_stats
+    if ('host_filter_stats/OPTIONAL_FILE' in host_ref_stats):
+        host_filt = host_ref_stats.remove('host_filter_stats/OPTIONAL_FILE')
+        if host_filt is None:
+            host_filt = []
+    else:
+        host_filt = host_ref_stats
+    if ('host_filter_stats/OPTIONAL_FILE' in downsampled_stats):
+        summary_stats = downsampled_stats.remove(
+            'downsampled_stats/OPTIONAL_FILE')
+        if summary_stats is None:
+            summary_stats = []
+    else:
+        summary_stats = downsampled_stats
+    sample_names = pass_fail[2]
+    final_samples = []
+    fast_cat_dic = create_fastcat_dic(
+        sample_names, initial_stats, host_filt, summary_stats)
+    json_file = open("plannotate.json", "a")
+    sample_stats = []
+    plannotate_collection = {}
+    for item in sample_names:
+        section = report_doc.add_section()
+        section.markdown('### Sample: {}'.format(str(item)))
+        if item in passed_samples:
+            section.markdown('*{}*'.format(pass_fail[3][item]))
+            sample_file = sample_data[item]['fasta']
+            tup_dic = per_assembly(database, sample_file, item)
+            final_samples.append(tup_dic)
+            fast_cat_tabs = fast_cat_dic[item]
+            alltabs = []
+            for key, value in fast_cat_tabs.items():
+                alltabs.append(fastcat_report_tab(value, key))
+            cover_panel = Tabs(tabs=alltabs)
+            plasmidplot = [tup_dic['plot']]
+            stats_table = [item] + [int(tup_dic['seq_len'])]
+            sample_stats.append(stats_table)
+            section.plot(layout(
+                            [[cover_panel, plasmidplot]],
+                            sizing_mode='scale_width'))
+            section.table((tup_dic['annotations']).drop(
+                columns=['Plasmid length']),
+                index=False, key="table"+str(item))
+            plasmid_len = tup_dic['annotations']['Plasmid length'][0]
+            plannotate_dic = {"barcode": item, "reflen": plasmid_len}
+            feature_dic = tup_dic['annotations'].drop(
+                          ['Plasmid length'], axis=1)
+            features = feature_dic.to_dict('records')
+            output_json = json_item(tup_dic['plot'])
+            plannotate_dic = {"reflen": float(plasmid_len),
+                              "features": features,
+                              "plot": output_json['doc']}
+            plannotate_collection[item] = plannotate_dic
+        else:
+            section.markdown('*{}*'.format(pass_fail[3][item]))
+            fast_cat_tabs = fast_cat_dic[item]
+            alltabs = []
+            for key, value in fast_cat_tabs.items():
+                alltabs.append(fastcat_report_tab(value, key))
+            cover_panel = Tabs(tabs=alltabs)
+            section.plot(cover_panel)
+            stats_table = [item] + ['N/A']
+            sample_stats.append(stats_table)
+    json_object = json.dumps(plannotate_collection, indent=4)
+    json_file.write(json_object)
+    json_file.close()
+    output_feature_table(final_samples)
+
+    # high level sample status table
+    summary_placeholder.markdown("### Sample status")
+    stats_df = pd.DataFrame(
+        sample_stats, columns=["Sample", "Length"])
+    merged_inner = pd.merge(pass_fail[0], stats_df)
+    summary_placeholder.table(merged_inner, index=False, key='stats_table')
+    merged_inner.to_csv('sample_status.txt', index=False)
 
     # Versions and params
     report_doc.add_section(

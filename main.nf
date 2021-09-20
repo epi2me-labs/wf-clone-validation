@@ -263,19 +263,6 @@ process medakaPolishAssembly {
 }
 
 
-process assemblyStats {
-    label "wfplasmid"
-    cpus 1
-    input:
-        file assemblies
-    output:
-        path "assemblies.tsv", emit: assembly_stat
-    """
-    seqkit stats -T $assemblies > assemblies.tsv
-    """
-}
-
-
 process downsampledStats {
     label "wfplasmid"
     cpus 1 
@@ -290,6 +277,7 @@ process downsampledStats {
     fi
     """
 }
+
 
 process assemblyMafs {
     label "wfplasmid"
@@ -327,6 +315,7 @@ process sampleStatus {
     done
     '''
 }
+
 
 process findPrimers {
     errorStrategy 'ignore'
@@ -390,7 +379,6 @@ process report {
         path annotation_database
         path "assemblies/*"
         file "assembly_maf/*"
-        path "assembly_stat/*"
         path "downsampled_stats/*"
         file final_status
         path "per_barcode_stats/*"
@@ -404,11 +392,11 @@ process report {
         path "sample_status.txt", emit: sample_stat
         path "feature_table.txt", emit: feature_table 
         path "inserts/*", optional: true, emit: inserts
+        path "plannotate.json", emit: json
     script:
         report_name = "wf-clone-validation-" + params.report_name + '.html'
     """
     report.py \
-    --assembly_summary assembly_stat/* \
     --assembly_mafs assembly_maf/* \
     --downsampled_stats downsampled_stats/* \
     --consensus assemblies/* \
@@ -474,9 +462,6 @@ workflow pipeline {
 
         downsampled_stats = downsampledStats(
             assemblies.downsampled)
-
-        assembly_stats = assemblyStats(
-            polished.polished.collect())
         
         assembly_mafs = assemblyMafs(
             polished.polished.collect())
@@ -489,7 +474,6 @@ workflow pipeline {
             database,
             polished.polished.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
             assembly_mafs.assembly_maf.ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
-            assembly_stats.assembly_stat.ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
             downsampled_stats.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
             final_status,
             sample_fastqs.stats.collect(),
@@ -503,7 +487,8 @@ workflow pipeline {
             report.html,
             report.sample_stat,
             report.feature_table,
-            report.inserts)
+            report.inserts,
+            report.json)
     emit:
         results
 }
