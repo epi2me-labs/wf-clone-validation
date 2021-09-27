@@ -133,7 +133,7 @@ process assembleCore {
     script:
         name = fastq.simpleName
         cluster_dir = "trycycler/cluster_001"
-        int target = params.approx_size * params.assm_coverage * 3
+        int target = params.assm_coverage * 3
         int min_dep = (params.assm_coverage / 3) * 2
         int min_len = 1000
         int max_len = params.approx_size * 1.2
