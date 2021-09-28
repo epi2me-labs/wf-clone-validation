@@ -5,48 +5,6 @@ nextflow.enable.dsl = 2
 
 include { fastq_ingress } from './lib/fastqingress' 
 
-def helpMessage(){
-    log.info """
-wf-clone-validation
-
-Usage:
-    nextflow run epi2melabs/wf-clone-validation [options]
-
-Script Options:
-    --fastq             DIR     Path to directory containing FASTQ files (required)
-    --db_directory      DIR     Location of annotation database. (required) 
-    --samples           FILE    CSV file with columns named `barcode` and `sample_name`
-                                (or simply a sample name for non-multiplexed data).
-    --out_dir           DIR     Path to output directory (default: output)
-    --host_reference    FILE    FASTA file, reads which map to it are discarded.
-    --regions_bedfile   FILE    BED file, mask regions within host_reference from filtering.
-    --approx_size       INT     Approximate size of the plasmid in base pairs (default: 3000).
-    --assm_coverage     INT     Try to use this many fold coverage per assembly (default: 60).
-    --prefix            STR     The prefix attached to each of the output filenames.
-    --min_barcode       INT     Minimum number in barcode range.
-    --max_barcode       INT     Maximmum number in barcode range.
-    --threads           INT     Number of threads per process where applicable (default: 4)
-    --primers           FILE    File containing primers or null if you want to turn off 
-                                primer search (default: primers.tsv)
-    --reference         FILE    Optional file containing reference sequence to align inserts with. 
-    --report_name       STR     Optional report suffix (default: $params.report_name)
-    --help
-
-Notes:
-    If directories named "barcode*" are found under the `--fastq` directory the
-    data is assumed to be multiplex and each barcode directory will be processed
-    independently. If `.fastq(.gz)` files are found under the `--fastq` directory
-    the sample is assumed to not be multiplexed. In this second case `--samples`
-    should be a simple name rather than a CSV file.
-
-    An generic annotation database can be obtained with the following commands:
-        wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/wf-clone-validation-db.tar.gz
-        tar -xzvf wf-clone-validation-db.tar.gz
-    This will create a directory `wf-clone-validation` in the current working directory
-    which can be provided as the `--db_directory` parameter.
-"""
-}
-
 
 def nameIt(ch) {
     return ch.map { it -> return tuple(it.simpleName, it) }.groupTuple()
@@ -512,27 +470,8 @@ process output {
 
 
 // entrypoint workflow
+WorkflowMain.initialise(workflow, params, log)
 workflow {
-
-    if (params.help) {
-        helpMessage()
-        exit 1
-    }
-
-    if (!params.fastq || !params.db_directory) {
-        helpMessage()
-        println("")
-        println("Error: `--fastq` and `--db_directory` are required. A suitable")
-        println("database can be obtained using the instructions provided by running `--help`")
-        exit 1
-    }
-
-    if (params.regions_bedfile != "NO_REG_BED" 
-        && params.host_reference == "NO_HOST_REF") {
-        println("")
-        println("Error: `--regions_bedfile` requires `--host_reference` to be set")
-        exit 1
-    }
 
     samples = fastq_ingress(
         params.fastq, workDir, params.samples, params.sanitize_fastq,

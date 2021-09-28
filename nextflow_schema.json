@@ -1,0 +1,171 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema",
+    "$id": "https://raw.githubusercontent.com/./master/nextflow_schema.json",
+    "title": ". pipeline parameters",
+    "description": "",
+    "type": "object",
+    "definitions": {
+        "input_output_options": {
+            "title": "Input/output options",
+            "type": "object",
+            "fa_icon": "fas fa-terminal",
+            "description": "Define where the pipeline should find input data and save output data.",
+            "properties": {
+                "fastq": {
+                    "type": "string",
+                    "description": "Directory containing fastq input files. May contain fastq files directly or directories name barcodeXX relating to independent samples.",
+                    "fa_icon": "fab fa-adobe",
+                    "help_text": "If directories named \"barcode*\" are found under the `--fastq` directory the data is assumed to be multiplex and each barcode directory will be processed independently. If `.fastq(.gz)` files are found under the `--fastq` directory the sample is assumed to not be multiplexed. In this second case `--samples` should be a simple name rather than a CSV file."
+                },
+                "samples": {
+                    "type": "string",
+                    "description": "CSV file with columns named `barcode` and `sample_name`. (or simply a sample name for non-multiplexed data)"
+                },
+                "out_dir": {
+                    "type": "string",
+                    "default": "output",
+                    "description": "Directory for output of all user-facing files."
+                },
+                "primers": {
+                    "type": "string",
+                    "default": "$projectDir/data/primers.tsv",
+                    "description": "File containing primers or null if you want to turn off"
+                },
+                "sanitize_fastq": {
+                    "type": "boolean",
+                    "description": "Use additional heuristics to identify barcodes from file paths.",
+                    "help_text": "Enabling this option will group together files into samples by the presence of strings of the form `barcodeXXX` present in filenames, rather than simply files grouped into directories (as output by MinKNOW and the Guppy basecaller)."
+                }
+            },
+            "required": [
+                "fastq"
+            ]
+        },
+        "reference_genome_options": {
+            "title": "Reference genome options",
+            "type": "object",
+            "fa_icon": "fas fa-dna",
+            "description": "Reference genome related files and options required for the workflow.",
+            "properties": {
+                "reference": {
+                    "type": "string",
+                    "description": "Optional file containing reference sequence to align inserts with."
+                },
+                "db_directory": {
+                    "type": "string",
+                    "description": "Directory where the annotation database is stored.",
+                    "default": "$projectDir/data/BLAST_db",
+                    "help_text": "An generic annotation database can be obtained with the following commands:\n wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/wf-clone-validation-db.tar.gz\n tar -xzvf wf-clone-validation-db.tar.gz\n\nThis will create a directory `wf-clone-validation` in the current working directory which can be provided as the `--db_directory` parameter."
+                },
+                "host_reference": {
+                    "type": "string",
+                    "default": "NO_HOST_REF",
+                    "description": "FASTA file, reads which map to it are discarded."
+                }
+            }
+        },
+        "meta_data": {
+            "title": "Meta data",
+            "type": "object",
+            "fa_icon": "fas fa-university",
+            "description": "Parameters used to describe centralised config profiles. These should not be edited.",
+            "help_text": "The centralised nf-core configuration profiles use a handful of pipeline parameters to describe themselves. This information is then printed to the Nextflow log when you run a pipeline. You should not need to change these values when you run a pipeline.",
+            "properties": {
+                "report_name": {
+                    "type": "string",
+                    "default": "report",
+                    "description": "Optional report suffix"
+                },
+                "prefix": {
+                    "type": "string",
+                    "description": "The prefix attached to each of the output filenames."
+                }
+            }
+        },
+        "advanced_options": {
+            "title": "Advanced Options",
+            "type": "object",
+            "description": "Data filtering and algorithm options",
+            "default": "",
+            "properties": {
+                "assm_coverage": {
+                    "type": "integer",
+                    "default": 60,
+                    "description": "Use this many fold coverage per assembly"
+                },
+                "approx_size": {
+                    "type": "integer",
+                    "default": 7000,
+                    "description": "Approximate size of the plasmid in base pairs"
+                },
+                "regions_bedfile": {
+                    "type": "string",
+                    "default": "NO_REG_BED",
+                    "description": "BED file, mask regions within host_reference from filtering."
+                },
+                "min_barcode": {
+                    "type": "string",
+                    "description": "Minimum number in barcode range",
+                    "default": "null"
+                },
+                "max_barcode": {
+                    "type": "string",
+                    "default": "null",
+                    "description": "Maximum number in barcode range"
+                },
+                "canu_useGrid": {
+                    "type": "boolean",
+                    "description": "Turn on canu use grid option."
+                },
+                "trim_length": {
+                    "type": "integer",
+                    "default": 150,
+                    "description": "Number of base pairs to trim from the read ends"
+                }
+            }
+        },
+        "generic_options": {
+            "title": "Generic options",
+            "type": "object",
+            "description": "Less common options for the pipeline, typically set in a config file.",
+            "default": "",
+            "properties": {
+                "wfversion": {
+                    "type": "string",
+                    "default": "v0.1.3",
+                    "hidden": true,
+                    "description": "Workflow version"
+                },
+                "threads": {
+                    "type": "integer",
+                    "default": 4,
+                    "hidden": true,
+                    "description": "Max number of threads to use for each process."
+                },
+                "help": {
+                    "type": "boolean",
+                    "description": "Display help text.",
+                    "fa_icon": "fas fa-question-circle",
+                    "hidden": true
+                }
+            }
+        }
+    },
+    "allOf": [
+        {
+            "$ref": "#/definitions/input_output_options"
+        },
+        {
+            "$ref": "#/definitions/reference_genome_options"
+        },
+        {
+            "$ref": "#/definitions/meta_data"
+        },
+        {
+            "$ref": "#/definitions/advanced_options"
+        },
+        {
+            "$ref": "#/definitions/generic_options"
+        }
+    ]
+}
