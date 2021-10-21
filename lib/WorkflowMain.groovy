@@ -1,16 +1,15 @@
-
 class WorkflowMain {
 
     // Citation string for pipeline
     public static String citation(workflow) {
-        return "If you use wf-template for your analysis please cite:\n\n" +
+        return "If you use wf-clone-validation for your analysis please cite:\n\n" +
             "* The nf-core framework\n" +
             "  https://doi.org/10.1038/s41587-020-0439-x\n\n"
     }
 
     // Print help to screen
     public static String help(workflow, params, log) {
-        def command = "nextflow run epi2me-labs/wf-template --fastq <input folder> -profile docker"
+        def command = "nextflow run epi2me-labs/wf-clone-validation --fastq <input folder> -profile docker"
         def help_string = ''
         help_string += NfcoreSchema.paramsHelp(workflow, params, command)
         help_string += '\n' + citation(workflow) + '\n'
