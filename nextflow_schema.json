@@ -53,16 +53,18 @@
                 },
                 "db_directory": {
                     "type": "string",
-                    "description": "Directory where the annotation database is stored.",
-                    "default": "$projectDir/data/BLAST_db",
-                    "help_text": "An generic annotation database can be obtained with the following commands:\n wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/wf-clone-validation-db.tar.gz\n tar -xzvf wf-clone-validation-db.tar.gz\n\nThis will create a directory `wf-clone-validation` in the current working directory which can be provided as the `--db_directory` parameter."
+                    "description": "Directory where the annotation database is stored. A generic annotation database can be obtained with the following two commands: 1. wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/wf-clone-validation-db.tar.gz 2. tar -xzvf wf-clone-validation-db.tar.gz  This will create a directory `wf-clone-validation` in the current working directory which can be provided as the `--db_directory` parameter.",
+                    "default": "$projectDir/data/BLAST_db"
                 },
                 "host_reference": {
                     "type": "string",
                     "default": "NO_HOST_REF",
                     "description": "FASTA file, reads which map to it are discarded."
                 }
-            }
+            },
+            "required": [
+                "db_directory"
+            ]
         },
         "meta_data": {
             "title": "Meta data",
