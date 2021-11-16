@@ -37,6 +37,16 @@ The primary outputs of the workflow include:
 * a feature table containing annotations for each of the samples
 * an HTML report document detailing the primary findings of the workflow.
 
+**Download the required database**
+
+The workflow requires a database which can be downloaded and unzipped using these commands.
+
+```
+wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/wf-clone-validation-db.tar.gz
+tar -xzvf wf-clone-validation-db.tar.gz
+```
+The location of the database will need to be specified with the --db_directory parameter. 
+
 ## Useful links
 
 * [nextflow](https://www.nextflow.io/)

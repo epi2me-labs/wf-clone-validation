@@ -477,7 +477,7 @@ workflow {
         params.fastq, workDir, params.samples, params.sanitize_fastq,
         params.min_barcode, params.max_barcode)
 
-    database = file(params.db_directory, type: "dir")
+    database = file(params.db_directory, type: "dir", checkIfExists:true)
     host_reference = file(params.host_reference, type: "file")
     regions_bedfile = file(params.regions_bedfile, type: "file")
     primer_file = file("$projectDir/data/OPTIONAL_FILE")

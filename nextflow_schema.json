@@ -54,7 +54,7 @@
                 "db_directory": {
                     "type": "string",
                     "description": "Directory where the annotation database is stored. A generic annotation database can be obtained with the following two commands: 1. wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/wf-clone-validation-db.tar.gz 2. tar -xzvf wf-clone-validation-db.tar.gz  This will create a directory `wf-clone-validation` in the current working directory which can be provided as the `--db_directory` parameter.",
-                    "default": "$projectDir/data/BLAST_db"
+                    "default": "$projectDir/wf-clone-validation-db"
                 },
                 "host_reference": {
                     "type": "string",
