@@ -406,8 +406,9 @@ workflow pipeline {
         assemblies = assembleCore(samples_filtered)
 
         named_drafts = nameIt(assemblies.assembly)
-        named_samples = nameIt(samples_filtered)
+        named_samples = nameIt(assemblies.downsampled)
         named_drafts_samples = named_drafts.join(named_samples)
+
 
         // Polish draft assembly
         polished = medakaPolishAssembly(named_drafts_samples)
