@@ -5,7 +5,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## [unreleased]
+## [v0.1.5]
+### Added
+- Singularity profile to config.
 ### Fixed
 - db_directory description and explained in README
 - db_directory param updated to match s3 folder name
