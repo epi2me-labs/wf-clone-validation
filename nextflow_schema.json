@@ -134,7 +134,7 @@
             "properties": {
                 "wfversion": {
                     "type": "string",
-                    "default": "v0.1.3",
+                    "default": "v0.1.5",
                     "hidden": true,
                     "description": "Workflow version"
                 },
