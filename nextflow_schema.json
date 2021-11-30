@@ -17,9 +17,13 @@
                     "fa_icon": "fab fa-adobe",
                     "help_text": "If directories named \"barcode*\" are found under the `--fastq` directory the data is assumed to be multiplex and each barcode directory will be processed independently. If `.fastq(.gz)` files are found under the `--fastq` directory the sample is assumed to not be multiplexed. In this second case `--samples` should be a simple name rather than a CSV file."
                 },
-                "samples": {
+                "sample": {
                     "type": "string",
-                    "description": "CSV file with columns named `barcode` and `sample_name`. (or simply a sample name for non-multiplexed data)"
+                    "description": "A sample name for non-multiplexed data. Permissible if passing a file or directory of .fastq(.gz)."
+                },
+                "sample_sheet": {
+                    "type": "string",
+                    "description": "CSV file with columns named `barcode`, `sample_name` and `type`. Permissible if passing a directory containing barcodeXX sub-directories."
                 },
                 "out_dir": {
                     "type": "string",
@@ -81,7 +85,13 @@
                 "prefix": {
                     "type": "string",
                     "description": "The prefix attached to each of the output filenames."
+                },
+                "disable_ping": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable to prevent sending a workflow ping."
                 }
+
             }
         },
         "advanced_options": {

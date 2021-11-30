@@ -8,11 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [v0.1.5]
 ### Added
 - Singularity profile to config.
+- Ping telemetry file.
+- Handle more fastq input directory structures.
 ### Fixed
 - db_directory description and explained in README
 - db_directory param updated to match s3 folder name
 ### Changed
 - Use downsampled samples for polish assembly step.
+
 
 ## [v0.1.4]
 ### Added
