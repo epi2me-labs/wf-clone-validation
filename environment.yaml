@@ -23,4 +23,5 @@ dependencies:
     - last
     - rasusa
     - pyspoa
+    - epi2melabs
 

@@ -4,6 +4,7 @@ import groovy.json.JsonBuilder
 nextflow.enable.dsl = 2
 
 include { fastq_ingress } from './lib/fastqingress' 
+include { start_ping; end_ping } from './lib/ping'
 
 
 def nameIt(ch) {
@@ -16,10 +17,10 @@ process combineFastq {
     label "wfplasmid"
     cpus 1
     input:
-        tuple file(directory), val(sample_name) 
+        tuple path(directory), val(sample_id), val(type)
     output:
-        path "${sample_name}.fastq.gz", optional: true, emit: sample
-        path "${sample_name}.stats", optional: true, emit: stats
+        path "${sample_id}.fastq.gz", optional: true, emit: sample
+        path "${sample_id}.stats", optional: true, emit: stats
         env STATUS, emit: status
     script:
         def expected_depth = "$params.assm_coverage"
@@ -30,12 +31,12 @@ process combineFastq {
         int max = (expected_length_max.toInteger()) * 1.5
         int min = (expected_length_min.toInteger()) * 0.5
     """
-    STATUS=${sample_name}",Failed due to insufficient reads"
-    fastcat -s ${sample_name} -r ${sample_name}.stats -x ${directory} > /dev/null
-    fastcat -a "$min" -b "$max" -s ${sample_name} -r ${sample_name}.interim -x ${directory} > ${sample_name}.fastq
-    if [[ "\$(wc -l <"${sample_name}.interim")" -ge "$value" ]];  then 
-        gzip ${sample_name}.fastq
-        STATUS=${sample_name}",Completed successfully"
+    STATUS=${sample_id}",Failed due to insufficient reads"
+    fastcat -s ${sample_id} -r ${sample_id}.stats -x ${directory} > /dev/null
+    fastcat -a "$min" -b "$max" -s ${sample_id} -r ${sample_id}.interim -x ${directory} > ${sample_id}.fastq
+    if [[ "\$(wc -l <"${sample_id}.interim")" -ge "$value" ]];  then 
+        gzip ${sample_id}.fastq
+        STATUS=${sample_id}",Completed successfully"
     fi
     """
 }
@@ -450,6 +451,7 @@ workflow pipeline {
             report.json)
     emit:
         results
+        telemetry = workflow_params
 }
 
 
@@ -473,11 +475,11 @@ process output {
 // entrypoint workflow
 WorkflowMain.initialise(workflow, params, log)
 workflow {
-
+    // Start ping
+    start_ping()
     samples = fastq_ingress(
-        params.fastq, workDir, params.samples, params.sanitize_fastq,
+        params.fastq, params.out_dir, params.sample, params.sample_sheet, params.sanitize_fastq,
         params.min_barcode, params.max_barcode)
-
     database = file(params.db_directory, type: "dir", checkIfExists:true)
     host_reference = file(params.host_reference, type: "file")
     regions_bedfile = file(params.regions_bedfile, type: "file")
@@ -494,5 +496,7 @@ workflow {
     // Run pipeline
     results = pipeline(samples, host_reference, regions_bedfile, database, primer_file, align_ref)
 
-    output(results)
+    output(results[0])
+    // End ping
+    end_ping(pipeline.out.telemetry)
 }
