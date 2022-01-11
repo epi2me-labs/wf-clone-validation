@@ -1,8 +1,9 @@
 {
     "$schema": "http://json-schema.org/draft-07/schema",
     "$id": "https://raw.githubusercontent.com/./master/nextflow_schema.json",
-    "title": ". pipeline parameters",
-    "description": "",
+    "title": "epi2me-labs/wf-clone-validation",
+    "description": "De novo assemble plasmid sequences from Oxford Nanopore data.",
+    "url": "https://github.com/epi2me-labs/wf-clone-validation",
     "type": "object",
     "definitions": {
         "input_output_options": {
@@ -13,6 +14,7 @@
             "properties": {
                 "fastq": {
                     "type": "string",
+                    "format": "path",
                     "description": "Directory containing fastq input files. May contain fastq files directly or directories name barcodeXX relating to independent samples.",
                     "fa_icon": "fab fa-adobe",
                     "help_text": "If directories named \"barcode*\" are found under the `--fastq` directory the data is assumed to be multiplex and each barcode directory will be processed independently. If `.fastq(.gz)` files are found under the `--fastq` directory the sample is assumed to not be multiplexed. In this second case `--samples` should be a simple name rather than a CSV file."
@@ -23,6 +25,7 @@
                 },
                 "sample_sheet": {
                     "type": "string",
+                    "format": "file-path",
                     "description": "CSV file with columns named `barcode`, `sample_name` and `type`. Permissible if passing a directory containing barcodeXX sub-directories."
                 },
                 "out_dir": {
@@ -53,6 +56,7 @@
             "properties": {
                 "reference": {
                     "type": "string",
+                    "format": "file-path",
                     "description": "Optional file containing reference sequence to align inserts with."
                 },
                 "db_directory": {
