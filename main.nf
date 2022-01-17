@@ -98,6 +98,14 @@ process assembleCore {
         int max_len = params.approx_size * 1.2
         int min_q = 7
         int exit_number = task.attempt <= 5 ? 1 : 0
+        def cluster_option = (params.canu_useGrid == false) ? """\
+        -useGrid=false \
+        -obtovlThreads=$params.threads \
+        -utgovlThreads=$params.threads \
+        -corThreads=$params.threads \
+        -redThreads=$params.threads \
+        -batThreads=$params.threads """ : ""
+
     """
     ############################################################
     # Trimming
@@ -143,7 +151,8 @@ process assembleCore {
             -d assm_\${SUBSET_NAME} \
             -maxThreads=$params.threads \
             genomeSize=$params.approx_size \
-            -nanopore \$SUBSET 
+            -nanopore \$SUBSET \
+            $cluster_option
     done) && STATUS="${name},Failed to trim Assembly" &&
 
     ############################################################
