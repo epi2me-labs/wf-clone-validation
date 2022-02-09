@@ -61,11 +61,13 @@
                 },
                 "db_directory": {
                     "type": "string",
+                    "format": "directory-path",
                     "description": "Directory where the annotation database is stored. A generic annotation database can be obtained with the following two commands: 1. wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/wf-clone-validation-db.tar.gz 2. tar -xzvf wf-clone-validation-db.tar.gz  This will create a directory `wf-clone-validation` in the current working directory which can be provided as the `--db_directory` parameter.",
                     "default": "$projectDir/wf-clone-validation-db"
                 },
                 "host_reference": {
                     "type": "string",
+                    "format": "file-path",
                     "default": "NO_HOST_REF",
                     "description": "FASTA file, reads which map to it are discarded."
                 }
@@ -122,11 +124,9 @@
                 "min_barcode": {
                     "type": "string",
                     "description": "Minimum number in barcode range",
-                    "default": "null"
                 },
                 "max_barcode": {
                     "type": "string",
-                    "default": "null",
                     "description": "Maximum number in barcode range"
                 },
                 "canu_useGrid": {
