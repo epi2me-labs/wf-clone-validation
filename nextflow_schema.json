@@ -123,7 +123,7 @@
                 },
                 "min_barcode": {
                     "type": "string",
-                    "description": "Minimum number in barcode range",
+                    "description": "Minimum number in barcode range"
                 },
                 "max_barcode": {
                     "type": "string",
