@@ -1,5 +1,3 @@
-barcode,sample_name,alias
-barcode01,sample01,sample01
-barcode02,sample02,sample02
-barcode03,sample03,sample03
-barcode04,sample04,sample04
+barcode,sample_id,approx_size
+barcode04,sample04,3500
+barcode06,sample06,1500

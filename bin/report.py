@@ -7,80 +7,14 @@ import os
 
 
 from aplanat import bars, report
-from aplanat import json_item
 from aplanat.components import fastcat
 from aplanat.components import simple as scomponents
 import aplanat.graphics
 from aplanat.util import Colors
 from bokeh.layouts import layout
 from bokeh.models import Panel, Tabs
-import numpy as np
 import pandas as pd
-from plannotate import annotate
-from plannotate import BLAST_hit_details
 from plannotate import get_bokeh
-import pysam
-from spoa import poa
-
-
-def run_plannotate(fasta, blast_db, linear=False):
-    """Run annotate and create Bokeh plot."""
-    with pysam.FastxFile(fasta) as fh:
-        seq = next(fh).sequence
-
-    df = annotate(seq, blast_db, linear)
-    df = BLAST_hit_details.details(df)
-    plot = get_bokeh(df, linear)
-    plot.xgrid.grid_line_color = None
-    plot.ygrid.grid_line_color = None
-    df = clean_results(df)
-
-    return plot, df
-
-
-def clean_results(df):
-    """Clean-up annotation dataframe for display."""
-    rename = {
-        'Feature': 'Feature', 'uniprot': 'Uniprot ID',
-        'db': 'Database',
-        'pident': 'Identity', 'abs percmatch': 'Match Length',
-        'Description': 'Description',
-        'qstart': 'Start Location', 'qend': 'End Location', 'length': 'Length',
-        'sframe': 'Strand', 'db': 'Database',
-        'qlen': 'qlen'}
-    numeric_columns = ['Identity', 'Match Length']
-    display_columns = [
-        'Feature', 'Uniprot ID',
-        'Database',
-        'Identity', 'Match Length',
-        'Description',
-        'Start Location', 'End Location', 'Length',
-        'Strand', 'qlen']
-    df = df.rename(columns=rename)[display_columns]
-    df['Plasmid length'] = df.iloc[0]['qlen']
-    df = df.drop(columns='qlen')
-    df[numeric_columns] = np.round(df[numeric_columns], 1).astype(str) + "%"
-    df.loc[df['Database'] == "infernal", 'Identity'] = "-"
-    df.loc[df['Database'] == "infernal", 'Match Length'] = "-"
-    df = df.set_index("Feature", drop=True).reset_index()
-    return df
-
-
-def per_assembly(database, sample_file, item):
-    """Run plannotate for a sample.
-
-    :param database:
-    :param sample_file:
-    :param item: the sample
-    """
-    plot, annotations = run_plannotate(sample_file, database)
-    with pysam.FastxFile(sample_file) as fh:
-        seq_len = len(next(fh).sequence)
-    tup = {'sample_name': item,
-           'plot': plot,
-           'annotations': annotations,
-           'seq_len': seq_len}
-    return(tup)
 
 
 def tidyup_status_file(status_sheet):
@@ -107,84 +41,12 @@ def tidyup_status_file(status_sheet):
     return(status_df, passed_list, all_sample_names, pass_fail_dic)
 
 
-def output_feature_table(data):
-    """Build feature table text file or if no data output empty file."""
-    if data:
-        df = data[0]['annotations']
-        sample_column = data[0]['sample_name']
-        df.insert(0, 'Sample_name', sample_column)
-        df.to_csv('feature_table.txt', mode='a', header=True, index=False)
-        for sample in data[1:]:
-            df = sample['annotations']
-            sample_column = sample['sample_name']
-            df.insert(0, 'Sample_name', sample_column)
-            df.to_csv('feature_table.txt', mode='a', header=False, index=False)
-    else:
-        # If no samples passed create empty feature_table file
-        feature_file = open("feature_table.txt", "w")
-        feature_file.write(
-"""Sample_name,Feature,Uniprot ID,Database,Identity,Match Length,Description,Start Location,End Location,Length,Strand,Plasmid length""") # noqa
-        feature_file.close()
-
-
-def pair_samples_with_mafs(sample_names):
-    """Match Assembly sequences with mafs."""
-    fasta_mafs = {}
-    for sample_name in sample_names:
-        fasta = 'assemblies/' + sample_name + '.final.fasta'
-        maf = 'assembly_maf/' + sample_name + '.final.fasta.maf'
-        if os.path.exists(fasta) and os.path.exists(maf):
-            fasta_mafs[sample_name] = {'fasta': fasta,
-                                       'maf': maf}
-        else:
-            print("Missing data required for report: " + sample_name)
-    return(fasta_mafs)
-
-
 def read_files(summaries, sep='\t'):
     """Read a set of files and join to single dataframe."""
     dfs = list()
     for fname in sorted(summaries):
         dfs.append(pd.read_csv(fname, sep=sep))
     return pd.concat(dfs)
-
-
-def reverse_complement(seq):
-    """Read a seq return reverse complement."""
-    comp = {
-        'A': 'T', 'T': 'A', 'C': 'G', 'G': 'C', 'X': 'X', 'N': 'N'}
-    comp_trans = seq.maketrans(''.join(comp.keys()), ''.join(comp.values()))
-    return seq.translate(comp_trans)[::-1]
-
-
-def read_seqkit(bed_files, sep='\t'):
-    """Read seqkit bed files and join to single dataframe."""
-    dfs = list()
-    bed_dic = {}
-    for fname in sorted(bed_files):
-        df = pd.read_csv(fname, sep=sep,
-                         header=None, names=(
-                             ['Sample', 'start',
-                              'end', 'primer', 'score',
-                              'strand', 'sequence']))
-        seq = str(df['sequence'][0])
-        # need to find the sequence if seq spans origin
-        if seq == 'nan':
-            file_name = os.path.join(
-                        'assemblies/', df['Sample'][0] + '.final.fasta')
-            with open(file_name, "r") as fp:
-                whole_seq = fp.readlines()[1][:-1:]
-            rev_comp = reverse_complement(whole_seq)
-            strand_seq = {'-': rev_comp, '+': whole_seq}
-            parse_seq = strand_seq[str(df['strand'][0])]
-            final_seq = parse_seq[df['start'][0]::] + parse_seq[:df['end'][0]:]
-            df['sequence'][0] = final_seq
-        else:
-            pass
-        bed_dic[df['Sample'][0]] = df['sequence'][0]
-        dfs.append(df)
-    bed_df = pd.concat(dfs).drop(['score', 'sequence'], axis=1)
-    return (bed_df, bed_dic)
 
 
 def fastcat_report_tab(file_name, tab_name):
@@ -194,14 +56,15 @@ def fastcat_report_tab(file_name, tab_name):
     min_length = df["read_length"].min()
     max_length = df["read_length"].max()
     lengthplot = fastcat.read_length_plot(
-                df,
-                min_len=min_length,
-                max_len=max_length)
+        df,
+        min_len=min_length,
+        max_len=max_length)
     qstatplot = fastcat.read_quality_plot(df)
     exec_summary = aplanat.graphics.InfoGraphItems()
-    exec_summary.append('No. reads',
-                        str(depth),
-                        "bars", '')
+    exec_summary.append(
+        'No. reads',
+        str(depth),
+        "bars", '')
     exec_plot = aplanat.graphics.infographic(
         exec_summary.values(), ncols=1)
     tab = Panel(child=layout(
@@ -238,17 +101,7 @@ def main():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         add_help=False)
     parser.add_argument(
-        "--assembly_mafs",
-        nargs='*',
-        required=True
-    )
-    parser.add_argument(
         "--downsampled_stats",
-        nargs='+',
-        required=True
-    )
-    parser.add_argument(
-        "--consensus",
         nargs='+',
         required=True
     )
@@ -259,9 +112,6 @@ def main():
         "--commit", default='unknown',
         help="git commit number")
     parser.add_argument(
-        "--database", default='unknown',
-        help="database to use, directory containing BLAST et. al. files.")
-    parser.add_argument(
         "--status", nargs='+',
         help="status")
     parser.add_argument(
@@ -271,17 +121,17 @@ def main():
         "--host_filter_stats", nargs='+',
         help="fastcat stats file after host filtering")
     parser.add_argument(
-        "--primer_beds", nargs='+',
-        help="bed files of extracted sequences")
-    parser.add_argument(
-        "--align_ref", nargs='+',
-        help="insert alignment reference file")
-    parser.add_argument(
         "--params", default=None,
         help="A csv containing the parameter key/values")
     parser.add_argument(
         "--versions",
         help="directory contained CSVs containing name,version.")
+    parser.add_argument(
+        "--plannotate_json",
+        help="Plannotate Json.")
+    parser.add_argument(
+        "--inserts_json",
+        help="inserts Json.")
     parser.add_argument(
         "--report_name",
         help="report name")
@@ -320,52 +170,28 @@ def main():
     # We defer this until processing through all the samples in the loop below
     summary_placeholder = report_doc.add_section(key='stats_table')
     pass_fail = tidyup_status_file(args.status)
-
     # find inserts and put in dir
-    section = report_doc.add_section()
     current_directory = os.getcwd()
     make_directory = os.path.join(current_directory, r'inserts')
     if not os.path.exists(make_directory):
         os.makedirs(make_directory)
-    if args.primer_beds[0] != "primer_beds/OPTIONAL_FILE":
-        seq_segment = read_seqkit(args.primer_beds)[0]
-        section.markdown("""
+    if os.stat(args.inserts_json).st_size != 0:
+        inserts = json.load(open(args.inserts_json))
+        insert_placeholder = report_doc.add_section(key='insert_table')
+        seq_segment = inserts['bed_df']
+        seq_segment = pd.read_json(inserts['bed_df'])
+        insert_placeholder.markdown("""
 ### Insert sequences
 This table shows which primers were found in the consensus sequence
 of each sample and where the inserts were found.
 """)
-        section.table(seq_segment, key='sequences')
-        inserts = ''
-        allseq = []
-        names = []
-        # Align with reference if included
-        if args.align_ref[0] != 'OPTIONAL_FILE':
-            with open(args.align_ref[0]) as f:
-                ref_seq = f.readline().strip()
-                allseq.append(ref_seq)
-                names.append('Reference')
-        for k, v in read_seqkit(args.primer_beds)[1].items():
-            inserts += str(k) + ' ' + str(v) + '</br>'
-            insert_fn = os.path.join('inserts/', str(k) + '.insert.fasta')
-            with open(insert_fn, "a") as fp:
-                fp.write('>' + k + '\n' + v + '\n')
-            allseq.append(v)
-            names.append(k)
-        msa_report = []
-        msa = poa(allseq)[1]
+        section = report_doc.add_section()
         section.markdown("""
 ### Multiple sequence alignment
 This section shows the inserts aligned with each other or a reference
 sequence if provided.
 """)
-        # make sure names are all same length for MSA
-        msa_names = []
-        for name in names:
-            new_name = name + (' '*(max(map(len, names))-len(name)))
-            msa_names.append(new_name)
-        for i in range(0, len(msa)):
-            msa_report.append(msa_names[i] + ' ' + msa[i])
-        section.markdown("<pre>" + os.linesep.join(msa_report) + "</pre>")
+        section.markdown("<pre>" + os.linesep.join(inserts['msa']) + "</pre>")
 
     # Per sample details
     section = report_doc.add_section()
@@ -387,11 +213,9 @@ cloning steps.
 The Plasmid annotation plot and feature table are produced using
 [Plannotate](http://plannotate.barricklab.org/).
 """)
-    sample_data = pair_samples_with_mafs(pass_fail[1])
     passed_samples = pass_fail[1]
     host_ref_stats = args.host_filter_stats
     downsampled_stats = args.downsampled_stats
-    database = args.database
     initial_stats = args.per_barcode_stats
     if ('host_filter_stats/OPTIONAL_FILE' in host_ref_stats):
         host_filt = host_ref_stats.remove('host_filter_stats/OPTIONAL_FILE')
@@ -407,44 +231,34 @@ The Plasmid annotation plot and feature table are produced using
     else:
         summary_stats = downsampled_stats
     sample_names = pass_fail[2]
-    final_samples = []
     fast_cat_dic = create_fastcat_dic(
         sample_names, initial_stats, host_filt, summary_stats)
-    json_file = open("plannotate.json", "a")
+    plannotate = json.load(open(args.plannotate_json))
     sample_stats = []
-    plannotate_collection = {}
+
+    # stats graphs and plannotate where appropriate
     for item in sample_names:
         section = report_doc.add_section()
         section.markdown('### Sample: {}'.format(str(item)))
         if item in passed_samples:
             section.markdown('*{}*'.format(pass_fail[3][item]))
-            sample_file = sample_data[item]['fasta']
-            tup_dic = per_assembly(database, sample_file, item)
-            final_samples.append(tup_dic)
+            tup_dic = plannotate[item]
+            annotations = pd.read_json(tup_dic['annotations'])
+            plot = get_bokeh(pd.read_json(tup_dic['plot']), False)
             fast_cat_tabs = fast_cat_dic[item]
             alltabs = []
             for key, value in fast_cat_tabs.items():
                 alltabs.append(fastcat_report_tab(value, key))
             cover_panel = Tabs(tabs=alltabs)
-            plasmidplot = [tup_dic['plot']]
+            plasmidplot = [plot]
             stats_table = [item] + [int(tup_dic['seq_len'])]
             sample_stats.append(stats_table)
             section.plot(layout(
                             [[cover_panel, plasmidplot]],
                             sizing_mode='scale_width'))
-            section.table((tup_dic['annotations']).drop(
+            section.table(annotations.drop(
                 columns=['Plasmid length']),
                 index=False, key="table"+str(item))
-            plasmid_len = tup_dic['annotations']['Plasmid length'][0]
-            plannotate_dic = {"barcode": item, "reflen": plasmid_len}
-            feature_dic = tup_dic['annotations'].drop(
-                          ['Plasmid length'], axis=1)
-            features = feature_dic.to_dict('records')
-            output_json = json_item(tup_dic['plot'])
-            plannotate_dic = {"reflen": float(plasmid_len),
-                              "features": features,
-                              "plot": output_json['doc']}
-            plannotate_collection[item] = plannotate_dic
         else:
             section.markdown('*{}*'.format(pass_fail[3][item]))
             fast_cat_tabs = fast_cat_dic[item]
@@ -455,10 +269,6 @@ The Plasmid annotation plot and feature table are produced using
             section.plot(cover_panel)
             stats_table = [item] + ['N/A']
             sample_stats.append(stats_table)
-    json_object = json.dumps(plannotate_collection, indent=4)
-    json_file.write(json_object)
-    json_file.close()
-    output_feature_table(final_samples)
 
     # high level sample status table
     summary_placeholder.markdown("### Sample status")
@@ -468,6 +278,23 @@ The Plasmid annotation plot and feature table are produced using
     summary_placeholder.table(merged_inner, index=False, key='stats_table')
     merged_inner.to_csv('sample_status.txt', index=False)
 
+    def insert_len(start, end, length):
+        if end >= start:
+            insert_length = end - start
+        else:
+            insert_length = (length - start) + end
+        return insert_length
+
+    if os.stat(args.inserts_json).st_size != 0:
+        test_df = seq_segment.merge(stats_df, how='left')
+        test_df['Insert length'] = list(
+            map(
+                insert_len,
+                test_df['start'],
+                test_df['end'],
+                test_df['Length']))
+        test_df = test_df.drop(columns='Length')
+        insert_placeholder.table(test_df, index=False, key='insert_table')
     # Versions and params
     report_doc.add_section(
         section=scomponents.version_table(args.versions))

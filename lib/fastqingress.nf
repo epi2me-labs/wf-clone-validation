@@ -20,10 +20,11 @@ process checkSampleSheet {
     cpus 1
     input:
         file "sample_sheet.txt"
+        val approx_size
     output:
         file "samples.txt"
     """
-    check_sample_sheet.py sample_sheet.txt samples.txt
+    check_sample_sheet.py sample_sheet.txt samples.txt $approx_size
     """
 }
 
@@ -37,11 +38,11 @@ process checkSampleSheet {
  * @param sample_name Name to give the sample
  * @return Channel of tuples (path, sample_id, type)
  */
-def handle_single_file(input_file, sample_name)
+def handle_single_file(input_file, sample_name, approx_size)
 {
     singleFile = Channel.fromPath(input_file)
     sample = handleSingleFile(singleFile)
-    return sample.map { it -> tuple(it, sample_name === null ? it.simpleName : sample_name, 'test_sample') }
+    return sample.map { it -> tuple(it, sample_name === null ? it.simpleName : sample_name, approx_size, 'test_sample') }
 }
 
 
@@ -125,7 +126,7 @@ def get_subdirectories(input_directory)
  * @param samples CSV file according to MinKNOW sample sheet specification
  * @return A Nextflow Channel of tuples (barcode, sample name, sample type)
  */ 
-def get_sample_sheet(sample_sheet)
+def get_sample_sheet(sample_sheet, approx_size)
 {
     println("Checking sample sheet.")
     sample_sheet = file(sample_sheet);
@@ -136,11 +137,12 @@ def get_sample_sheet(sample_sheet)
         exit 1
     }
 
-    return checkSampleSheet(sample_sheet)
+    return checkSampleSheet(sample_sheet, approx_size)
         .splitCsv(header: true)
         .map { row -> tuple(
             row.barcode, 
             row.sample_id, 
+            row.approx_size,
             row.type ? row.type : 'test_sample') 
         }
 }
@@ -207,11 +209,11 @@ def get_valid_directories(input_dirs)
  * @param sample_name Name to give the sample
  * @return Channel of tuples (path, sample_id, type)
  */
-def handle_flat_dir(input_directory, sample_name) 
+def handle_flat_dir(input_directory, sample_name, approx_size) 
 {
     valid_dirs= get_valid_directories([ file(input_directory) ])
     return Channel.fromPath(valid_dirs)
-        .map { it -> tuple(it, sample_name === null ? it.baseName : sample_name, 'test_sample') }
+        .map { it -> tuple(it, sample_name === null ? it.baseName : sample_name, approx_size, 'test_sample') }
 }
 
 
@@ -223,9 +225,9 @@ def handle_flat_dir(input_directory, sample_name)
  * @param barcoded_dirs List of barcoded directories (barcodeXX,...)
  * @param sample_sheet List of tuples mapping barcode to sample name
  *     or a simple string for non-multiplexed data.
- * @return Channel of tuples (path, sample_id, type)
+ * @return Channel of tuples (path, sample_id, approx_size, type)
  */
-def handle_barcoded_dirs(barcoded_dirs, sample_sheet)
+def handle_barcoded_dirs(barcoded_dirs, sample_sheet, approx_size)
 {
     valid_dirs = get_valid_directories(barcoded_dirs)
 
@@ -234,14 +236,14 @@ def handle_barcoded_dirs(barcoded_dirs, sample_sheet)
         sample_sheet = Channel
             .fromPath(valid_dirs)
             .filter(~/.*barcode[0-9]{1,3}$/)  // up to 192
-            .map { path -> tuple(path.baseName, path.baseName, 'test_sample') }
+            .map { path -> tuple(path.baseName, path.baseName, approx_size, 'test_sample') }
     }
     return Channel
         .fromPath(valid_dirs)
         .filter(~/.*barcode[0-9]{1,3}$/)  // up to 192
         .map { path -> tuple(path.baseName, path) }
         .join(sample_sheet)
-        .map { barcode, path, sample, type -> tuple(path, sample, type) }
+        .map { barcode, path, sample, size, type -> tuple(path, sample, size, type) }
 }
 
 
@@ -305,11 +307,11 @@ def barcode_range(barcoded_dirs, min_barcode, max_barcode)
  * @param non_barcoded_dirs List of directories (mydir,...)
  * @return Channel of tuples (path, sample_id, type)
  */
-def handle_non_barcoded_dirs(non_barcoded_dirs)
+def handle_non_barcoded_dirs(non_barcoded_dirs, approx_size)
 {
     valid_dirs = get_valid_directories(non_barcoded_dirs)
     return Channel.fromPath(valid_dirs)
-        .map { path -> tuple(path, path.baseName, 'test_sample') }
+        .map { path -> tuple(path, path.baseName, approx_size, 'test_sample') }
 }
 
 
@@ -323,9 +325,10 @@ def handle_non_barcoded_dirs(non_barcoded_dirs)
  * @param sample_sheet Path to sample sheet CSV file.
  * @param min_barcode minimum barcode of valid range (default: null)
  * @param max_barcode maximum barcode of valid range (default: null)
+ * @param approx_size approx size to check sample_sheet
  * @return Channel of tuples (path, sample_id, type)
  */
-def fastq_ingress(input, output_folder, sample, sample_sheet, sanitize, min_barcode, max_barcode)
+def fastq_ingress(input, output_folder, sample, sample_sheet, sanitize, min_barcode, max_barcode, approx_size)
 {   
     println("Checking fastq input.")
     input = file(input);
@@ -337,7 +340,7 @@ def fastq_ingress(input, output_folder, sample, sample_sheet, sanitize, min_barc
         if (sample_sheet) {
             println('Warning: `--sample_sheet` given but single file input found. Ignoring.')
         }
-        return handle_single_file(input, sample)
+        return handle_single_file(input, sample, approx_size)
     }
 
     // Handle directory input
@@ -357,7 +360,7 @@ def fastq_ingress(input, output_folder, sample, sample_sheet, sanitize, min_barc
             if (sample_sheet) {
                 println('Warning: `--sample_sheet` given but single non-barcode directory found. Ignoring.')
             }
-            return handle_flat_dir(input, sample)
+            return handle_flat_dir(input, sample, approx_size)
         }
 
         if (sample) {
@@ -371,10 +374,10 @@ def fastq_ingress(input, output_folder, sample, sample_sheet, sanitize, min_barc
         if (barcoded) {
             println("Barcoded directories detected.")
             if (sample_sheet) {
-                sample_sheet = get_sample_sheet(sample_sheet)
+                sample_sheet = get_sample_sheet(sample_sheet, approx_size)
             }
             barcoded_in_range = barcode_range(barcoded, min_barcode, max_barcode)
-            barcoded_samples = handle_barcoded_dirs(barcoded_in_range, sample_sheet)
+            barcoded_samples = handle_barcoded_dirs(barcoded_in_range, sample_sheet, approx_size)
         }
 
         non_barcoded_samples = Channel.empty()
@@ -383,7 +386,7 @@ def fastq_ingress(input, output_folder, sample, sample_sheet, sanitize, min_barc
             if (!barcoded && sample_sheet) {
                 println('Warning: `--sample_sheet` given but no barcode directories found.')
             }
-            non_barcoded_samples = handle_non_barcoded_dirs(non_barcoded)
+            non_barcoded_samples = handle_non_barcoded_dirs(non_barcoded, approx_size)
         }
 
         return barcoded_samples.mix(non_barcoded_samples)

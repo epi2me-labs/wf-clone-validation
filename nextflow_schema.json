@@ -26,7 +26,7 @@
                 "sample_sheet": {
                     "type": "string",
                     "format": "file-path",
-                    "description": "CSV file with columns named `barcode`, `sample_name` and `type`. Permissible if passing a directory containing barcodeXX sub-directories."
+                    "description": "CSV file with columns named `barcode`, `sample_name` and optionally `type`, `approx_size`. Permissible if passing a directory containing barcodeXX sub-directories."
                 },
                 "out_dir": {
                     "type": "string",
@@ -112,7 +112,7 @@
                 "approx_size": {
                     "type": "integer",
                     "default": 7000,
-                    "description": "Approximate size of the plasmid in base pairs"
+                    "description": "Approximate size of the plasmid in base pairs, can also be defined per sample in sample_sheet"
                 },
                 "regions_bedfile": {
                     "type": "string",
@@ -146,7 +146,7 @@
             "properties": {
                 "wfversion": {
                     "type": "string",
-                    "default": "v0.1.6",
+                    "default": "v0.1.7",
                     "hidden": true,
                     "description": "Workflow version"
                 },
