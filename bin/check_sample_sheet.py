@@ -15,7 +15,8 @@ def main():
     args = parser.parse_args()
 
     try:
-        samples = pd.read_csv(args.sample_sheet, sep=None)
+        samples = pd.read_csv(
+            args.sample_sheet, sep=None, encoding='utf-8-sig')
         if 'alias' in samples.columns:
             if 'sample_id' in samples.columns:
                 sys.stderr.write(

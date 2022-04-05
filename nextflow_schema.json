@@ -120,11 +120,11 @@
                     "description": "BED file, mask regions within host_reference from filtering."
                 },
                 "min_barcode": {
-                    "type": "string",
+                    "type": "integer",
                     "description": "Minimum number in barcode range"
                 },
                 "max_barcode": {
-                    "type": "string",
+                    "type": "integer",
                     "description": "Maximum number in barcode range"
                 },
                 "canu_useGrid": {
