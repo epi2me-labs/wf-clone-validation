@@ -47,6 +47,7 @@ def read_seqkit(bed_files, sep='\t'):
         bed_dic[df['Sample'][0]] = df['sequence'][0]
         dfs.append(df)
     bed_df = pd.concat(dfs).drop(['score', 'sequence'], axis=1)
+    bed_df.reset_index(drop=True, inplace=True)
     return bed_df, bed_dic
 
 
@@ -103,7 +104,7 @@ def main():
             inserts += str(k) + ' ' + str(v) + '</br>'
             insert_fn = os.path.join('inserts/', str(k) + '.insert.fasta')
             with open(insert_fn, "a") as fp:
-                fp.write('>' + k + '\n' + v + '\n')
+                fp.write('>' + str(k) + '\n' + str(v) + '\n')
         if args.reference:
             msa = make_msa(seqkit[1], args.reference)
         else:
