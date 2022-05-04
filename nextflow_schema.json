@@ -95,7 +95,6 @@
                     "default": false,
                     "description": "Enable to prevent sending a workflow ping."
                 }
-
             }
         },
         "advanced_options": {
@@ -181,5 +180,9 @@
         {
             "$ref": "#/definitions/generic_options"
         }
-    ]
+    ],
+    "docs": {
+        "intro": "\n",
+        "links": "## Useful links\n\n* [nextflow](https://www.nextflow.io/)\n* [docker](https://www.docker.com/products/docker-desktop)\n* [conda](https://docs.conda.io/en/latest/miniconda.html)"
+    }
 }
