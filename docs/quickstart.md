@@ -1,9 +1,3 @@
-# Clone validation workflow
-
-This repository contains a [nextflow](https://www.nextflow.io/) workflow
-that can be used to de novo assemble plasmid sequences from Oxford Nanopore data.
-
-
 ## Quickstart
 
 The workflow uses [nextflow](https://www.nextflow.io/) to manage compute and 
@@ -48,8 +42,3 @@ tar -xzvf wf-clone-validation-db.tar.gz
 ```
 The location of the database will need to be specified with the --db_directory parameter. 
 
-## Useful links
-
-* [nextflow](https://www.nextflow.io/)
-* [docker](https://www.docker.com/products/docker-desktop)
-* [conda](https://docs.conda.io/en/latest/miniconda.html)

@@ -14,7 +14,7 @@ def groupIt(ch) {
 def nameIt(ch) {
     return ch.map { it -> return tuple(it.simpleName, it) }
 }
-
+ 
 process combineFastq {
     errorStrategy 'ignore'
     label "wfplasmid"
@@ -28,7 +28,7 @@ process combineFastq {
         tuple val(sample_id), val(approx_size), emit: approx_size 
     script:
         def expected_depth = "$params.assm_coverage"
-        // a little heuristic to decide if we have enough data
+        // a little heuristic to decide if we have enough data.
         int value = (expected_depth.toInteger()) * 0.8
         def expected_length_max = approx_size.toInteger()
         def expected_length_min = approx_size.toInteger()

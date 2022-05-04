@@ -26,7 +26,7 @@
                 "sample_sheet": {
                     "type": "string",
                     "format": "file-path",
-                    "description": "CSV file with columns named `barcode`, `sample_name` and optionally `type`, `approx_size`. Permissible if passing a directory containing barcodeXX sub-directories."
+                    "description": "CSV file with columns named `barcode`, `sample_id` and optionally `type`, `approx_size`. Permissible if passing a directory containing barcodeXX sub-directories."
                 },
                 "out_dir": {
                     "type": "string",
@@ -95,7 +95,6 @@
                     "default": false,
                     "description": "Enable to prevent sending a workflow ping."
                 }
-
             }
         },
         "advanced_options": {
@@ -146,7 +145,7 @@
             "properties": {
                 "wfversion": {
                     "type": "string",
-                    "default": "v0.1.7",
+                    "default": "v0.1.8",
                     "hidden": true,
                     "description": "Workflow version"
                 },
@@ -181,5 +180,9 @@
         {
             "$ref": "#/definitions/generic_options"
         }
-    ]
+    ],
+    "docs": {
+        "intro": "\n",
+        "links": "## Useful links\n\n* [nextflow](https://www.nextflow.io/)\n* [docker](https://www.docker.com/products/docker-desktop)\n* [conda](https://docs.conda.io/en/latest/miniconda.html)"
+    }
 }
