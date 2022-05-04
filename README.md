@@ -3,7 +3,9 @@
 This repository contains a [nextflow](https://www.nextflow.io/) workflow
 that can be used to de novo assemble plasmid sequences from Oxford Nanopore data.
 
+## Introduction
 
+This repository contains a nextflow workflow that can be used to de novo assemble plasmid sequences from Oxford Nanopore data.
 ## Quickstart
 
 The workflow uses [nextflow](https://www.nextflow.io/) to manage compute and 

@@ -182,7 +182,7 @@
         }
     ],
     "docs": {
-        "intro": "\n",
+        "intro": "## Introduction\n\nThis repository contains a nextflow workflow that can be used to de novo assemble plasmid sequences from Oxford Nanopore data.\n",
         "links": "## Useful links\n\n* [nextflow](https://www.nextflow.io/)\n* [docker](https://www.docker.com/products/docker-desktop)\n* [conda](https://docs.conda.io/en/latest/miniconda.html)"
     }
 }
