@@ -197,9 +197,10 @@ sequence if provided.
     section = report_doc.add_section()
     section.markdown("""
 ### Assemblies
-For each assembly read length statistics are displayed a [pLannotate
-plot](https://github.com/barricklab/pLannotate), a plot of the quality.
-The feature table provides descriptions of the annotated sequence.
+For each assembly, read length statistics are displayed as well as a
+[pLannotate plot](https://github.com/barricklab/pLannotate),
+and quality plots.
+A feature table provides descriptions of the annotated sequence.
 
 Unfilled features on the plannotate plots are incomplete features; the sequence
 match in the plasmid covers less than 95% of the full length of the feature in

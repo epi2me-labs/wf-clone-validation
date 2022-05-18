@@ -14,7 +14,7 @@ def groupIt(ch) {
 def nameIt(ch) {
     return ch.map { it -> return tuple(it.simpleName, it) }
 }
- 
+
 process combineFastq {
     errorStrategy 'ignore'
     label "wfplasmid"
@@ -28,7 +28,7 @@ process combineFastq {
         tuple val(sample_id), val(approx_size), emit: approx_size 
     script:
         def expected_depth = "$params.assm_coverage"
-        // a little heuristic to decide if we have enough data.
+        // a little heuristic to decide if we have enough data
         int value = (expected_depth.toInteger()) * 0.8
         def expected_length_max = approx_size.toInteger()
         def expected_length_min = approx_size.toInteger()
@@ -102,6 +102,7 @@ process assembleCore {
         int max_len = approx_size.toInteger() * 1.2
         int min_q = 7
         int exit_number = task.attempt <= 5 ? 1 : 0
+        def fast = params.fast == true ? '-fast' : ''
         def cluster_option = (params.canu_useGrid == false) ? """\
         -useGrid=false \
         -obtovlThreads=$params.threads \
@@ -111,6 +112,7 @@ process assembleCore {
         -batThreads=$params.threads """ : ""
 
     """
+    
     ############################################################
     # Trimming
     ############################################################
@@ -155,6 +157,7 @@ process assembleCore {
             -d assm_\${SUBSET_NAME} \
             -maxThreads=$params.threads \
             genomeSize=$approx_size \
+            $fast \
             -nanopore \$SUBSET \
             $cluster_option
     done) && STATUS="${name},Failed to trim Assembly" &&
@@ -515,6 +518,7 @@ workflow pipeline {
 // decoupling the publish from the process steps.
 process output {
     // publish inputs to output directory
+    label "wfplasmid"
     publishDir "${params.out_dir}", mode: 'copy', pattern: "*", saveAs: { 
         f -> params.prefix ? "${params.prefix}-${f}" : "${f}" }
     input:

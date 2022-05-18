@@ -92,7 +92,6 @@
                 },
                 "disable_ping": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Enable to prevent sending a workflow ping."
                 }
             }
@@ -134,6 +133,11 @@
                     "type": "integer",
                     "default": 150,
                     "description": "Number of base pairs to trim from the read ends"
+                },
+                "fast": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Fast option can make the assembly step significantly faster. It can be used on any genome size but may produce less continuous assemblies on genomes larger than 1 Gbp."
                 }
             }
         },
@@ -145,7 +149,7 @@
             "properties": {
                 "wfversion": {
                     "type": "string",
-                    "default": "v0.1.8",
+                    "default": "v0.1.9",
                     "hidden": true,
                     "description": "Workflow version"
                 },
