@@ -331,10 +331,10 @@ def handle_non_barcoded_dirs(non_barcoded_dirs, approx_size)
 def fastq_ingress(input, output_folder, sample, sample_sheet, sanitize, min_barcode, max_barcode, approx_size)
 {   
     println("Checking fastq input.")
-    input = file(input);
+    input_file = file(input);
 
     // Handle file input
-    if (input.isFile()) {
+    if (input_file.isFile()) {
         // Assume sample is a string at this point
         println('Single file input detected.')
         if (sample_sheet) {
@@ -344,7 +344,7 @@ def fastq_ingress(input, output_folder, sample, sample_sheet, sanitize, min_barc
     }
 
     // Handle directory input
-    if (input.isDirectory()) {
+    if (input_file.isDirectory()) {
         // EPI2ME harness 
         if (sanitize) {
             staging = file(output_folder).resolve("staging")
