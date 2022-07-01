@@ -14,7 +14,7 @@ from aplanat.util import Colors
 from bokeh.layouts import layout
 from bokeh.models import Panel, Tabs
 import pandas as pd
-from plannotate import get_bokeh
+from plannotate.bokeh_plot import get_bokeh
 
 
 def tidyup_status_file(status_sheet):

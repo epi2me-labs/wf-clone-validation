@@ -5,36 +5,34 @@ import argparse
 import json
 import os
 
-
 from aplanat import json_item
+from jinja2 import Template
 import numpy as np
 import pandas as pd
-from plannotate import annotate
-from plannotate import BLAST_hit_details
-from plannotate import get_bokeh
+from plannotate.annotate import annotate
+from plannotate.bokeh_plot import get_bokeh
 import pysam
 
 
-def run_plannotate(fasta, blast_db, linear=False):
+def run_plannotate(fasta, linear=False):
     """Run annotate and create Bokeh plot."""
     with pysam.FastxFile(fasta) as fh:
         seq = next(fh).sequence
-    df = annotate(seq, blast_db, linear)
-    df = BLAST_hit_details.details(df)
-    plot = get_bokeh(df, linear)
+    df = annotate(
+        seq, is_detailed=True, linear=linear, yaml_file="plannotate.yaml")
+    plot = get_bokeh(df, linear=linear)
     plot.xgrid.grid_line_color = None
     plot.ygrid.grid_line_color = None
     old_df = df.copy(deep=True)
     clean_df = clean_results(df)
     old_df.reset_index(drop=True, inplace=True)
-    print(clean_df, old_df)
     return plot, clean_df, old_df
 
 
 def clean_results(df):
     """Clean-up annotation dataframe for display."""
     rename = {
-        'Feature': 'Feature', 'uniprot': 'Uniprot ID',
+        'Feature': 'Feature',
         'db': 'Database',
         'pident': 'Identity', 'abs percmatch': 'Match Length',
         'Description': 'Description',
@@ -43,7 +41,7 @@ def clean_results(df):
         'qlen': 'qlen'}
     numeric_columns = ['Identity', 'Match Length']
     display_columns = [
-        'Feature', 'Uniprot ID',
+        'Feature',
         'Database',
         'Identity', 'Match Length',
         'Description',
@@ -75,14 +73,14 @@ def bed_file(item, df):
     return df
 
 
-def per_assembly(database, sample_file, item):
+def per_assembly(sample_file, item):
     """Run plannotate for a sample.
 
     :param database:
     :param sample_file:
     :param item: the sample
     """
-    plot, annotations, clean_df = run_plannotate(sample_file, database)
+    plot, annotations, clean_df = run_plannotate(sample_file)
     bed_file(item, annotations)
     with pysam.FastxFile(sample_file) as fh:
         seq_len = len(next(fh).sequence)
@@ -91,7 +89,7 @@ def per_assembly(database, sample_file, item):
         'plot': plot,
         'annotations': annotations,
         'seq_len': seq_len}
-    return(tup, clean_df)
+    return tup, clean_df
 
 
 def output_feature_table(data):
@@ -114,6 +112,74 @@ def output_feature_table(data):
         feature_file.close()
 
 
+def make_yaml(database):
+    """Create a yaml file for plannotate."""
+    template = Template(
+        """\
+Rfam:
+  details:
+    compressed: false
+    default_type: ncRNA
+    location: None
+  location: {{ database }}
+  method: infernal
+  priority: 3
+  version: release 14.5
+fpbase:
+  details:
+    compressed: false
+    default_type: CDS
+    location: Default
+  location: {{ database }}
+  method: diamond
+  parameters:
+  - -k 0
+  - --min-orf 1
+  - --matrix BLOSUM90
+  - --gapopen 10
+  - --gapextend 1
+  - --algo ctg
+  - --id 75
+  priority: 1
+  version: downloaded 2020-09-02
+snapgene:
+  details:
+    compressed: false
+    default_type: None
+    location: Default
+  location: {{ database }}
+  method: blastn
+  parameters:
+  - -perc_identity 95
+  - -max_target_seqs 20000
+  - -culling_limit 25
+  - -word_size 12
+  priority: 1
+  version: Downloaded 2021-07-23
+swissprot:
+  details:
+    compressed: true
+    default_type: CDS
+    location: Default
+  location: {{ database }}
+  method: diamond
+  parameters:
+  - -k 0
+  - --min-orf 1
+  - --matrix BLOSUM90
+  - --gapopen 10
+  - --gapextend 1
+  - --algo ctg
+  - --id 50
+  priority: 2
+  version: Release 2021_03
+        """)
+
+    plannotate_yaml = template.render(database=database)
+    with open("plannotate.yaml", "w") as text_file:
+        text_file.write(plannotate_yaml)
+
+
 def main():
     """Entry point to create a wf-clone-validation report."""
     parser = argparse.ArgumentParser(
@@ -132,12 +198,13 @@ def main():
     final_samples = []
     report_dic = {}
     plannotate_collection = {}
+    make_yaml(args.database)
     json_file = open("plannotate.json", "a")
     if args.sequences:
         for filename in os.listdir(args.sequences):
             sample_file = os.path.join(args.sequences, filename)
             name = str(filename).split('.')[0]
-            tup_dic, clean_df = per_assembly(args.database, sample_file, name)
+            tup_dic, clean_df = per_assembly(sample_file, name)
             final_samples.append(tup_dic)
             plasmid_len = tup_dic['annotations']['Plasmid length'][0]
             feature_dic = tup_dic['annotations'].drop(

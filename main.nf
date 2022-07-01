@@ -272,26 +272,6 @@ process assemblyMafs {
     '''
 }
 
-
-process sampleStatus {
-    label "wfplasmid"
-    cpus 1
-    input:
-        file assemblies
-    output:
-        path "*.maf", emit: assembly_maf
-    shell:
-    '''
-    # Get maf files for dotplots
-    for assm in !{assemblies}
-    do
-        lastdb ${assm}.lastdb $assm
-        lastal ${assm}.lastdb $assm > ${assm}.maf
-    done
-    '''
-}
-
-
 process findPrimers {
     errorStrategy 'ignore'
     label "wfplasmid"
@@ -539,7 +519,7 @@ workflow {
     samples = fastq_ingress(
         params.fastq, params.out_dir, params.sample, params.sample_sheet, params.sanitize_fastq,
         params.min_barcode, params.max_barcode, params.approx_size)
-    database = file(params.db_directory, type: "dir", checkIfExists:true)
+   
     host_reference = file(params.host_reference, type: "file")
     regions_bedfile = file(params.regions_bedfile, type: "file")
     primer_file = file("$projectDir/data/OPTIONAL_FILE")
@@ -550,7 +530,7 @@ workflow {
     if (params.reference != null){
         align_ref = file(params.reference, type: "file")
     }
-
+    database = file(params.db_directory, type: "dir", checkIfExists:true)
     
     // Run pipeline
     results = pipeline(samples, host_reference, regions_bedfile, database, primer_file, align_ref)
