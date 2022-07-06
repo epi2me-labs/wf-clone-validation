@@ -338,13 +338,15 @@ process runPlannotate {
         path "plannotate.json", emit: json
         path "*annotations.bed", emit: annotations
         path "plannotate_report.json", emit: report
+    script:
+        def database =  annotation_database.name.startsWith('OPTIONAL_FILE') ? "Default" : "${annotation_database}"
     """
     if [ -e "assemblies/OPTIONAL_FILE" ]; then
         assemblies=""
     else 
         assemblies="--sequences assemblies/"
     fi 
-    run_plannotate.py \$assemblies --database $annotation_database
+    run_plannotate.py \$assemblies --database $database
     """
 }
 
@@ -530,7 +532,11 @@ workflow {
     if (params.reference != null){
         align_ref = file(params.reference, type: "file")
     }
-    database = file(params.db_directory, type: "dir", checkIfExists:true)
+    database = file("$projectDir/data/OPTIONAL_FILE")
+    if (params.db_directory != null){
+         database = file(params.db_directory, type: "dir")
+       
+    }
     
     // Run pipeline
     results = pipeline(samples, host_reference, regions_bedfile, database, primer_file, align_ref)

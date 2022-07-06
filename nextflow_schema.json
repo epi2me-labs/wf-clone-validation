@@ -69,10 +69,7 @@
                     "default": "NO_HOST_REF",
                     "description": "FASTA file, reads which map to it are discarded."
                 }
-            },
-            "required": [
-                "db_directory"
-            ]
+            }
         },
         "meta_data": {
             "title": "Meta data",
