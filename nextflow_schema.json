@@ -31,6 +31,7 @@
                 "out_dir": {
                     "type": "string",
                     "default": "output",
+                    "format": "path",
                     "description": "Directory for output of all user-facing files."
                 },
                 "primers": {
@@ -107,7 +108,13 @@
                 "approx_size": {
                     "type": "integer",
                     "default": 7000,
-                    "description": "Approximate size of the plasmid in base pairs, can also be defined per sample in sample_sheet"
+                    "description": "Approximate size of the plasmid in base pairs, can also be defined per sample see approx_size_sheet param"
+                },
+                "approx_size_sheet": {
+                    "type": "string",
+                    "default": null,
+                    "format": "file-path",
+                    "description": "Approximate size of each plasmid in format sample_id,approx_size"
                 },
                 "regions_bedfile": {
                     "type": "string",
