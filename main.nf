@@ -20,7 +20,7 @@ process combineFastq {
     label "wfplasmid"
     cpus 1
     input:
-        tuple path(directory), val(sample_id), val(approx_size), val(type)
+        tuple val(sample_id), path(directory), val(type), val(approx_size)
     output:
         path "${sample_id}.fastq.gz", optional: true, emit: sample
         path "${sample_id}.stats", optional: true, emit: stats
@@ -333,6 +333,7 @@ process runPlannotate {
     input:
         path annotation_database
         path "assemblies/*"
+        path final_status
     output:    
         path "feature_table.txt", emit: feature_table 
         path "plannotate.json", emit: json
@@ -408,7 +409,6 @@ process report {
     """
 }
 
-
 workflow pipeline {
     take:
         samples
@@ -421,8 +421,16 @@ workflow pipeline {
     main:
         // Combine fastq from each of the sample directories into 
         // a single per-sample fastq file
-      
-        sample_fastqs = combineFastq(samples)
+        named_samples = samples.map { it -> return tuple(it[1],it[0],it[2])}
+        if(params.approx_size_sheet != null) {
+            approx_size = Channel.fromPath(params.approx_size_sheet) \
+            | splitCsv(header:true) \
+            | map { row-> tuple(row.sample_id, row.approx_size) } 
+            final_samples = named_samples.join(approx_size)}
+        else {
+            final_samples = samples.map  { it -> return tuple(it[1],it[0],it[2], params.approx_size)}
+        }
+        sample_fastqs = combineFastq(final_samples)
         // Optionally filter the data, removing reads mapping to 
         // the host or background genome
         if (host_reference.name != "NO_HOST_REF") {
@@ -467,7 +475,8 @@ workflow pipeline {
         workflow_params = getParams()
 
         annotation = runPlannotate(
-            database, polished.polished.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")))
+            database, polished.polished.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
+            final_status)
         
         insert = inserts(primer_beds.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
             polished.polished.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
@@ -518,10 +527,15 @@ WorkflowMain.initialise(workflow, params, log)
 workflow {
     // Start ping
     start_ping()
-    samples = fastq_ingress(
-        params.fastq, params.out_dir, params.sample, params.sample_sheet, params.sanitize_fastq,
-        params.min_barcode, params.max_barcode, params.approx_size)
-   
+    samples = fastq_ingress([
+        "input":params.fastq,
+        "sample":params.sample,
+        "sample_sheet":params.sample_sheet,
+        "sanitize": params.sanitize_fastq,
+        "output":params.out_dir,
+        "min_barcode":params.min_barcode,
+        "max_barcode":params.max_barcode])
+    samples.view()
     host_reference = file(params.host_reference, type: "file")
     regions_bedfile = file(params.regions_bedfile, type: "file")
     primer_file = file("$projectDir/data/OPTIONAL_FILE")

@@ -1,3 +1,5 @@
-barcode,sample_id,approx_size
-barcode04,sample04,3500
-barcode06,sample06,1500
+barcode,sample_id
+barcode01,sample01
+barcode02,sample02
+barcode04,sample04
+barcode06,sample06
