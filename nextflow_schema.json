@@ -112,7 +112,6 @@
                 },
                 "approx_size_sheet": {
                     "type": "string",
-                    "default": null,
                     "format": "file-path",
                     "description": "Approximate size of each plasmid in format sample_id,approx_size"
                 },

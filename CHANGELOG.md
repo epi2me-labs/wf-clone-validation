@@ -5,7 +5,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [unreleased]
+### Changed
 - Plannotate read/write database requirement fix
+- approx_size_sheet param instead of sample_sheet 
+- Set out_dir option type to ensure output is written to correct directory on Windows
 
 ## [v0.2.0]
 ### Changed
