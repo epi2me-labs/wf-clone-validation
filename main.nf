@@ -535,7 +535,6 @@ workflow {
         "output":params.out_dir,
         "min_barcode":params.min_barcode,
         "max_barcode":params.max_barcode])
-    samples.view()
     host_reference = file(params.host_reference, type: "file")
     regions_bedfile = file(params.regions_bedfile, type: "file")
     primer_file = file("$projectDir/data/OPTIONAL_FILE")
