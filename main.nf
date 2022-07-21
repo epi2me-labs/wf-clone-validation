@@ -1,9 +1,9 @@
 #!/usr/bin/env nextflow
 
-import groovy.json.JsonBuilder 
+import groovy.json.JsonBuilder
 nextflow.enable.dsl = 2
 
-include { fastq_ingress } from './lib/fastqingress' 
+include { fastq_ingress } from './lib/fastqingress'
 include { start_ping; end_ping } from './lib/ping'
 
 
@@ -20,12 +20,12 @@ process combineFastq {
     label "wfplasmid"
     cpus 1
     input:
-        tuple val(sample_id), path(directory), val(type), val(approx_size)
+        tuple val(meta), path(directory), val(approx_size)
     output:
-        path "${sample_id}.fastq.gz", optional: true, emit: sample
-        path "${sample_id}.stats", optional: true, emit: stats
+        path "${meta.sample_id}.fastq.gz", optional: true, emit: sample
+        path "${meta.sample_id}.stats", optional: true, emit: stats
         env STATUS, emit: status
-        tuple val(sample_id), val(approx_size), emit: approx_size 
+        tuple val(meta.sample_id), val(approx_size), emit: approx_size
     script:
         def expected_depth = "$params.assm_coverage"
         // a little heuristic to decide if we have enough data
@@ -35,12 +35,12 @@ process combineFastq {
         int max = (expected_length_max.toInteger()) * 1.5
         int min = (expected_length_min.toInteger()) * 0.5
     """
-    STATUS=${sample_id}",Failed due to insufficient reads"
-    fastcat -s ${sample_id} -r ${sample_id}.stats -x ${directory} > /dev/null
-    fastcat -a "$min" -b "$max" -s ${sample_id} -r ${sample_id}.interim -x ${directory} > ${sample_id}.fastq
-    if [[ "\$(wc -l <"${sample_id}.interim")" -ge "$value" ]];  then 
-        gzip ${sample_id}.fastq
-        STATUS=${sample_id}",Completed successfully"
+    STATUS=${meta.sample_id}",Failed due to insufficient reads"
+    fastcat -s ${meta.sample_id} -r ${meta.sample_id}.stats -x ${directory} > /dev/null
+    fastcat -a "$min" -b "$max" -s ${meta.sample_id} -r ${meta.sample_id}.interim -x ${directory} > ${meta.sample_id}.fastq
+    if [[ "\$(wc -l <"${meta.sample_id}.interim")" -ge "$value" ]];  then
+        gzip ${meta.sample_id}.fastq
+        STATUS=${meta.sample_id}",Completed successfully"
     fi
     """
 }
@@ -70,8 +70,8 @@ process filterHostReads {
     samtools view -b -F 4  ${name}.sorted.aligned.bam > mapped.bam
     samtools fastq unmapped.bam > ${name}.filtered.fastq
     fastcat -s ${name} -r ${name}.interim ${name}.filtered.fastq > /dev/null
-    if [[ "\$(wc -l <"${name}.stats")" -ge "1" ]];  then 
-        mv ${name}.interim ${name}.stats 
+    if [[ "\$(wc -l <"${name}.stats")" -ge "1" ]];  then
+        mv ${name}.interim ${name}.stats
     fi
     if [[ -f "$regs" ]]; then
         bedtools intersect -a mapped.bam -b $regs -wa \
@@ -112,7 +112,7 @@ process assembleCore {
         -batThreads=$params.threads """ : ""
 
     """
-    
+
     ############################################################
     # Trimming
     ############################################################
@@ -125,8 +125,8 @@ process assembleCore {
     ############################################################
     # Downsampling
     ############################################################
-    
-    
+
+
     (rasusa \
         --coverage $target \
         --genome-size $approx_size \
@@ -136,7 +136,7 @@ process assembleCore {
     ############################################################
     # Subsetting
     ############################################################
-    
+
     (trycycler subsample \
         --count 3 \
         --min_read_depth $min_dep \
@@ -144,7 +144,7 @@ process assembleCore {
         --out_dir sets \
         --genome_size $approx_size) \
         && STATUS="${name},Failed to assemble using Canu" &&
-    
+
     ############################################################
     # Assembly
     ############################################################
@@ -240,14 +240,14 @@ process medakaPolishAssembly {
 
 process downsampledStats {
     label "wfplasmid"
-    cpus 1 
+    cpus 1
     input:
         file sample
     output:
         path "*.stats", optional: true
     """
     fastcat -s ${sample.simpleName} -r ${sample.simpleName}.downsampled $sample > /dev/null
-    if [[ "\$(wc -l <"${sample.simpleName}.downsampled")" -ge "2" ]];  then 
+    if [[ "\$(wc -l <"${sample.simpleName}.downsampled")" -ge "2" ]];  then
         mv ${sample.simpleName}.downsampled ${sample.simpleName}.stats
     fi
     """
@@ -278,13 +278,13 @@ process findPrimers {
     cpus params.threads
     input:
         file primers
-        file sequence 
+        file sequence
     output:
-        path "*.bed", optional: true 
+        path "*.bed", optional: true
     shell:
     '''
     cat !{sequence} | seqkit amplicon -p !{primers} -m 3 -j !{params.threads} --bed >> !{sequence.simpleName}.interim
-    if [[ "$(wc -l <"!{sequence.simpleName}.interim")" -ge "1" ]];  then 
+    if [[ "$(wc -l <"!{sequence.simpleName}.interim")" -ge "1" ]];  then
         mv !{sequence.simpleName}.interim !{sequence.simpleName}.bed
     fi
     '''
@@ -334,8 +334,8 @@ process runPlannotate {
         path annotation_database
         path "assemblies/*"
         path final_status
-    output:    
-        path "feature_table.txt", emit: feature_table 
+    output:
+        path "feature_table.txt", emit: feature_table
         path "plannotate.json", emit: json
         path "*annotations.bed", emit: annotations
         path "plannotate_report.json", emit: report
@@ -344,9 +344,9 @@ process runPlannotate {
     """
     if [ -e "assemblies/OPTIONAL_FILE" ]; then
         assemblies=""
-    else 
+    else
         assemblies="--sequences assemblies/"
-    fi 
+    fi
     run_plannotate.py \$assemblies --database $database
     """
 }
@@ -359,7 +359,7 @@ process inserts {
          path "primer_beds/*"
          path "assemblies/*"
          file align_ref
-    output:    
+    output:
         path "inserts/*", optional: true, emit: inserts
         path "*.json", emit: json
     script:
@@ -367,9 +367,9 @@ process inserts {
     """
     if [ -e "primer_beds/OPTIONAL_FILE" ]; then
         inserts=""
-    else 
+    else
         inserts="--primer_beds primer_beds/*"
-    fi 
+    fi
     find_inserts.py \$inserts $ref
     """
 }
@@ -417,21 +417,21 @@ workflow pipeline {
         database
         primers
         align_ref
-       
+
     main:
-        // Combine fastq from each of the sample directories into 
+        // Combine fastq from each of the sample directories into
         // a single per-sample fastq file
-        named_samples = samples.map { it -> return tuple(it[1],it[0],it[2])}
+        named_samples = samples.map { it -> return tuple(it[1],it[0])}
         if(params.approx_size_sheet != null) {
             approx_size = Channel.fromPath(params.approx_size_sheet) \
             | splitCsv(header:true) \
-            | map { row-> tuple(row.sample_id, row.approx_size) } 
+            | map { row-> tuple(row.sample_id, row.approx_size) }
             final_samples = named_samples.join(approx_size)}
         else {
-            final_samples = samples.map  { it -> return tuple(it[1],it[0],it[2], params.approx_size)}
+            final_samples = samples.map  { it -> return tuple(it[1],it[0], params.approx_size)}
         }
         sample_fastqs = combineFastq(final_samples)
-        // Optionally filter the data, removing reads mapping to 
+        // Optionally filter the data, removing reads mapping to
         // the host or background genome
         if (host_reference.name != "NO_HOST_REF") {
             filtered = filterHostReads(
@@ -466,10 +466,10 @@ workflow pipeline {
 
         downsampled_stats = downsampledStats(
             assemblies.downsampled)
-        
+
         assembly_mafs = assemblyMafs(
             polished.polished.collect())
-        
+
         primer_beds = findPrimers(primers, polished.polished)
         software_versions = getVersions()
         workflow_params = getParams()
@@ -477,7 +477,7 @@ workflow pipeline {
         annotation = runPlannotate(
             database, polished.polished.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
             final_status)
-        
+
         insert = inserts(primer_beds.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
             polished.polished.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
             align_ref)
@@ -490,7 +490,7 @@ workflow pipeline {
             workflow_params,
             annotation.report,
             insert.json)
-        
+
         results = polished.polished.concat(
             report.html,
             report.sample_stat,
@@ -510,7 +510,7 @@ workflow pipeline {
 process output {
     // publish inputs to output directory
     label "wfplasmid"
-    publishDir "${params.out_dir}", mode: 'copy', pattern: "*", saveAs: { 
+    publishDir "${params.out_dir}", mode: 'copy', pattern: "*", saveAs: {
         f -> params.prefix ? "${params.prefix}-${f}" : "${f}" }
     input:
         file fname
@@ -548,9 +548,9 @@ workflow {
     database = file("$projectDir/data/OPTIONAL_FILE")
     if (params.db_directory != null){
          database = file(params.db_directory, type: "dir")
-       
+
     }
-    
+
     // Run pipeline
     results = pipeline(samples, host_reference, regions_bedfile, database, primer_file, align_ref)
 
