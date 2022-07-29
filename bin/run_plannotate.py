@@ -6,7 +6,6 @@ import json
 import os
 
 from aplanat import json_item
-from jinja2 import Template
 import numpy as np
 import pandas as pd
 from plannotate.annotate import annotate
@@ -114,14 +113,13 @@ def output_feature_table(data):
 
 def make_yaml(database):
     """Create a yaml file for plannotate."""
-    template = Template(
-        """\
+    plannotate_yaml = """
 Rfam:
   details:
     compressed: false
     default_type: ncRNA
     location: None
-  location: {{ database }}
+  location: {0}
   method: infernal
   priority: 3
   version: release 14.5
@@ -130,7 +128,7 @@ fpbase:
     compressed: false
     default_type: CDS
     location: Default
-  location: {{ database }}
+  location: {0}
   method: diamond
   parameters:
   - -k 0
@@ -147,7 +145,7 @@ snapgene:
     compressed: false
     default_type: None
     location: Default
-  location: {{ database }}
+  location: {0}
   method: blastn
   parameters:
   - -perc_identity 95
@@ -161,7 +159,7 @@ swissprot:
     compressed: true
     default_type: CDS
     location: Default
-  location: {{ database }}
+  location: {0}
   method: diamond
   parameters:
   - -k 0
@@ -173,9 +171,8 @@ swissprot:
   - --id 50
   priority: 2
   version: Release 2021_03
-        """)
+        """.format(database)
 
-    plannotate_yaml = template.render(database=database)
     with open("plannotate.yaml", "w") as text_file:
         text_file.write(plannotate_yaml)
 

@@ -6,7 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 ## Changed
-- Fastqingress metadata map
+- Fastqingress metadata map.
+- Sample status now collected from tuples.
 
 ## [v0.2.1]
 ### Changed
