@@ -463,7 +463,6 @@ workflow pipeline {
             insert.json)
 
         results = polished.polished.map { it -> it[1] }.concat(
-            final_status,
             report.html,
             report.sample_stat,
             annotation.feature_table,

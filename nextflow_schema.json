@@ -152,7 +152,7 @@
             "properties": {
                 "wfversion": {
                     "type": "string",
-                    "default": "v0.2.1",
+                    "default": "v0.2.2",
                     "hidden": true,
                     "description": "Workflow version"
                 },
