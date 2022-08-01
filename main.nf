@@ -77,7 +77,7 @@ process assembleCore {
     errorStrategy = {task.attempt <= 4 ? 'retry' : 'ignore'}
     maxRetries 4
     label "wfplasmid"
-    cpus 4
+    cpus params.threads
     input:
         tuple val(sample_id), file(fastq), val(approx_size)
     output:
@@ -96,11 +96,11 @@ process assembleCore {
         def fast = params.fast == true ? '-fast' : ''
         def cluster_option = (params.canu_useGrid == false) ? """\
         -useGrid=false \
-        -obtovlThreads=$params.threads \
-        -utgovlThreads=$params.threads \
-        -corThreads=$params.threads \
-        -redThreads=$params.threads \
-        -batThreads=$params.threads """ : ""
+        -obtovlThreads=$task.cpus \
+        -utgovlThreads=$task.cpus \
+        -corThreads=$task.cpus \
+        -redThreads=$task.cpus \
+        -batThreads=$task.cpus """ : ""
 
     """
 
@@ -108,9 +108,9 @@ process assembleCore {
     # Trimming
     ############################################################
     STATUS="Failed to trim reads"
-    (seqkit subseq -j $params.threads -r $params.trim_length:-$params.trim_length $fastq | \
-        seqkit subseq -j $params.threads -r 1:$max_len | \
-        seqkit seq -j $params.threads -m $min_len -Q $min_q -g > ${name}.trimmed.fastq) \
+    (seqkit subseq -j $task.cpus -r $params.trim_length:-$params.trim_length $fastq | \
+        seqkit subseq -j $task.cpus -r 1:$max_len | \
+        seqkit seq -j $task.cpus -m $min_len -Q $min_q -g > ${name}.trimmed.fastq) \
         && STATUS="Failed to downsample reads" &&
 
     ############################################################
@@ -146,7 +146,7 @@ process assembleCore {
         canu \
             -p \$SUBSET_NAME \
             -d assm_\${SUBSET_NAME} \
-            -maxThreads=$params.threads \
+            -maxThreads=$task.cpus \
             genomeSize=$approx_size \
             $fast \
             -nanopore \$SUBSET \
