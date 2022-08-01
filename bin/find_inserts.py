@@ -73,7 +73,7 @@ def make_msa(inserts_dic, *reference):
         msa_names.append(new_name)
     for i in range(0, len(msa)):
         msa_report.append(msa_names[i] + ' ' + msa[i])
-    return(msa_report)
+    return (msa_report)
 
 
 def main():

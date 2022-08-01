@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [v0.2.2]
 ## Changed
+- Change params.threads to task.cpus
+  
+## [v0.2.2]
+## Changed
 - Fastqingress metadata map.
 - Sample status now collected from tuples.
 

@@ -38,7 +38,7 @@ def tidyup_status_file(status_sheet):
         pass_fail_dic.items(), columns=['Sample', 'pass/failed reason'])
     sort_df = status_df['Sample'].astype(str).argsort()
     status_df = status_df.iloc[sort_df]
-    return(status_df, passed_list, all_sample_names, pass_fail_dic)
+    return (status_df, passed_list, all_sample_names, pass_fail_dic)
 
 
 def read_files(summaries, sep='\t'):
