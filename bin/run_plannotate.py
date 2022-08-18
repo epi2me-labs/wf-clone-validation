@@ -200,7 +200,7 @@ def main():
     if args.sequences:
         for filename in os.listdir(args.sequences):
             sample_file = os.path.join(args.sequences, filename)
-            name = str(filename).split('.')[0]
+            name = str(filename).split('.final')[0]
             tup_dic, clean_df = per_assembly(sample_file, name)
             final_samples.append(tup_dic)
             plasmid_len = tup_dic['annotations']['Plasmid length'][0]

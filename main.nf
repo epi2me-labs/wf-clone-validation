@@ -101,6 +101,10 @@ process assembleCore {
         -corThreads=$task.cpus \
         -redThreads=$task.cpus \
         -batThreads=$task.cpus """ : ""
+        def windows_params = System.properties['os.version'].toLowerCase().contains("wsl") ? """\
+        -mhapPipe=false \
+        -purgeOverlaps=false \
+        -saveOverlaps=true """ : ""
 
     """
 
@@ -150,7 +154,8 @@ process assembleCore {
             genomeSize=$approx_size \
             $fast \
             -nanopore \$SUBSET \
-            $cluster_option
+            $cluster_option \
+            $windows_params
     done) && STATUS="Failed to trim Assembly" &&
 
     ############################################################
