@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [unreleased]
+## Fixed
+- Plannotate dictionary keys can contain any characters.
+## Added
+- Windows parameter so Canu can run on windows
+  
 ## [v0.2.3]
 ## Changed
 - Change params.threads to task.cpus
