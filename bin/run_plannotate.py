@@ -177,6 +177,26 @@ swissprot:
         text_file.write(plannotate_yaml)
 
 
+def attempt_annotation(sample_file, name):
+    """Create annotation dictionary for report and EPI2ME."""
+    tup_dic, clean_df = per_assembly(sample_file, name)
+    plasmid_len = tup_dic['annotations']['Plasmid length'][0]
+    feature_dic = tup_dic['annotations'].drop(
+                    ['Plasmid length'], axis=1)
+    features = feature_dic.to_dict('records')
+    output_json = json_item(tup_dic['plot'])
+    plannotate_dic = {
+        "reflen": float(plasmid_len),
+        "features": features,
+        "plot": output_json['doc']}
+    report = {}
+    report['sample_name'] = name
+    report['plot'] = clean_df.to_json()
+    report['annotations'] = tup_dic['annotations'].to_json()
+    report['seq_len'] = tup_dic['seq_len']
+    return tup_dic, report, plannotate_dic
+
+
 def main():
     """Entry point to create a wf-clone-validation report."""
     parser = argparse.ArgumentParser(
@@ -199,26 +219,23 @@ def main():
     json_file = open("plannotate.json", "a")
     if args.sequences:
         for filename in os.listdir(args.sequences):
-            sample_file = os.path.join(args.sequences, filename)
             name = str(filename).split('.final')[0]
-            tup_dic, clean_df = per_assembly(sample_file, name)
-            final_samples.append(tup_dic)
-            plasmid_len = tup_dic['annotations']['Plasmid length'][0]
-            feature_dic = tup_dic['annotations'].drop(
-                            ['Plasmid length'], axis=1)
-            features = feature_dic.to_dict('records')
-            output_json = json_item(tup_dic['plot'])
-            plannotate_dic = {
-                "reflen": float(plasmid_len),
-                "features": features,
-                "plot": output_json['doc']}
-            plannotate_collection[name] = plannotate_dic
-            report = {}
-            report['sample_name'] = name
-            report['plot'] = clean_df.to_json()
-            report['annotations'] = tup_dic['annotations'].to_json()
-            report['seq_len'] = tup_dic['seq_len']
-            report_dic[name] = report
+            file = os.path.join(args.sequences, filename)
+            try:
+                tup_dic, report, plannotate_dic = attempt_annotation(
+                    file, name)
+                final_samples.append(tup_dic)
+                plannotate_collection[name] = plannotate_dic
+                report_dic[name] = report
+            except KeyError:
+                with pysam.FastxFile(file) as fh:
+                    seq_len = len(next(fh).sequence)
+                plannotate_dic = {
+                    "reflen": float(seq_len),
+                    "features": [],
+                    "plot": {}}
+                plannotate_collection[name] = plannotate_dic
+                continue
 
     # outputs for epi2me
     output_feature_table(final_samples)
