@@ -263,7 +263,7 @@ process findPrimers {
         path "*.bed", optional: true
     shell:
     '''
-    cat !{sequence} | seqkit amplicon -p !{primers} -m 3 -j !{params.threads} --bed >> !{sample_id}.interim
+    cat !{sequence} | seqkit amplicon -p !{primers} -m 3 -j !{task.cpus} --bed >> !{sample_id}.interim
     if [[ "$(wc -l <"!{sample_id}.interim")" -ge "1" ]];  then
         mv !{sample_id}.interim !{sample_id}.bed
     fi
@@ -360,13 +360,14 @@ process report {
     cpus 1
     input:
         path "downsampled_stats/*"
-        file final_status
+        path final_status
         path "per_barcode_stats/*"
         path "host_filter_stats/*"
         path "versions/*"
         path "params.json"
-        file plannotate_json
-        file inserts_json
+        path plannotate_json
+        path inserts_json
+        path lengths
     output:
         path "wf-clone-validation-*.html", emit: html
         path "sample_status.txt", emit: sample_stat
@@ -385,6 +386,7 @@ process report {
     --versions versions \
     --report_name $report_name \
     --plannotate_json $plannotate_json \
+    --lengths $lengths \
     --inserts_json $inserts_json
     """
 }
@@ -465,7 +467,8 @@ workflow pipeline {
             software_versions.collect(),
             workflow_params,
             annotation.report,
-            insert.json)
+            insert.json,
+            annotation.json)
 
         results = polished.polished.map { it -> it[1] }.concat(
             report.html,

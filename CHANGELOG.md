@@ -5,10 +5,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [unreleased]
+## Added
+- Error handling for no annotations found for an assembly.
+- Windows parameter so Canu can run on windows
 ## Fixed
 - Plannotate dictionary keys can contain any characters.
-## Added
-- Windows parameter so Canu can run on windows
+- Sanitize fastq intermittent null object error.
   
 ## [v0.2.3]
 ## Changed

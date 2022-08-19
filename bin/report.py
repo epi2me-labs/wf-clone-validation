@@ -17,7 +17,7 @@ import pandas as pd
 from plannotate.bokeh_plot import get_bokeh
 
 
-def tidyup_status_file(status_sheet):
+def tidyup_status_file(status_sheet, annotations):
     """Tidy up the sample status file."""
     sample_status = pd.read_csv(status_sheet[0], header=None)
     unique_samples = sample_status[0].unique()
@@ -26,6 +26,11 @@ def tidyup_status_file(status_sheet):
         pass_fail_dic[sample] = 'Completed successfully'
     filter_pass = sample_status[sample_status[1] != 'Completed successfully']
     failures = dict(zip(filter_pass[0], filter_pass[1]))
+    completed_annotations = list(annotations)
+    success = sample_status[sample_status[1] == 'Completed successfully']
+    no_annotations = success[~success[0].isin(completed_annotations)]
+    for sample in list(no_annotations[0]):
+        failures[sample] = 'Completed but no annotations found in the database'
     all_sample_names = unique_samples.tolist()
     all_sample_names.sort()
     passed_list = unique_samples.tolist()
@@ -135,6 +140,9 @@ def main():
     parser.add_argument(
         "--report_name",
         help="report name")
+    parser.add_argument(
+        "--lengths",
+        help="report name")
     args = parser.parse_args()
     report_doc = report.WFReport(
         "Clone Validation Report",
@@ -169,7 +177,9 @@ def main():
 
     # We defer this until processing through all the samples in the loop below
     summary_placeholder = report_doc.add_section(key='stats_table')
-    pass_fail = tidyup_status_file(args.status)
+    plannotate_annotations = json.load(open(args.plannotate_json)).keys()
+    lengths = json.load(open(args.lengths))
+    pass_fail = tidyup_status_file(args.status, plannotate_annotations)
     # find inserts and put in dir
     current_directory = os.getcwd()
     make_directory = os.path.join(current_directory, r'inserts')
@@ -252,7 +262,7 @@ The Plasmid annotation plot and feature table are produced using
                 alltabs.append(fastcat_report_tab(value, key))
             cover_panel = Tabs(tabs=alltabs)
             plasmidplot = [plot]
-            stats_table = [item] + [int(tup_dic['seq_len'])]
+            stats_table = [item] + [int(lengths[item]['reflen'])]
             sample_stats.append(stats_table)
             section.plot(layout(
                             [[cover_panel, plasmidplot]],
@@ -268,7 +278,10 @@ The Plasmid annotation plot and feature table are produced using
                 alltabs.append(fastcat_report_tab(value, key))
             cover_panel = Tabs(tabs=alltabs)
             section.plot(cover_panel)
-            stats_table = [item] + ['N/A']
+            try:
+                stats_table = [item] + [int(lengths[item]['reflen'])]
+            except KeyError:
+                stats_table = [item] + ['N/A']
             sample_stats.append(stats_table)
 
     # high level sample status table
