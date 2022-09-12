@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [unrealeased]
+## Fixed
+- Filter host step not outputting approx_size.
+## Updated
+- Use groovy script to ping after workflow has run.
+
 ## [v0.2.4]
 ## Added
 - Error handling for no annotations found for an assembly.
