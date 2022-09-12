@@ -4,7 +4,6 @@ import groovy.json.JsonBuilder
 nextflow.enable.dsl = 2
 
 include { fastq_ingress } from './lib/fastqingress'
-include { start_ping; end_ping } from './lib/ping'
 
 
 process combineFastq {
@@ -46,7 +45,7 @@ process filterHostReads {
         file reference
         file regions_bedfile
     output:
-        tuple val(sample_id), path("*.filtered.fastq"), optional: true, emit: unmapped
+        tuple val(sample_id), path("*.filtered.fastq"), val(approx_size), optional: true, emit: unmapped
         path "*.stats", optional: true, emit: host_filter_stats
         tuple val(sample_id), env(STATUS), emit: status
     script:
@@ -476,7 +475,8 @@ workflow pipeline {
             annotation.feature_table,
             insert.inserts,
             annotation.json,
-            annotation.annotations)
+            annotation.annotations,
+            workflow_params)
     emit:
         results
         telemetry = workflow_params
@@ -504,8 +504,13 @@ process output {
 // entrypoint workflow
 WorkflowMain.initialise(workflow, params, log)
 workflow {
-    // Start ping
-    start_ping()
+    if (params.disable_ping == false) {
+        try { 
+            Pinguscript.ping_post(workflow, "start", "none", params.out_dir, params)
+        } catch(RuntimeException e1) {
+        }
+    }
+    
     samples = fastq_ingress([
         "input":params.fastq,
         "sample":params.sample,
@@ -534,6 +539,22 @@ workflow {
     results = pipeline(samples, host_reference, regions_bedfile, database, primer_file, align_ref)
 
     output(results[0])
-    // End ping
-    end_ping(pipeline.out.telemetry)
+   
+}
+
+
+if (params.disable_ping == false) {
+    workflow.onComplete {
+        try{
+            Pinguscript.ping_post(workflow, "end", "none", params.out_dir, params)
+        }catch(RuntimeException e1) {
+        }
+    }
+    
+    workflow.onError {
+        try{
+            Pinguscript.ping_post(workflow, "error", "$workflow.errorMessage", params.out_dir, params)
+        }catch(RuntimeException e1) {
+        }
+    }
 }
