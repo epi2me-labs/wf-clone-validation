@@ -43,22 +43,23 @@ def deconcatenate(seq):
 
     while not finished:
         iteration += 1
-        print(f"Trimming sequence... Round {iteration}")
+        sys.stdout.write(f"Trimming sequence... Round {iteration}")
         hits, first, second = align_self(trimmed_assm)
 
         if len(hits) == 1:
-            print("> Single self-alignment detected.")
+            sys.stdout.write("> Single self-alignment detected.")
 
         elif len(hits) > 1:
-            print("> Multiple self-alignments detected.")
+            sys.stdout.write("> Multiple self-alignments detected.")
             # Tested variations of this, but if works...
             hits = [hit for hit in hits if hit.q_st < 5]
             if not hits:
-                print("> No self-alignments match criteria, stopping here.")
+                sys.stdout.write(
+                    "> No self-alignments match criteria, stopping here.")
                 finished = True
 
         else:
-            print("> No self-alignments, stopping here.")
+            sys.stdout.write("> No self-alignments, stopping here.")
             finished = True
             break
         try:

@@ -505,18 +505,16 @@ process output {
 WorkflowMain.initialise(workflow, params, log)
 workflow {
     if (params.disable_ping == false) {
-        try { 
-            Pinguscript.ping_post(workflow, "start", "none", params.out_dir, params)
-        } catch(RuntimeException e1) {
-        }
+        Pinguscript.ping_post(workflow, "start", "none", params.out_dir, params)
     }
-    
+    if (workflow.profile.contains("conda")) {
+        throw new Exception("Sorry, this workflow is not compatible with --profile conda, please use --profile standard (Docker) or --profile singularity.")
+    }
+
     samples = fastq_ingress([
         "input":params.fastq,
         "sample":params.sample,
         "sample_sheet":params.sample_sheet,
-        "sanitize": params.sanitize_fastq,
-        "output":params.out_dir,
         "min_barcode":params.min_barcode,
         "max_barcode":params.max_barcode])
     host_reference = file(params.host_reference, type: "file")
@@ -545,16 +543,10 @@ workflow {
 
 if (params.disable_ping == false) {
     workflow.onComplete {
-        try{
-            Pinguscript.ping_post(workflow, "end", "none", params.out_dir, params)
-        }catch(RuntimeException e1) {
-        }
+        Pinguscript.ping_post(workflow, "end", "none", params.out_dir, params)
     }
     
     workflow.onError {
-        try{
-            Pinguscript.ping_post(workflow, "error", "$workflow.errorMessage", params.out_dir, params)
-        }catch(RuntimeException e1) {
-        }
+        Pinguscript.ping_post(workflow, "error", "$workflow.errorMessage", params.out_dir, params)
     }
 }
