@@ -54,4 +54,3 @@ The location of the database will need to be specified with the --db_directory p
 
 * [nextflow](https://www.nextflow.io/)
 * [docker](https://www.docker.com/products/docker-desktop)
-* [conda](https://docs.conda.io/en/latest/miniconda.html)
