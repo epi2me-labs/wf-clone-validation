@@ -507,9 +507,6 @@ workflow {
     if (params.disable_ping == false) {
         Pinguscript.ping_post(workflow, "start", "none", params.out_dir, params)
     }
-    if (workflow.profile.contains("conda")) {
-        throw new Exception("Sorry, this workflow is not compatible with --profile conda, please use --profile standard (Docker) or --profile singularity.")
-    }
 
     samples = fastq_ingress([
         "input":params.fastq,
