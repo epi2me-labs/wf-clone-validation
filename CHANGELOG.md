@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [unreleased]
 ### Removed
 - conda support
+### Added 
+- `nextflow run epi2me-labs/wf-clone-validation --version` will now print the workflow version number and exit
   
 ## [v0.2.5]
 ## Fixed
