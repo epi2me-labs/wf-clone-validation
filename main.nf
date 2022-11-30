@@ -42,8 +42,8 @@ process filterHostReads {
     cpus params.threads
     input:
         tuple val(sample_id), path(fastq), val(approx_size)
-        file reference
-        file regions_bedfile
+        path reference
+        path regions_bedfile
     output:
         tuple val(sample_id), path("*.filtered.fastq"), val(approx_size), optional: true, emit: unmapped
         path "*.stats", optional: true, emit: host_filter_stats
@@ -78,7 +78,7 @@ process assembleCore {
     label "wfplasmid"
     cpus params.threads
     input:
-        tuple val(sample_id), file(fastq), val(approx_size)
+        tuple val(sample_id), path(fastq), val(approx_size)
     output:
         tuple val(sample_id), path("*.reconciled.fasta"), optional: true, emit: assembly
         tuple val(sample_id), path("*.downsampled.fastq"), optional: true, emit: downsampled
@@ -254,9 +254,9 @@ process downsampledStats {
 process findPrimers {
     errorStrategy 'ignore'
     label "wfplasmid"
-    cpus params.threads
+    cpus 1
     input:
-        file primers
+        path primers
         tuple val(sample_id), path(sequence)
     output:
         path "*.bed", optional: true
@@ -308,7 +308,7 @@ process getParams {
 
 process runPlannotate {
     label "wfplasmid"
-    cpus params.threads
+    cpus 1
     input:
         path annotation_database
         path "assemblies/*"
@@ -333,11 +333,11 @@ process runPlannotate {
 
 process inserts {
     label "wfplasmid"
-    cpus params.threads
+    cpus 1
     input:
          path "primer_beds/*"
          path "assemblies/*"
-         file align_ref
+         path align_ref
     output:
         path "inserts/*", optional: true, emit: inserts
         path "*.json", emit: json
@@ -372,7 +372,7 @@ process report {
         path "sample_status.txt", emit: sample_stat
         path "inserts/*", optional: true, emit: inserts
     script:
-        report_name = "wf-clone-validation-" + params.report_name + '.html'
+        report_name = "wf-clone-validation-report.html"
     """
     report.py \
     --downsampled_stats downsampled_stats/* \
@@ -514,8 +514,10 @@ workflow {
         "sample_sheet":params.sample_sheet,
         "min_barcode":params.min_barcode,
         "max_barcode":params.max_barcode])
-    host_reference = file(params.host_reference, type: "file")
-    regions_bedfile = file(params.regions_bedfile, type: "file")
+    host_reference = params.host_reference ?: 'NO_HOST_REF'
+    host_reference = file(host_reference, checkIfExists: host_reference == 'NO_HOST_REF' ? false : true)
+    regions_bedfile = params.regions_bedfile ?: 'NO_REG_BED'
+    regions_bedfile = file(regions_bedfile, checkIfExists: regions_bedfile == 'NO_REG_BED' ? false : true)
     primer_file = file("$projectDir/data/OPTIONAL_FILE")
     if (params.primers != null){
         primer_file = file(params.primers, type: "file")
