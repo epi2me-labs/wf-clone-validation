@@ -2,7 +2,7 @@
     "$schema": "http://json-schema.org/draft-07/schema",
     "$id": "https://raw.githubusercontent.com/./master/nextflow_schema.json",
     "title": "epi2me-labs/wf-clone-validation",
-    "description": "De novo assemble plasmid sequences from Oxford Nanopore data for verifying artificial constructs",
+    "description": "De-novo reconstruction of synthetic plasmid sequences.",
     "demo_url": "https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/wf-clone-validation-demo.tar.gz",
     "url": "https://github.com/epi2me-labs/wf-clone-validation",
     "type": "object",
@@ -159,7 +159,7 @@
             "properties": {
                 "wfversion": {
                     "type": "string",
-                    "default": "v0.2.6",
+                    "default": "v0.2.7",
                     "hidden": true,
                     "description": "Workflow version"
                 },
