@@ -15,25 +15,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `nextflow run epi2me-labs/wf-clone-validation --version` will now print the workflow version number and exit
   
 ## [v0.2.5]
-## Fixed
+### Fixed
 - Filter host step not outputting approx_size.
-## Updated
+### Updated
 - Use groovy script to ping after workflow has run.
 
 ## [v0.2.4]
-## Added
+### Added
 - Error handling for no annotations found for an assembly.
 - Windows parameter so Canu can run on windows
-## Fixed
+### Fixed
 - Plannotate dictionary keys can contain any characters.
 - Sanitize fastq intermittent null object error.
   
 ## [v0.2.3]
-## Changed
+### Changed
 - Change params.threads to task.cpus
   
 ## [v0.2.2]
-## Changed
+### Changed
 - Fastqingress metadata map.
 - Sample status now collected from tuples.
 
