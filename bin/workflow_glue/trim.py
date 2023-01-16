@@ -38,7 +38,7 @@ def main(args):
     """For each sequence, trim and write to output."""
     trimmed = []
 
-    for entry in pysam.FastxFile(args.sequence_fasta):
+    for entry in pysam.FastxFile(args.sequence):
 
         if 'trim=' not in entry.comment:
             continue
