@@ -8,6 +8,7 @@ import os
 
 import pandas as pd
 from spoa import poa
+from .util import wf_parser  # noqa: ABS101
 
 
 def reverse_complement(seq):
@@ -76,20 +77,8 @@ def make_msa(inserts_dic, *reference):
     return (msa_report)
 
 
-def main():
+def main(args):
     """Entry point to create a wf-clone-validation report."""
-    parser = argparse.ArgumentParser(
-        'Clone Validation QC report',
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        add_help=False)
-    parser.add_argument(
-        "--primer_beds", nargs='+',
-        help="bed files of extracted sequences",
-        required=False)
-    parser.add_argument(
-        "--reference", nargs='+',
-        help="reference", required=False)
-    args = parser.parse_args()
     f = open('insert_data.json', 'w')
     if args.primer_beds:
         # find inserts and put in dir
@@ -114,5 +103,19 @@ def main():
         json.dump(inserts_json, f)
 
 
+def argparser():
+    """Argument parser for entrypoint."""
+    parser = wf_parser("find_inserts")
+    parser.add_argument(
+        "--primer_beds", nargs='+',
+        help="bed files of extracted sequences",
+        required=False)
+    parser.add_argument(
+        "--reference", nargs='+',
+        help="reference", required=False)
+    return parser
+
+
 if __name__ == "__main__":
-    main()
+    args = argparse().parse_args()
+    main(args)

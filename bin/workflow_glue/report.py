@@ -15,6 +15,7 @@ from bokeh.layouts import layout
 from bokeh.models import Panel, Tabs
 import pandas as pd
 from plannotate.bokeh_plot import get_bokeh
+from .util import wf_parser  # noqa: ABS101
 
 
 def tidyup_status_file(status_sheet, annotations):
@@ -99,51 +100,8 @@ def create_fastcat_dic(sample_names, raw, hostfilt, downsampled):
     return per_sample_dic
 
 
-def main():
+def main(args):
     """Entry point to create a wf-clone-validation report."""
-    parser = argparse.ArgumentParser(
-        'Clone Validation QC report',
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        add_help=False)
-    parser.add_argument(
-        "--downsampled_stats",
-        nargs='+',
-        required=True
-    )
-    parser.add_argument(
-        "--revision", default='unknown',
-        help="revision number")
-    parser.add_argument(
-        "--commit", default='unknown',
-        help="git commit number")
-    parser.add_argument(
-        "--status", nargs='+',
-        help="status")
-    parser.add_argument(
-        "--per_barcode_stats", nargs='+',
-        help="fastcat stats file for each sample before filtering")
-    parser.add_argument(
-        "--host_filter_stats", nargs='+',
-        help="fastcat stats file after host filtering")
-    parser.add_argument(
-        "--params", default=None,
-        help="A csv containing the parameter key/values")
-    parser.add_argument(
-        "--versions",
-        help="directory contained CSVs containing name,version.")
-    parser.add_argument(
-        "--plannotate_json",
-        help="Plannotate Json.")
-    parser.add_argument(
-        "--inserts_json",
-        help="inserts Json.")
-    parser.add_argument(
-        "--report_name",
-        help="report name")
-    parser.add_argument(
-        "--lengths",
-        help="report name")
-    args = parser.parse_args()
     report_doc = report.WFReport(
         "Clone Validation Report",
         "wf-clone-validation",
@@ -317,5 +275,51 @@ The Plasmid annotation plot and feature table are produced using
     report_doc.write(args.report_name)
 
 
+def argparser():
+    """Argument parser for entrypoint."""
+    parser = wf_parser("report")
+
+    parser.add_argument(
+        "--downsampled_stats",
+        nargs='+',
+        required=True
+    )
+    parser.add_argument(
+        "--revision", default='unknown',
+        help="revision number")
+    parser.add_argument(
+        "--commit", default='unknown',
+        help="git commit number")
+    parser.add_argument(
+        "--status", nargs='+',
+        help="status")
+    parser.add_argument(
+        "--per_barcode_stats", nargs='+',
+        help="fastcat stats file for each sample before filtering")
+    parser.add_argument(
+        "--host_filter_stats", nargs='+',
+        help="fastcat stats file after host filtering")
+    parser.add_argument(
+        "--params", default=None,
+        help="A csv containing the parameter key/values")
+    parser.add_argument(
+        "--versions",
+        help="directory contained CSVs containing name,version.")
+    parser.add_argument(
+        "--plannotate_json",
+        help="Plannotate Json.")
+    parser.add_argument(
+        "--inserts_json",
+        help="inserts Json.")
+    parser.add_argument(
+        "--report_name",
+        help="report name")
+    parser.add_argument(
+        "--lengths",
+        help="report name")
+    return parser
+
+
 if __name__ == "__main__":
-    main()
+    args = argparse().parse_args()
+    main(args)

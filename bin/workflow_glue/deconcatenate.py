@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 """Go deconcatenate your sequences."""
-
-import argparse
 import sys
 
 import mappy as mp
+from .util import wf_parser  # noqa: ABS101
 
 
 def get_output_handler(path):
@@ -71,8 +70,10 @@ def deconcatenate(seq):
     return trimmed_assm
 
 
-def main(sequence_fasta, output):
+def main(args):
     """For each sequence, deconcatenate and write to output."""
+    sequence_fasta = args.sequence
+    output = args.output
     corrected = []
     for name, seq, _ in mp.fastx_read(sequence_fasta):
         corrected.append([name, deconcatenate(seq)])
@@ -86,15 +87,9 @@ def main(sequence_fasta, output):
     handler.close()
 
 
-def parse_arguments(argv=sys.argv[1:]):
-    """Parse arguments."""
-    parser = argparse.ArgumentParser(
-        description=(
-            "Fix large-scale duplications within a sequence by "
-            "re-aligning it to itself."
-        )
-    )
-
+def argparser():
+    """Argument parser for entrypoint."""
+    parser = wf_parser("deconcatenate")
     parser.add_argument(
         dest="sequence",
         help="File in .FASTA format containing a single sequence/contig."
@@ -108,11 +103,9 @@ def parse_arguments(argv=sys.argv[1:]):
         help="Path at which to write the fixedsequence/contig.",
         required=False
     )
-
-    args = parser.parse_args(argv)
-    return args
+    return parser
 
 
 if __name__ == '__main__':
-    args = parse_arguments()
-    main(args.sequence, args.output)
+    args = argparser().parse_args()
+    main(args)
