@@ -164,10 +164,10 @@ process assembleCore {
     (for ASSEMBLY in \$(ls assm_*/*.contigs.fasta)
     do
         ASSEMBLY_NAME=\$(basename -s .fasta \$ASSEMBLY)
-        trim.py \
+        workflow-glue trim \
             \$ASSEMBLY \
             -o \${ASSEMBLY_NAME}.trimmed.fasta
-        deconcatenate.py \
+        workflow-glue deconcatenate \
             \${ASSEMBLY_NAME}.trimmed.fasta \
             -o \${ASSEMBLY_NAME}.deconcat.fasta
     done
@@ -326,7 +326,7 @@ process runPlannotate {
     else
         assemblies="--sequences assemblies/"
     fi
-    run_plannotate.py \$assemblies --database $database
+    workflow-glue run_plannotate \$assemblies --database $database
     """
 }
 
@@ -349,7 +349,7 @@ process inserts {
     else
         inserts="--primer_beds primer_beds/*"
     fi
-    find_inserts.py \$inserts $ref  
+    workflow-glue find_inserts \$inserts $ref  
     """
 }
 
@@ -374,7 +374,7 @@ process report {
     script:
         report_name = "wf-clone-validation-report.html"
     """
-    report.py \
+    workflow-glue report \
     --downsampled_stats downsampled_stats/* \
     --revision $workflow.revision \
     --commit $workflow.commitId \
