@@ -5,6 +5,7 @@ import argparse
 import sys
 
 import pysam
+from .util import wf_parser  # noqa: ABS101
 
 
 def get_output_handler(path):
@@ -33,11 +34,11 @@ def trim(entry):
     return trimmed
 
 
-def main(sequence_fasta, output):
+def main(args):
     """For each sequence, trim and write to output."""
     trimmed = []
 
-    for entry in pysam.FastxFile(sequence_fasta):
+    for entry in pysam.FastxFile(args.sequence):
 
         if 'trim=' not in entry.comment:
             continue
@@ -47,22 +48,16 @@ def main(sequence_fasta, output):
     if not trimmed:
         return
 
-    handler = get_output_handler(output)
+    handler = get_output_handler(args.output)
     for name, seq in trimmed:
         handler.write(f">{name}\n{seq}\n")
 
     handler.close()
 
 
-def parse_arguments(argv=sys.argv[1:]):
-    """Parse arguments."""
-    parser = argparse.ArgumentParser(
-        description=(
-            "Trim the output of Canu based on the fastq header "
-            "comment suggestion."
-        )
-    )
-
+def argparser():
+    """Argument parser for entrypoint."""
+    parser = wf_parser("trim")
     parser.add_argument(
         dest="sequence",
         help="File in .FASTA format containing a single sequence/contig."
@@ -76,11 +71,9 @@ def parse_arguments(argv=sys.argv[1:]):
         help="Path at which to write the fixedsequence/contig.",
         required=False
     )
-
-    args = parser.parse_args(argv)
-    return args
+    return parser
 
 
-if __name__ == '__main__':
-    args = parse_arguments()
-    main(args.sequence, args.output)
+if __name__ == "__main__":
+    args = argparse().parse_args()
+    main(args)

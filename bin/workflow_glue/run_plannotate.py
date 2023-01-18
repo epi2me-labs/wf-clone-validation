@@ -11,6 +11,7 @@ import pandas as pd
 from plannotate.annotate import annotate
 from plannotate.bokeh_plot import get_bokeh
 import pysam
+from .util import wf_parser  # noqa: ABS101
 
 
 def run_plannotate(fasta, linear=False):
@@ -197,21 +198,8 @@ def attempt_annotation(sample_file, name):
     return tup_dic, report, plannotate_dic
 
 
-def main():
+def main(args):
     """Entry point to create a wf-clone-validation report."""
-    parser = argparse.ArgumentParser(
-        'Plannotate annotation',
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        add_help=False)
-    parser.add_argument(
-        "--database", default='unknown',
-        help="database to use, directory containing BLAST et. al. files.")
-    parser.add_argument(
-        "--sequences",
-        help="sequences in directory to run plannotate on.",
-        required=False)
-    args = parser.parse_args()
-
     final_samples = []
     report_dic = {}
     plannotate_collection = {}
@@ -250,5 +238,19 @@ def main():
     json_file.close()
 
 
+def argparser():
+    """Argument parser for entry point."""
+    parser = wf_parser("run_plannotate")
+    parser.add_argument(
+        "--database", default='unknown',
+        help="database to use, directory containing BLAST et. al. files.")
+    parser.add_argument(
+        "--sequences",
+        help="sequences in directory to run plannotate on.",
+        required=False)
+    return parser
+
+
 if __name__ == "__main__":
-    main()
+    args = argparse().parse_args()
+    main(args)
