@@ -216,20 +216,36 @@ process assembleCore {
     """
 }
 
+process lookup_medaka_model {
+    label "wfplasmid"
+    input:
+        path("lookup_table")
+        val basecall_model
+    output:
+        stdout
+    shell:
+    '''
+    medaka_model=$(workflow-glue resolve_medaka_model lookup_table '!{basecall_model}')
+    echo $medaka_model
+    '''
+}
 
 process medakaPolishAssembly {
     label "wfplasmid"
     cpus params.threads
     input:
-        tuple val(sample_id), file(draft), file(fastq)
+        tuple val(sample_id), path(draft), path(fastq)
+        val medaka_model
     output:
         tuple val(sample_id), path("*.final.fasta"), emit: polished
         tuple val(sample_id), env(STATUS), emit: status
+    script:
+        def model = medaka_model
     """
     STATUS="Failed to polish assembly with Medaka"
-    medaka_consensus -i $fastq -d $draft -m r941_min_high_g360 -o . -t $task.cpus -f
-    echo ">${sample_id}" >> ${sample_id}.final.fasta
-    sed "2q;d" consensus.fasta >> ${sample_id}.final.fasta
+    medaka_consensus -i "${fastq}" -d "${draft}" -m "${model}" -o . -t $task.cpus -f
+    echo ">${sample_id}" >> "${sample_id}.final.fasta"
+    sed "2q;d" consensus.fasta >> "${sample_id}.final.fasta"
     STATUS="Completed successfully"
     """
 }
@@ -435,9 +451,17 @@ workflow pipeline {
         named_samples = assemblies.downsampled.groupTuple()
         named_drafts_samples = named_drafts.join(named_samples)
 
-
+        if(params.medaka_model) {
+            log.warn "Overriding Medaka model with ${params.medaka_model}."
+            medaka_model = Channel.fromPath(params.medaka_model, type: "dir", checkIfExists: true)
+        }
+        else {
+            // map basecalling model to medaka model
+            lookup_table = Channel.fromPath("${projectDir}/data/medaka_models.tsv", checkIfExists: true)
+            medaka_model = lookup_medaka_model(lookup_table, params.basecaller_cfg)
+        }
         // Polish draft assembly
-        polished = medakaPolishAssembly(named_drafts_samples)
+        polished = medakaPolishAssembly(named_drafts_samples, medaka_model)
        
         // Concat statuses and keep the last of each
         final_status = sample_fastqs.status.concat(updated_status)
@@ -507,7 +531,6 @@ workflow {
     if (params.disable_ping == false) {
         Pinguscript.ping_post(workflow, "start", "none", params.out_dir, params)
     }
-
     samples = fastq_ingress([
         "input":params.fastq,
         "sample":params.sample,
