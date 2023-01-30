@@ -42,10 +42,16 @@
                     "type": "boolean",
                     "description": "Analyse unclassified reads from input directory. By default the workflow will not process reads in the unclassified directory.",
                     "help_text": "If selected and if the input is a multiplex directory the workflow will also process the unclassified directory."
+                },
+                "basecaller_cfg": {
+                    "type": "string",
+                    "description": "Name of the model that was used to basecall signal data, used to select an appropriate Medaka model.",
+                    "help_text": "The basecaller configuration is used to automatically select the appropriate Medaka model. Refer to the [model table on the Dorado repository for selecting a simplex basecalling model](https://github.com/nanoporetech/dorado#available-basecalling-models). The automatic selection can be overridden with the 'medaka_model' parameter."
                 }
             },
             "required": [
-                "fastq"
+                "fastq",
+                "basecaller_cfg"
             ]
         },
         "reference_genome_options": {
@@ -148,6 +154,11 @@
                 "fast": {
                     "type": "boolean",
                     "description": "Fast option can make the assembly step significantly faster. It can be used on any genome size but may produce less continuous assemblies on genomes larger than 1 Gbp."
+                },
+                "medaka_model": {
+                    "type": "string",
+                    "description": "The name of a Medaka model to use. This name will override the model automatically chosen based on the provided basecaller configuration.",
+                    "help_text": "The workflow will attempt to map the basecalling model used to a suitable Medaka model. You can override this by providing a model with this option instead."
                 }
             }
         },
@@ -157,12 +168,6 @@
             "description": "Everything else.",
             "default": "",
             "properties": {
-                "wfversion": {
-                    "type": "string",
-                    "default": "v0.2.7",
-                    "hidden": true,
-                    "description": "Workflow version"
-                },
                 "threads": {
                     "type": "integer",
                     "default": 4,
@@ -209,7 +214,7 @@
         }
     ],
     "docs": {
-        "intro": "## Introduction\n\nThis repository contains a nextflow workflow that can be used to de novo assemble plasmid sequences from Oxford Nanopore data to allow users to verify complete artificial contructs.\n",
+        "intro": "## Introduction\n\nThis repository contains a Nextflow workflow that can be used to **de novo** assemble plasmid sequences from Oxford Nanopore data to allow users to verify complete artificial constructs.\n",
         "links": "## Useful links\n\n* [nextflow](https://www.nextflow.io/)\n* [docker](https://www.docker.com/products/docker-desktop)"
     }
 }
