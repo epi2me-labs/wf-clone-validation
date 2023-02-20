@@ -446,16 +446,16 @@ workflow pipeline {
 
         // Core assembly and reconciliation
         assemblies = assembleCore(samples_filtered)
-        assemblies.view()
+        assemblies.println()
 
         named_drafts = assemblies.assembly.groupTuple()
-        named_drafts.view()
+        named_drafts.println()
 
         named_samples = assemblies.downsampled.groupTuple()
-        named_samples.view()
+        named_samples.println()
 
         named_drafts_samples = named_drafts.join(named_samples)
-        named_drafts_samples.view()
+        named_drafts_samples.println()
 
         if(params.medaka_model) {
             log.warn "Overriding Medaka model with ${params.medaka_model}."
@@ -468,7 +468,7 @@ workflow pipeline {
         }
         // Polish draft assembly
         polished = medakaPolishAssembly(named_drafts_samples, medaka_model)
-        polished.view()
+        polished.println()
 
         // Concat statuses and keep the last of each
         final_status = sample_fastqs.status.concat(updated_status)
