@@ -80,7 +80,7 @@ process assembleCore {
     input:
         tuple val(sample_id), path(fastq), val(approx_size)
     output:
-        tuple val(sample_id), path("*.reconciled.fasta"), optional: true, emit: assembly
+        tuple val(sample_id), path("*.reconciled.fasta"), path("*.downsampled.fastq"), optional: true, emit: assembly
         tuple val(sample_id), path("*.downsampled.fastq"), optional: true, emit: downsampled
         tuple val(sample_id), env(STATUS), emit: status
     script:
@@ -463,7 +463,7 @@ workflow pipeline {
             medaka_model = lookup_medaka_model(lookup_table, params.basecaller_cfg)
         }
         // Polish draft assembly
-        polished = medakaPolishAssembly(named_drafts_samples, medaka_model)
+        polished = medakaPolishAssembly(assemblies.assembly, medaka_model)
 
         // Concat statuses and keep the last of each
         final_status = sample_fastqs.status.concat(updated_status)
