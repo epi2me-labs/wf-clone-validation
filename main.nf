@@ -239,7 +239,6 @@ process medakaPolishAssembly {
         tuple val(sample_id), path("*.final.fasta"), emit: polished
         tuple val(sample_id), env(STATUS), emit: status
     script:
-        def model = medaka_model
     """
     STATUS="Failed to polish assembly with Medaka"
     medaka_consensus -i $fastq -d $draft -m r941_min_hac_g507 -o . -t $task.cpus -f
