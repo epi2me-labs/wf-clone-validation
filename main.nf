@@ -446,6 +446,7 @@ workflow pipeline {
 
         // Core assembly and reconciliation
         assemblies = assembleCore(samples_filtered)
+        assemblies.view()
 
         named_drafts = assemblies.assembly.groupTuple()
 
@@ -540,7 +541,7 @@ workflow {
         "min_barcode":params.min_barcode,
         "max_barcode":params.max_barcode])
     samples.view()
-    
+
     host_reference = params.host_reference ?: 'NO_HOST_REF'
     host_reference = file(host_reference, checkIfExists: host_reference == 'NO_HOST_REF' ? false : true)
     regions_bedfile = params.regions_bedfile ?: 'NO_REG_BED'
@@ -563,7 +564,6 @@ workflow {
     results = pipeline(samples, host_reference, regions_bedfile, database, primer_file, align_ref)
 
     output(results[0])
-   
 }
 
 
