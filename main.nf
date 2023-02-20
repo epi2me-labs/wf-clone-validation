@@ -436,20 +436,26 @@ workflow pipeline {
             samples_filtered = filtered.unmapped
             updated_status = filtered.status
             filtered_stats = filtered.host_filter_stats.collect()
-                             .ifEmpty(file("$projectDir/data/OPTIONAL_FILE"))
+                .ifEmpty(file("$projectDir/data/OPTIONAL_FILE"))
         }
         else {
             samples_filtered = sample_fastqs.sample
             updated_status = sample_fastqs.status
             filtered_stats = file("$projectDir/data/OPTIONAL_FILE")
         }
-       
+
         // Core assembly and reconciliation
         assemblies = assembleCore(samples_filtered)
-        
+        assemblies.view()
+
         named_drafts = assemblies.assembly.groupTuple()
+        named_drafts.view()
+
         named_samples = assemblies.downsampled.groupTuple()
+        named_samples.view()
+
         named_drafts_samples = named_drafts.join(named_samples)
+        named_drafts_samples.view()
 
         if(params.medaka_model) {
             log.warn "Overriding Medaka model with ${params.medaka_model}."
@@ -462,7 +468,8 @@ workflow pipeline {
         }
         // Polish draft assembly
         polished = medakaPolishAssembly(named_drafts_samples, medaka_model)
-       
+        polished.view()
+
         // Concat statuses and keep the last of each
         final_status = sample_fastqs.status.concat(updated_status)
         .concat(assemblies.status).concat(polished.status).groupTuple()
