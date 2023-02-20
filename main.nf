@@ -243,9 +243,9 @@ process medakaPolishAssembly {
         def model = medaka_model
     """
     STATUS="Failed to polish assembly with Medaka"
-    medaka_consensus -i "${fastq}" -d "${draft}" -m "${model}" -o . -t $task.cpus -f
-    echo ">${sample_id}" >> "${sample_id}.final.fasta"
-    sed "2q;d" consensus.fasta >> "${sample_id}.final.fasta"
+    medaka_consensus -i $fastq -d $draft -m $model -o . -t $task.cpus -f
+    echo ">${sample_id}" >> ${sample_id}.final.fasta
+    sed "2q;d" consensus.fasta >> ${sample_id}.final.fasta
     STATUS="Completed successfully"
     """
 }
@@ -351,9 +351,9 @@ process inserts {
     label "wfplasmid"
     cpus 1
     input:
-         path "primer_beds/*"
-         path "assemblies/*"
-         path align_ref
+        path "primer_beds/*"
+        path "assemblies/*"
+        path align_ref
     output:
         path "inserts/*", optional: true, emit: inserts
         path "*.json", emit: json
@@ -446,7 +446,6 @@ workflow pipeline {
 
         // Core assembly and reconciliation
         assemblies = assembleCore(samples_filtered)
-        assemblies.view()
 
         named_drafts = assemblies.assembly.groupTuple()
 
