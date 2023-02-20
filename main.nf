@@ -235,7 +235,6 @@ process medakaPolishAssembly {
     cpus params.threads
     input:
         tuple val(sample_id), path(draft), path(fastq)
-        val medaka_model
     output:
         tuple val(sample_id), path("*.final.fasta"), emit: polished
         tuple val(sample_id), env(STATUS), emit: status
@@ -243,7 +242,7 @@ process medakaPolishAssembly {
         def model = medaka_model
     """
     STATUS="Failed to polish assembly with Medaka"
-    medaka_consensus -i $fastq -d $draft -m $model -o . -t $task.cpus -f
+    medaka_consensus -i $fastq -d $draft -m r941_min_hac_g507 -o . -t $task.cpus -f
     echo ">${sample_id}" >> ${sample_id}.final.fasta
     sed "2q;d" consensus.fasta >> ${sample_id}.final.fasta
     STATUS="Completed successfully"
@@ -453,17 +452,8 @@ workflow pipeline {
 
         named_drafts_samples = named_drafts.join(named_samples)
 
-        if(params.medaka_model) {
-            log.warn "Overriding Medaka model with ${params.medaka_model}."
-            medaka_model = Channel.fromPath(params.medaka_model, type: "dir", checkIfExists: true)
-        }
-        else {
-            // map basecalling model to medaka model
-            lookup_table = Channel.fromPath("${projectDir}/data/medaka_models.tsv", checkIfExists: true)
-            medaka_model = lookup_medaka_model(lookup_table, params.basecaller_cfg)
-        }
         // Polish draft assembly
-        polished = medakaPolishAssembly(assemblies.assembly, medaka_model)
+        polished = medakaPolishAssembly(assemblies.assembly)
 
         // Concat statuses and keep the last of each
         final_status = sample_fastqs.status.concat(updated_status)
