@@ -446,16 +446,12 @@ workflow pipeline {
 
         // Core assembly and reconciliation
         assemblies = assembleCore(samples_filtered)
-        assemblies.println()
 
         named_drafts = assemblies.assembly.groupTuple()
-        named_drafts.println()
 
         named_samples = assemblies.downsampled.groupTuple()
-        named_samples.println()
 
         named_drafts_samples = named_drafts.join(named_samples)
-        named_drafts_samples.println()
 
         if(params.medaka_model) {
             log.warn "Overriding Medaka model with ${params.medaka_model}."
@@ -468,7 +464,6 @@ workflow pipeline {
         }
         // Polish draft assembly
         polished = medakaPolishAssembly(named_drafts_samples, medaka_model)
-        polished.println()
 
         // Concat statuses and keep the last of each
         final_status = sample_fastqs.status.concat(updated_status)
@@ -544,6 +539,8 @@ workflow {
         "sample_sheet":params.sample_sheet,
         "min_barcode":params.min_barcode,
         "max_barcode":params.max_barcode])
+    samples.view()
+    
     host_reference = params.host_reference ?: 'NO_HOST_REF'
     host_reference = file(host_reference, checkIfExists: host_reference == 'NO_HOST_REF' ? false : true)
     regions_bedfile = params.regions_bedfile ?: 'NO_REG_BED'
@@ -558,7 +555,7 @@ workflow {
     }
     database = file("$projectDir/data/OPTIONAL_FILE")
     if (params.db_directory != null){
-         database = file(params.db_directory, type: "dir")
+        database = file(params.db_directory, type: "dir")
 
     }
 
