@@ -2,9 +2,17 @@
 
 This repository contains a [nextflow](https://www.nextflow.io/) workflow
 that can be used to de novo assemble plasmid sequences from Oxford Nanopore data.
+
+
+
+
 ## Introduction
 
 This repository contains a Nextflow workflow that can be used to **de novo** assemble plasmid sequences from Oxford Nanopore data to allow users to verify complete artificial constructs.
+
+
+
+
 ## Quickstart
 
 The workflow uses [nextflow](https://www.nextflow.io/) to manage compute and 
@@ -48,6 +56,10 @@ wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validat
 tar -xzvf wf-clone-validation-db.tar.gz
 ```
 The location of the database will need to be specified with the --db_directory parameter. 
+
+
+
+
 
 ## Useful links
 
