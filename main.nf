@@ -234,8 +234,7 @@ process medakaPolishAssembly {
     label "medaka"
     cpus params.threads
     input:
-        tuple val(sample_id), path(draft), path(fastq)
-        val medaka_model
+        tuple val(sample_id), path(draft), path(fastq), val(medaka_model)
     output:
         tuple val(sample_id), path("*.final.fasta"), emit: polished
         tuple val(sample_id), env(STATUS), emit: status
@@ -472,7 +471,7 @@ workflow pipeline {
             medaka_model = lookup_medaka_model(lookup_table, params.basecaller_cfg)
         }
         // Polish draft assembly
-        polished = medakaPolishAssembly(named_drafts_samples, medaka_model)
+        polished = medakaPolishAssembly(named_drafts_samples.combine(medaka_model))
        
         // Concat statuses and keep the last of each
         final_status = sample_fastqs.status.concat(updated_status)
