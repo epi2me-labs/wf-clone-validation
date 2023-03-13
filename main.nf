@@ -433,8 +433,13 @@ workflow pipeline {
             approx_size = Channel.fromPath(params.approx_size_sheet) \
             | splitCsv(header:true) \
             | map { row-> tuple(row.sample_id, row.approx_size) }
-            final_samples = named_samples.join(approx_size)}
-        else {
+            final_samples = named_samples
+            | map {
+                [it[0]["sample_id"], *it]
+            }
+            | join(approx_size)
+            | map { it[1..-1] }
+        } else {
             final_samples = samples.map  { it -> return tuple(it[1],it[0], params.approx_size)}
         }
         sample_fastqs = combineFastq(final_samples)
