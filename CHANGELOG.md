@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [unreleased]
+### Fixed
+- Bug where the workflow wouldn't run properly when `--approx_size_sheet` was used.
+
 ## [v0.2.11]
 ### Fixed
 - Provide medaka model for each assembly to fix bug.
