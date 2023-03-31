@@ -1,4 +1,4 @@
-barcode,sample_id
+barcode,alias
 barcode01,sample01
 barcode02,sample02
 barcode04,sample04

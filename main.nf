@@ -6,34 +6,34 @@ nextflow.enable.dsl = 2
 include { fastq_ingress } from './lib/fastqingress'
 
 
-process combineFastq {
-    errorStrategy 'ignore'
+process checkIfEnoughReads {
     label "wfplasmid"
     cpus 1
     input:
-        tuple val(meta), path(directory), val(approx_size)
+        tuple val(meta),
+            path("input.fastq.gz"),
+            path("per-read-stats.tsv"),
+            val(approx_size)
     output:
-        tuple val(meta.sample_id), path("${meta.sample_id}.fastq.gz"), val(approx_size), optional: true, emit: sample
-        path "${meta.sample_id}.stats", optional: true, emit: stats
-        tuple val(meta.sample_id), env(STATUS), emit: status
+        tuple val(meta.alias), path("${meta.alias}.fastq.gz"), val(approx_size),
+            optional: true, emit: sample
+        path "${meta.alias}.stats", emit: stats
+        tuple val(meta.alias), env(STATUS), emit: status
     script:
         def expected_depth = "$params.assm_coverage"
         // a little heuristic to decide if we have enough data
         int value = (expected_depth.toInteger()) * 0.8
-        def expected_length_max = approx_size.toInteger()
-        def expected_length_min = approx_size.toInteger()
-        int max = (expected_length_max.toInteger()) * 1.5
-        int min = (expected_length_min.toInteger()) * 0.5
     """
     STATUS="Failed due to insufficient reads"
-    fastcat -s ${meta.sample_id} -r ${meta.sample_id}.stats -x ${directory} > /dev/null
-    fastcat -a "$min" -b "$max" -s ${meta.sample_id} -r ${meta.sample_id}.interim -x ${directory} > ${meta.sample_id}.fastq
-    if [[ "\$(wc -l <"${meta.sample_id}.interim")" -ge "$value" ]];  then
-        gzip ${meta.sample_id}.fastq
+    mv per-read-stats.tsv ${meta.alias}.stats
+
+    if [[ "\$(wc -l < "${meta.alias}.stats")" -ge "$value" ]]; then
+        mv input.fastq.gz ${meta.alias}.fastq.gz
         STATUS="Completed successfully"
     fi
     """
 }
+
 
 
 process filterHostReads {
@@ -426,23 +426,16 @@ workflow pipeline {
         align_ref
 
     main:
-        // Combine fastq from each of the sample directories into
-        // a single per-sample fastq file
-        named_samples = samples.map { it -> return tuple(it[1],it[0])}
-        if(params.approx_size_sheet != null) {
-            approx_size = Channel.fromPath(params.approx_size_sheet) \
-            | splitCsv(header:true) \
-            | map { row-> tuple(row.sample_id, row.approx_size) }
-            final_samples = named_samples
-            | map {
-                [it[0]["sample_id"], *it]
-            }
-            | join(approx_size)
-            | map { it[1..-1] }
-        } else {
-            final_samples = samples.map  { it -> return tuple(it[1],it[0], params.approx_size)}
-        }
-        sample_fastqs = combineFastq(final_samples)
+        // remove samples that didn't have sequences (i.e. metamap entries without
+        // corresponding barcode sub-directories) and get the per-read stats file from
+        // the fastcat stats dir
+        samples = samples
+        | filter { it[1] }
+        | map { it[2] = it[2].resolve("per-read-stats.tsv"); it }
+
+        // drop samples with too low coverage
+        sample_fastqs = checkIfEnoughReads(samples)
+
         // Optionally filter the data, removing reads mapping to
         // the host or background genome
         if (host_reference.name != "NO_HOST_REF") {
@@ -547,12 +540,50 @@ workflow {
     if (params.disable_ping == false) {
         Pinguscript.ping_post(workflow, "start", "none", params.out_dir, params)
     }
+
+    // calculate min and max read length for filtering with `fastcat`
+    List approx_sizes; int min_read_length, max_read_length
+    if(params.approx_size_sheet) {
+        // the file provided with `--approx_size_sheet` contains a size estimate for
+        // each sample, but we will filter all samples with the same parameters)
+        approx_sizes = file(params.approx_size_sheet).splitCsv(header:true)
+        min_read_length = approx_sizes.collect { it["approx_size"].toInteger() }.min()
+        max_read_length = approx_sizes.collect { it["approx_size"].toInteger() }.max()
+    } else {
+        // we only got a single size estimate --> take as max and min
+        min_read_length = max_read_length = params.approx_size
+    }
+    // +/- 50% margins for read length thresholds
+    min_read_length *= 0.5
+    max_read_length *= 1.5
+
     samples = fastq_ingress([
         "input":params.fastq,
         "sample":params.sample,
         "sample_sheet":params.sample_sheet,
-        "min_barcode":params.min_barcode,
-        "max_barcode":params.max_barcode])
+        "fastcat_stats": true,
+        "fastcat_extra_args": "-a $min_read_length -b $max_read_length"
+        ])
+
+    // add the size estimates to the channel with the samples
+    if (params.approx_size_sheet) {
+        samples = samples
+        | map { [it[0]["alias"], *it] }
+        | join(Channel.of(*approx_sizes) | map { [it["alias"], it["approx_size"]] } )
+        | map { it[1..-1] }
+        | ifEmpty {
+            error "The sample aliases in the CSV file provided with " +
+                "`--approx_size_sheet` don't match up with the sample names. Have " +
+                "you made sure the 'alias' column contains the correct sample names? " +
+                "You could have also forgotten to provide a sample sheet alongside " +
+                "the approx. size sheet. In case you are not using a sample sheet, " +
+                "make sure the 'alias' column in the size sheet matches the barcode " +
+                "directory names."
+        }
+    } else {
+        samples = samples | map { [*it, params.approx_size] }
+    }
+
     host_reference = params.host_reference ?: 'NO_HOST_REF'
     host_reference = file(host_reference, checkIfExists: host_reference == 'NO_HOST_REF' ? false : true)
     regions_bedfile = params.regions_bedfile ?: 'NO_REG_BED'
