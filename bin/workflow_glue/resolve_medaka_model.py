@@ -66,6 +66,7 @@ def main(args):
                 advice=(
                     "Check your --basecaller_cfg has been provided correctly. "
                 ),
+                args=args
             )
 
 
