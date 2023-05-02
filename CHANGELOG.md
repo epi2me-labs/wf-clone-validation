@@ -8,7 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Optional `required_sample_types` field added to fastqingress. The sample sheet must contain at least one of each sample type provided to be deemed valid.
 ### Changed
-- Updated to Oxford Nanopore Technologies PLC. Public License
+- Updated to Oxford Nanopore Technologies PLC. Public License.
+### Fixed
+- Amended raw QC stats to show data before filtering by assembly_size parameter.  
 
 ## [v0.2.12]
 ### Fixed
