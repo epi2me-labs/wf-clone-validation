@@ -8,12 +8,13 @@ include { fastq_ingress } from './lib/fastqingress'
 
 process checkIfEnoughReads {
     label "wfplasmid"
-    cpus 1
+    cpus params.threads
     input:
         tuple val(meta),
             path("input.fastq.gz"),
             path("per-read-stats.tsv"),
             val(approx_size)
+        val extra_args
     output:
         tuple val(meta.alias), path("${meta.alias}.fastq.gz"), val(approx_size),
             optional: true, emit: sample
@@ -23,12 +24,14 @@ process checkIfEnoughReads {
         def expected_depth = "$params.assm_coverage"
         // a little heuristic to decide if we have enough data
         int value = (expected_depth.toInteger()) * 0.8
+        int bgzip_threads = task.cpus == 1 ? 1 : task.cpus - 1
     """
     STATUS="Failed due to insufficient reads"
     mv per-read-stats.tsv ${meta.alias}.stats
-
-    if [[ "\$(wc -l < "${meta.alias}.stats")" -ge "$value" ]]; then
-        mv input.fastq.gz ${meta.alias}.fastq.gz
+    fastcat -s ${meta.alias} -r ${meta.alias}.interim $extra_args input.fastq.gz \
+    | bgzip -@ $bgzip_threads > interim.fastq.gz
+    if [[ "\$(wc -l < "${meta.alias}.interim")" -ge "$value" ]]; then
+        mv interim.fastq.gz ${meta.alias}.fastq.gz
         STATUS="Completed successfully"
     fi
     """
@@ -424,6 +427,8 @@ workflow pipeline {
         database
         primers
         align_ref
+        min_read_length
+        max_read_length
 
     main:
         // remove samples that didn't have sequences (i.e. metamap entries without
@@ -433,8 +438,11 @@ workflow pipeline {
         | filter { it[1] }
         | map { it[2] = it[2].resolve("per-read-stats.tsv"); it }
 
+        // Min/max filter reads
+        fastcat_extra_args = "-a $min_read_length -b $max_read_length"
+        
         // drop samples with too low coverage
-        sample_fastqs = checkIfEnoughReads(samples)
+        sample_fastqs = checkIfEnoughReads(samples, fastcat_extra_args)
 
         // Optionally filter the data, removing reads mapping to
         // the host or background genome
@@ -561,8 +569,7 @@ workflow {
         "input":params.fastq,
         "sample":params.sample,
         "sample_sheet":params.sample_sheet,
-        "fastcat_stats": true,
-        "fastcat_extra_args": "-a $min_read_length -b $max_read_length"
+        "fastcat_stats": true
         ])
 
     // add the size estimates to the channel with the samples
@@ -603,7 +610,15 @@ workflow {
     }
 
     // Run pipeline
-    results = pipeline(samples, host_reference, regions_bedfile, database, primer_file, align_ref)
+    results = pipeline(
+        samples,
+        host_reference,
+        regions_bedfile,
+        database,
+        primer_file,
+        align_ref,
+        min_read_length,
+        max_read_length)
 
     output(results[0])
    
