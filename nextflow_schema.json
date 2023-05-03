@@ -164,19 +164,21 @@
                     "default": 150,
                     "description": "Number of base pairs to trim from the both ends of read."
                 },
-                "canu_useGrid": {
-                    "type": "boolean",
-                    "description": "Turn on canu use grid option.",
-                    "help_text": "Default is to restrict Canu to using only the current machine. If you are running the workflow on a cluster you can set this to true to improve performance. "
-                },
-                "fast": {
-                    "type": "boolean",
-                    "description": "Fast option can make the assembly step significantly faster. It can be used on any genome size but may produce less continuous assemblies on genomes larger than 1 Gbp."
-                },
                 "medaka_model": {
                     "type": "string",
                     "description": "The name of a Medaka model to use. This name will override the model automatically chosen based on the provided basecaller configuration.",
                     "help_text": "The workflow will attempt to map the basecalling model used to a suitable Medaka model. You can override this by providing a model with this option instead."
+                },
+                "flye_quality": {
+                    "type": "string",
+                    "default": "nano-hq",
+                    "description": "The Flye parameter for quality of input reads, default `nano-hq`: high-quality reads, Guppy5+ SUP or Q20 (<5% error).",
+                    "help_text": "Other options include `nano-corr`: reads that were corrected with other methods (<3% error), `nano-raw`: pre-Guppy5 (<20% error).",
+                    "enum": [
+                        "nano-hq",
+                        "nano-corr",
+                        "nano-raw"
+                    ]
                 }
             }
         },
