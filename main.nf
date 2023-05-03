@@ -75,6 +75,7 @@ process filterHostReads {
 }
 
 
+
 process assembleCore {
     errorStrategy = {task.attempt <= 4 ? 'retry' : 'ignore'}
     maxRetries 4
@@ -95,19 +96,6 @@ process assembleCore {
         int max_len = approx_size.toInteger() * 1.2
         int min_q = 7
         int exit_number = task.attempt <= 4 ? 1 : 0
-        def fast = params.fast == true ? '-fast' : ''
-        def cluster_option = (params.canu_useGrid == false) ? """\
-        -useGrid=false \
-        -obtovlThreads=$task.cpus \
-        -utgovlThreads=$task.cpus \
-        -corThreads=$task.cpus \
-        -redThreads=$task.cpus \
-        -batThreads=$task.cpus """ : ""
-        def windows_params = System.properties['os.version'].toLowerCase().contains("wsl") ? """\
-        -mhapPipe=false \
-        -purgeOverlaps=false \
-        -saveOverlaps=true """ : ""
-
     """
 
     ############################################################
@@ -140,42 +128,41 @@ process assembleCore {
         --reads ${name}.downsampled.fastq \
         --out_dir sets \
         --genome_size $approx_size) \
-        && STATUS="Failed to assemble using Canu" &&
+        && STATUS="Failed to assemble using Flye" &&
 
     ############################################################
     # Assembly
     ############################################################
-
     (for SUBSET in \$(ls sets/sample_*.fastq)
     do
         SUBSET_NAME=\$(basename -s .fastq \$SUBSET)
-        canu \
-            -p \$SUBSET_NAME \
-            -d assm_\${SUBSET_NAME} \
-            -maxThreads=$task.cpus \
-            genomeSize=$approx_size \
-            $fast \
-            -nanopore \$SUBSET \
-            $cluster_option \
-            $windows_params
+        flye \
+            --${params.flye_quality}\
+            \${SUBSET} \
+            --threads $task.cpus \
+            --genome-size $approx_size \
+            --out-dir "assm_\${SUBSET_NAME}" \
+            --meta
+             
+        mv assm_sample_0*/assembly.fasta "assm_\${SUBSET_NAME}/\${SUBSET_NAME}_assembly.fasta" 
     done) && STATUS="Failed to trim Assembly" &&
 
     ############################################################
     # Trim assemblies
     ############################################################
 
-    (for ASSEMBLY in \$(ls assm_*/*.contigs.fasta)
-    do
-        ASSEMBLY_NAME=\$(basename -s .fasta \$ASSEMBLY)
-        workflow-glue trim \
-            \$ASSEMBLY \
-            -o \${ASSEMBLY_NAME}.trimmed.fasta
+    (for assembly in \$(ls assm_sample_0*/*assembly.fasta)
+    do  
+        echo \$assembly
+        assembly_name=\$(basename -s .fasta \$assembly)
+        ass_stats=\$(dirname \$assembly)/assembly_info.txt
         workflow-glue deconcatenate \
-            \${ASSEMBLY_NAME}.trimmed.fasta \
-            -o \${ASSEMBLY_NAME}.deconcat.fasta
+            \$assembly \
+            -o \${assembly_name}.deconcat.fasta
     done
-    ls *.deconcat.fasta 1> /dev/null 2>&1) \
+    ls *.deconcat.fasta > /dev/null 2>&1) \
     && STATUS="Failed to reconcile assemblies" &&
+
 
     ############################################################
     # Reconciliation
@@ -312,7 +299,7 @@ process getVersions {
     trycycler --version | sed 's/ /,/' >> versions.txt
     porechop --version | sed 's/^/porechop,/'  >> versions.txt
     bedtools --version | sed 's/ /,/' >> versions.txt
-    canu -version | sed 's/ /,/' >> versions.txt
+    flye --version | sed 's/ /,/' >> versions.txt
     fastcat --version | sed 's/^/fastcat,/' >> versions.txt
     last --version | sed 's/ /,/' >> versions.txt
     rasusa --version | sed 's/ /,/' >> versions.txt

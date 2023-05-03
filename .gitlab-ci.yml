@@ -15,6 +15,7 @@ variables:
 
 
 docker-run:
+    tags: [large_ram]
     parallel:
         matrix:
             - MATRIX_NAME: [
