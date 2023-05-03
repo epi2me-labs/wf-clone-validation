@@ -4,9 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-### Added
-- Optional `required_sample_types` field added to fastqingress. The sample sheet must contain at least one of each sample type provided to be deemed valid.
+## [v0.2.13]
 ### Changed
 - Updated to Oxford Nanopore Technologies PLC. Public License.
 ### Fixed
