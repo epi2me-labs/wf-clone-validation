@@ -297,11 +297,9 @@ process getVersions {
     samtools --version | head -n 1 | sed 's/ /,/' >> versions.txt
     seqkit version | sed 's/ /,/' >> versions.txt
     trycycler --version | sed 's/ /,/' >> versions.txt
-    porechop --version | sed 's/^/porechop,/'  >> versions.txt
     bedtools --version | sed 's/ /,/' >> versions.txt
     flye --version | sed 's/ /,/' >> versions.txt
     fastcat --version | sed 's/^/fastcat,/' >> versions.txt
-    last --version | sed 's/ /,/' >> versions.txt
     rasusa --version | sed 's/ /,/' >> versions.txt
     python -c "import spoa; print(spoa.__version__)" | sed 's/^/spoa,/'  >> versions.txt
     """
