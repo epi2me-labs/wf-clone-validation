@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [unreleased]
 ### Removed
 - Unused packages from the container.
+### Changed
+- Enum choices are enumerated in the `--help` output
+- Enum choices are enumerated as part of the error message when a user has selected an invalid choice
+### Fixed
+- Replaced `--threads` option in fastqingress with hardcoded values to remove warning about undefined `param.threads`
 
 ## [v0.3.1]
 ### Added
