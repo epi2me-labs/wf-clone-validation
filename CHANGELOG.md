@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enum choices are enumerated in the `--help` output
 - Enum choices are enumerated as part of the error message when a user has selected an invalid choice
 - Bumped minimum required Nextflow version to 22.10.8
+- Updated GitHub issue templates to force capture of more information.
 
 ### Fixed
 - Replaced `--threads` option in fastqingress with hardcoded values to remove warning about undefined `param.threads`
