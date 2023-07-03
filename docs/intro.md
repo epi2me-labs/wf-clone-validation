@@ -28,4 +28,4 @@ The steps of the workflow are as follows -
 
 * A quality score for the assembly is provided by Medaka.
 
-* Optionally a reference insert sequence can be provided which is aligned to the consensus and any variants are reported by [bcftools](https://samtools.github.io/bcftools/bcftools.html).
+* Optionally a reference insert sequence can be provided with --insert_reference, which is aligned to the consensus and any variants are reported by [bcftools](https://samtools.github.io/bcftools/bcftools.html).

@@ -228,13 +228,15 @@ process medakaPolishAssembly {
     output:
         tuple val(sample_id), path("*.final.fasta"), emit: polished
         tuple val(sample_id), env(STATUS), emit: status
+        tuple val(sample_id), path("${sample_id}.final.fastq"), emit: assembly_qc
     script:
         def model = medaka_model
     """
     STATUS="Failed to polish assembly with Medaka"
-    medaka_consensus -i "${fastq}" -d "${draft}" -m "${model}" -o . -t $task.cpus -f
+    medaka_consensus -i "${fastq}" -d "${draft}" -m "${model}" -o . -t $task.cpus -f -q
     echo ">${sample_id}" >> "${sample_id}.final.fasta"
     sed "2q;d" consensus.fasta >> "${sample_id}.final.fasta"
+    mv consensus.fasta "${sample_id}.final.fastq"
     STATUS="Completed successfully"
     """
 }
@@ -363,9 +365,48 @@ process inserts {
     else
         inserts="--primer_beds primer_beds/*"
     fi
-    workflow-glue find_inserts \$inserts $ref  
+    workflow-glue find_inserts \$inserts $ref
     """
 }
+
+
+process insert_qc {
+    label "wfplasmid"
+    cpus 1
+    input:
+         tuple val(sample_id), path("insert_assembly.fasta")
+         path "reference_assembly.fasta"
+    output:
+         tuple val(sample_id), path("${sample_id}.calls.bcf"), path("${sample_id}.stats"), optional: true, emit: insert_stats
+         tuple val(sample_id), env(STATUS), emit: status
+    script:
+    """
+    STATUS="Insert found but does not align with provided reference"
+    minimap2 -t $task.cpus -y -ax map-ont "reference_assembly.fasta" "insert_assembly.fasta" | samtools sort -o output.bam -
+    mapped=\$(samtools view -F 4 -c  output.bam)
+    if [ \$mapped != 0 ]; then
+        bcftools mpileup -Ou -f "reference_assembly.fasta" output.bam | bcftools call -mv -Ob -o "${sample_id}.calls.bcf"
+        bcftools stats "${sample_id}.calls.bcf" > ${sample_id}.stats
+        STATUS="Completed successfully"
+    fi
+    """
+}
+
+
+process assembly_qc {
+    label "wfplasmid"
+    cpus 1
+    input:
+        tuple val(sample_id), path("assembly.fastq")
+    output:
+        path "${sample_id}.assembly_stats.tsv"
+    script:
+    """
+    fastcat -s "${sample_id}" -r "${sample_id}.assembly_stats.tsv" assembly.fastq
+    """
+}
+
+
 
 
 process report {
@@ -381,6 +422,8 @@ process report {
         path plannotate_json
         path inserts_json
         path lengths
+        path "qc_inserts/*"
+        path "assembly_quality/*"
     output:
         path "wf-clone-validation-*.html", emit: html
         path "sample_status.txt", emit: sample_stat
@@ -400,7 +443,9 @@ process report {
     --report_name $report_name \
     --plannotate_json $plannotate_json \
     --lengths $lengths \
-    --inserts_json $inserts_json
+    --inserts_json $inserts_json \
+    --qc_inserts qc_inserts/* \
+    --assembly_quality assembly_quality/*
     """
 }
 
@@ -464,11 +509,6 @@ workflow pipeline {
         // Polish draft assembly
         polished = medakaPolishAssembly(named_drafts_samples.combine(medaka_model))
        
-        // Concat statuses and keep the last of each
-        final_status = sample_fastqs.status.concat(updated_status)
-        .concat(assemblies.status).concat(polished.status).groupTuple()
-        .map { it -> it[0].toString() + ',' + it[1][-1].toString() }
-        final_status = final_status.collectFile(name: 'final_status.csv', newLine: true)
     
         downsampled_stats = downsampledStats(assemblies.downsampled)
 
@@ -477,13 +517,38 @@ workflow pipeline {
         software_versions = getVersions(medaka_version)
         workflow_params = getParams()
 
-        annotation = runPlannotate(
-            database, polished.polished.map { it -> it[1] }.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
-            final_status)
+        
 
         insert = inserts(primer_beds.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
             polished.polished.map { it -> it[1] }.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
             align_ref)
+        
+        // assembly QC
+        
+        insert_tuple = insert.inserts.flatten().map{ assembly -> tuple(assembly.simpleName, assembly)}
+        assembly_quality = assembly_qc(polished.assembly_qc)
+        if (params.insert_reference){
+            insert_qc_tuple = insert_qc(insert_tuple, align_ref)
+            qc_insert = insert_qc_tuple.insert_stats.map{sample_id, bcf, stats -> stats}
+            bcf_insert = insert_qc_tuple.insert_stats.map{sample_id, bcf, stats -> bcf}
+            insert_status = insert_qc_tuple.status
+        }
+        else {
+            qc_insert = Channel.empty()
+            bcf_insert = Channel.empty()
+            insert_status = Channel.empty()
+        }
+
+        // Concat statuses and keep the last of each
+        final_status = sample_fastqs.status.concat(updated_status)
+        .concat(assemblies.status).concat(polished.status).concat(insert_status).groupTuple()
+        .map { it -> it[0].toString() + ',' + it[1][-1].toString() }
+        final_status = final_status.collectFile(name: 'final_status.csv', newLine: true)
+
+        annotation = runPlannotate(
+            database, polished.polished.map { it -> it[1] }.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
+            final_status)
+
         report = report(
             downsampled_stats.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
             final_status,
@@ -493,7 +558,10 @@ workflow pipeline {
             workflow_params,
             annotation.report,
             insert.json,
-            annotation.json)
+            annotation.json,
+            qc_insert.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
+            assembly_quality.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
+            )
 
         results = polished.polished.map { it -> it[1] }.concat(
             report.html,
@@ -502,7 +570,10 @@ workflow pipeline {
             insert.inserts,
             annotation.json,
             annotation.annotations,
-            workflow_params)
+            workflow_params,
+            bcf_insert,
+            qc_insert)
+        
     emit:
         results
         telemetry = workflow_params
@@ -532,6 +603,10 @@ WorkflowMain.initialise(workflow, params, log)
 workflow {
     if (params.disable_ping == false) {
         Pinguscript.ping_post(workflow, "start", "none", params.out_dir, params)
+    }
+
+    if (params.containsKey("reference")) {
+        throw new Exception("--reference is deprecated, use --insert_reference instead.")
     }
 
     // calculate min and max read length for filtering with `fastcat`
@@ -585,8 +660,8 @@ workflow {
         primer_file = file(params.primers, type: "file")
     }
     align_ref = file("$projectDir/data/OPTIONAL_FILE")
-    if (params.reference != null){
-        align_ref = file(params.reference, type: "file")
+    if (params.insert_reference != null){
+        align_ref = file(params.insert_reference, type: "file")
     }
     database = file("$projectDir/data/OPTIONAL_FILE")
     if (params.db_directory != null){
