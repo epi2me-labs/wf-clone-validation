@@ -7,6 +7,7 @@ import json
 import os
 
 import pandas as pd
+from pysam import FastaFile
 from spoa import poa
 from .util import wf_parser  # noqa: ABS101
 
@@ -52,16 +53,16 @@ def read_seqkit(bed_files, sep='\t'):
     return bed_df, bed_dic
 
 
-def make_msa(inserts_dic, *reference):
+def make_msa(inserts_dic, reference=None):
     """Make multiple sequence alignment."""
     allseq = []
     names = []
     # Align with reference if included
     if reference:
-        with open(reference[0]) as f:
-            ref_seq = f.readline().strip()
-            allseq.append(ref_seq)
-            names.append('Reference')
+        refseq = FastaFile(reference)
+        ref_seq = refseq.fetch(refseq.references[0])
+        allseq.append(ref_seq)
+        names.append('Reference')
     for k, v in inserts_dic.items():
         allseq.append(v)
         names.append(k)
@@ -111,7 +112,7 @@ def argparser():
         help="bed files of extracted sequences",
         required=False)
     parser.add_argument(
-        "--reference", nargs='+',
+        "--reference",
         help="reference", required=False)
     return parser
 

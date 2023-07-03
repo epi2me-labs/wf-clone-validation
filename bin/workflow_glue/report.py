@@ -7,6 +7,7 @@ import os
 
 
 from aplanat import bars, report
+from aplanat.components import bcfstats
 from aplanat.components import fastcat
 from aplanat.components import simple as scomponents
 import aplanat.graphics
@@ -267,6 +268,29 @@ The Plasmid annotation plot and feature table are produced using
                 test_df['Length']))
         test_df = test_df.drop(columns='Length')
         insert_placeholder.table(test_df, index=False, key='insert_table')
+    # Assembly QC section
+    section = report_doc.add_section()
+    section.markdown('### Assembly Quality')
+    if 'assembly_quailty/OPTIONAL_FILE' not in args.assembly_quality:
+        section.markdown(
+            'This table gives the mean quality for the whole \
+            plasmid assembly. This is provided by Medaka, derived \
+            from aligning the reads to the consensus.')
+        qual_df = read_files(
+            args.assembly_quality)[['sample_name', 'mean_quality']]
+        qual_df = qual_df.rename(columns={
+            'sample_name': 'Sample', 'mean_quality': 'Mean Quality'})
+        section.table(qual_df, index=False)
+    if 'qc_inserts/OPTIONAL_FILE' not in args.qc_inserts:
+        bcf_header = """
+### Insert variant call summaries
+
+The following tables and figures are derived using `bcftools`,
+comparing the consensus insert with the reference
+insert if provided.
+"""
+        report_doc.add_section(
+            section=bcfstats.full_report(args.qc_inserts, header=bcf_header))
     # Versions and params
     report_doc.add_section(
         section=scomponents.version_table(args.versions))
@@ -317,6 +341,12 @@ def argparser():
     parser.add_argument(
         "--lengths",
         help="report name")
+    parser.add_argument(
+        "--qc_inserts",  nargs='+',
+        help="insert vcfs")
+    parser.add_argument(
+        "--assembly_quality",  nargs='+',
+        help="qc quality summaries")
     return parser
 
 

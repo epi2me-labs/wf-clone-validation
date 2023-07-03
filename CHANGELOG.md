@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [unreleased]
 ### Added
 - Documentation updated to include workflow steps.
+- Full plasmid assembly mean quality table in report.
+- Output a fastq of the final assembly.
+- Insert reference, if provided, will now be used to variant call insert consensus with bcftools.
 
 ### Changed
 - Updated example command displayed when running `--help`
@@ -19,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enum choices are enumerated as part of the error message when a user has selected an invalid choice
 - Bumped minimum required Nextflow version to 22.10.8
 - Updated GitHub issue templates to force capture of more information.
+- Reference parameter changed to `--insert_reference`.
 
 ### Fixed
 - Replaced `--threads` option in fastqingress with hardcoded values to remove warning about undefined `param.threads`
