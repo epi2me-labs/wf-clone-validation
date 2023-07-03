@@ -7,7 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [unreleased]
 ### Added
 - Documentation updated to include workflow steps.
-  
+
+### Changed
+- Updated example command displayed when running `--help`
+
 ### Removed
 - Unused packages from the container.
 
