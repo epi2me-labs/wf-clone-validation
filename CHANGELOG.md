@@ -11,9 +11,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Output a fastq of the final assembly.
 - Insert reference, if provided, will now be used to variant call insert consensus with bcftools.
 
-### Changed
-- Updated example command displayed when running `--help`
-
 ### Removed
 - Unused packages from the container.
 
@@ -23,9 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bumped minimum required Nextflow version to 22.10.8
 - Updated GitHub issue templates to force capture of more information.
 - Reference parameter changed to `--insert_reference`.
+- Updated example command displayed when running `--help`
 
 ### Fixed
 - Replaced `--threads` option in fastqingress with hardcoded values to remove warning about undefined `param.threads`
+- Annotation output bed file has correct notation for strand.
 
 ## [v0.3.1]
 ### Added

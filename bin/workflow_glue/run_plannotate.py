@@ -65,7 +65,7 @@ def bed_file(item, df):
         'Strand']
     df = df[display_columns]
     df["Strand"] = df["Strand"].apply(pd.to_numeric)
-    df.loc[df['Strand'] == 0, 'Strand'] = "-"
+    df.loc[df['Strand'] == -1, 'Strand'] = "-"
     df.loc[df['Strand'] == 1, 'Strand'] = "+"
     df.insert(0, 'Name', value=str(item))
     df.to_csv(
