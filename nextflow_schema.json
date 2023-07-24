@@ -24,7 +24,7 @@
                 "approx_size": {
                     "type": "integer",
                     "default": 7000,
-                    "description": "Approximate size of the plasmid in base pairs, can also be defined per sample see approx_size_sheet param",
+                    "description": "Approximate size of the plasmid in base pairs, can also be defined per sample see sample_sheet param",
                     "minimum": 1
                 },
                 "assm_coverage": {
@@ -111,7 +111,7 @@
                 "sample_sheet": {
                     "type": "string",
                     "format": "file-path",
-                    "description": "A CSV file used to map barcodes to sample aliases. The sample sheet can be provided when the input data is a directory containing sub-directories with FASTQ files.",
+                    "description": "A CSV file used to map barcodes to sample aliases. The sample sheet can be provided when the input data is a directory containing sub-directories with FASTQ files. An optional column `approx_size` can be added to provide size estimates for each sample. When not provided, the `--approx_size` parameter will be used for all samples.",
                     "help_text": "The sample sheet is a CSV file with, minimally, columns named `barcode` and `alias`. Extra columns are allowed. A `type` column is required for certain workflows and should have the following values; `test_sample`, `positive_control`, `negative_control`, `no_template_control`."
                 },
                 "sample": {
@@ -127,12 +127,6 @@
                     "type": "integer",
                     "description": "Maximum (inclusive) numeric sample barcode ID to process.",
                     "help_text": "If multiplexed data is provided, this filter can be used to exclude certain samples from processing."
-                },
-                "approx_size_sheet": {
-                    "type": "string",
-                    "format": "file-path",
-                    "description": "Optional file if you want to specify different approx sizes per sample. Approximate size of each plasmid in format sample_id,approx_size",
-                    "help_text": "A TSV file with column headers `sample_id` and `approx_size`. When not provided the --approx_size parameter will be used for all samples."
                 }
             }
         },

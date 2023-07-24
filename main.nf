@@ -610,13 +610,19 @@ workflow {
     }
 
     // calculate min and max read length for filtering with `fastcat`
-    List approx_sizes; int min_read_length, max_read_length
-    if(params.approx_size_sheet) {
-        // the file provided with `--approx_size_sheet` contains a size estimate for
+    int min_read_length, max_read_length
+    if(params.sample_sheet) {
+        sample_sheet_csv = file(params.sample_sheet).splitCsv(header:true)
+    }
+    if (params.sample_sheet && sample_sheet_csv[0].containsKey("approx_size")) {
+        approx_sizes = sample_sheet_csv["approx_size"]
+        if (approx_sizes.contains(null)) {
+            throw new Exception("Either use the `--approx_size` parameter or include an `approx_size` column in the sample sheet for all samples.")
+        }
+        // the file provided with `--sample_sheet` contains a size estimate for
         // each sample, but we will filter all samples with the same parameters)
-        approx_sizes = file(params.approx_size_sheet).splitCsv(header:true)
-        min_read_length = approx_sizes.collect { it["approx_size"].toInteger() }.min()
-        max_read_length = approx_sizes.collect { it["approx_size"].toInteger() }.max()
+        min_read_length = approx_sizes.collect { it.toInteger() }.min()
+        max_read_length = approx_sizes.collect { it.toInteger() }.max()
     } else {
         // we only got a single size estimate --> take as max and min
         min_read_length = max_read_length = params.approx_size
@@ -633,22 +639,13 @@ workflow {
         ])
 
     // add the size estimates to the channel with the samples
-    if (params.approx_size_sheet) {
-        samples = samples
-        | map { [it[0]["alias"], *it] }
-        | join(Channel.of(*approx_sizes) | map { [it["alias"], it["approx_size"]] } )
-        | map { it[1..-1] }
-        | ifEmpty {
-            error "The sample aliases in the CSV file provided with " +
-                "`--approx_size_sheet` don't match up with the sample names. Have " +
-                "you made sure the 'alias' column contains the correct sample names? " +
-                "You could have also forgotten to provide a sample sheet alongside " +
-                "the approx. size sheet. In case you are not using a sample sheet, " +
-                "make sure the 'alias' column in the size sheet matches the barcode " +
-                "directory names."
-        }
+    // by joining the samples on the alias key with approx size
+    if (params.sample_sheet && sample_sheet_csv[0].containsKey("approx_size")) {
+        sample_alias = samples.map { [it[0]["alias"], *it] }
+        approx_size_alias = Channel.of(*sample_sheet_csv).map{[it["alias"], it["approx_size"]]}
+        samples = sample_alias.join(approx_size_alias).map{  it[1..-1]  }
     } else {
-        samples = samples | map { [*it, params.approx_size] }
+        samples = samples.map { [*it, params.approx_size] }
     }
 
     host_reference = params.host_reference ?: 'NO_HOST_REF'
