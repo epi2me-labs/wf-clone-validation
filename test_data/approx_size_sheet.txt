@@ -1,3 +1,0 @@
-alias,approx_size
-sample01,3500
-sample02,1500

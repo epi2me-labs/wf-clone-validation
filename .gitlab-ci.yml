@@ -19,7 +19,8 @@ docker-run:
     parallel:
         matrix:
             - MATRIX_NAME: [
-                "clone-val", "check-model", "insert-reference", "insert-wrong-reference"]
+                "clone-val", "check-model", "insert-reference", "insert-wrong-reference",
+                "sample-sheet-with-approx-size", "sample-sheet"]
     rules:
         - if: ($CI_COMMIT_BRANCH == null || $CI_COMMIT_BRANCH == "dev-template")
           when: never
@@ -45,3 +46,13 @@ docker-run:
               NF_WORKFLOW_OPTS: "--fastq test_data/test --insert_reference test_data/other_reference.fasta \
               --threads 4 --basecaller_cfg dna_r9.4.1_450bps_hac --assm_coverage 25"
               NF_IGNORE_PROCESSES: "filterHostReads,sampleStatus"
+        - if: $MATRIX_NAME == "sample-sheet-with-approx-size"
+          variables:
+              NF_WORKFLOW_OPTS: "--fastq test_data/test --sample_sheet test_data/sample_sheet_approx_size.txt \
+              --assm_coverage 25"
+              NF_IGNORE_PROCESSES: "filterHostReads,sampleStatus,insert_qc"
+        - if: $MATRIX_NAME == "sample-sheet"
+          variables:
+              NF_WORKFLOW_OPTS: "--fastq test_data/test --sample_sheet test_data/sample_sheet.txt \
+              --assm_coverage 25"
+              NF_IGNORE_PROCESSES: "filterHostReads,sampleStatus,insert_qc"
