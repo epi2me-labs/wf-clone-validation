@@ -21,7 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated GitHub issue templates to force capture of more information.
 - Reference parameter changed to `--insert_reference`.
 - Updated example command displayed when running `--help`
-- Parameter`--approx_size_sheet` no longer accepted, instead use sample sheet with optional additional column `approx_size. 
+- Parameter`--approx_size_sheet` no longer accepted, instead use sample sheet with optional additional column `approx_size`. 
+- Any sample aliases that contain spaces will be replaced with underscores.
 
 ### Fixed
 - Replaced `--threads` option in fastqingress with hardcoded values to remove warning about undefined `param.threads`
