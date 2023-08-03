@@ -220,6 +220,7 @@ process lookup_medaka_model {
     '''
 }
 
+
 process medakaPolishAssembly {
     label "medaka"
     cpus params.threads
@@ -231,6 +232,7 @@ process medakaPolishAssembly {
         tuple val(sample_id), path("${sample_id}.final.fastq"), emit: assembly_qc
     script:
         def model = medaka_model
+    
     """
     STATUS="Failed to polish assembly with Medaka"
     medaka_consensus -i "${fastq}" -d "${draft}" -m "${model}" -o . -t $task.cpus -f -q
@@ -495,7 +497,9 @@ workflow pipeline {
         
         named_drafts = assemblies.assembly.groupTuple()
         named_samples = assemblies.downsampled.groupTuple()
-        named_drafts_samples = named_drafts.join(named_samples)
+        named_drafts_samples = named_drafts
+        .join(named_samples, failOnMismatch: false, remainder: true)
+        .filter{alias, assembly, fastq -> (assembly != null)}
 
         if(params.medaka_model) {
             log.warn "Overriding Medaka model with ${params.medaka_model}."
