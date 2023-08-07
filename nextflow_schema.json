@@ -16,6 +16,7 @@
             "properties": {
                 "fastq": {
                     "type": "string",
+                    "title": "FASTQ",
                     "format": "path",
                     "description": "Directory containing fastq input files. May contain fastq files directly or directories name barcodeXX relating to independent samples.",
                     "fa_icon": "fab fa-adobe",
@@ -23,12 +24,14 @@
                 },
                 "approx_size": {
                     "type": "integer",
+                    "title": "Approximate plasmid size",
                     "default": 7000,
                     "description": "Approximate size of the plasmid in base pairs, can also be defined per sample see sample_sheet param",
                     "minimum": 1
                 },
                 "assm_coverage": {
                     "type": "integer",
+                    "title": "Assembly Coverage",
                     "default": 60,
                     "description": "Fold coverage for use per assembly",
                     "minimum": 1,
@@ -41,11 +44,13 @@
                 },
                 "analyse_unclassified": {
                     "type": "boolean",
+                    "title": "Analyse unclassified reads",
                     "description": "Analyse unclassified reads from input directory. By default the workflow will not process reads in the unclassified directory.",
                     "help_text": "If selected and if the input is a multiplex directory the workflow will also process the unclassified directory."
                 },
                 "basecaller_cfg": {
                     "type": "string",
+                    "title": "Basecaller model configuration",
                     "description": "Name of the model that was used to basecall signal data, used to select an appropriate Medaka model.",
                     "help_text": "The basecaller configuration is used to automatically select the appropriate Medaka model. The automatic selection can be overridden with the 'medaka_model' parameter. The model list only shows models that are compatible with this workflow.",
                     "default": "dna_r10.4.1_e8.2_400bps_sup@v4.2.0",
@@ -78,9 +83,26 @@
                     ]
                 }
             },
-            "required": [
-                "fastq",
-                "basecaller_cfg"
+            "allOf": [
+                {
+                    "required": [
+                        "fastq"
+                    ]
+                },
+                {
+                    "oneOf": [
+                        {
+                            "required": [
+                                "basecaller_cfg"
+                            ]
+                        },
+                        {
+                            "required": [
+                                "medaka_model"
+                            ]
+                        }
+                    ]
+                }
             ]
         },
         "reference_genome_options": {
@@ -97,6 +119,7 @@
                 },
                 "db_directory": {
                     "type": "string",
+                    "title": "Database directory",
                     "format": "directory-path",
                     "description": "Optional directory containing a gene annotation database.",
                     "help_text": "A default generic annotation is provided in tar.gz format, containing entries from [fpbase](https://www.fpbase.org/), [Swiss-Prot](https://www.expasy.org/resources/uniprotkb-swiss-prot) , [Rfam](https://rfam.org/) and [snapgene](https://www.snapgene.com/)"
@@ -108,6 +131,7 @@
                 },
                 "regions_bedfile": {
                     "type": "string",
+                    "title": "Regions BED file",
                     "description": "If a host_reference supplied, add an optional BED file to give provide host reference regions that will be masked during filtering."
                 }
             }
@@ -121,6 +145,7 @@
                 "sample_sheet": {
                     "type": "string",
                     "format": "file-path",
+                    "title": "Sample sheet",
                     "description": "A CSV file used to map barcodes to sample aliases. The sample sheet can be provided when the input data is a directory containing sub-directories with FASTQ files. An optional column `approx_size` can be added to provide size estimates for each sample. When not provided, the `--approx_size` parameter will be used for all samples.",
                     "help_text": "The sample sheet is a CSV file with, minimally, columns named `barcode` and `alias`. Extra columns are allowed. A `type` column is required for certain workflows and should have the following values; `test_sample`, `positive_control`, `negative_control`, `no_template_control`."
                 },
@@ -130,11 +155,13 @@
                 },
                 "min_barcode": {
                     "type": "integer",
+                    "title": "Minimum barcode",
                     "description": "Minimum numeric sample barcode ID to process.",
                     "help_text": "If multiplexed data is provided, this filter can be used to exclude certain samples from processing."
                 },
                 "max_barcode": {
                     "type": "integer",
+                    "title": "Maximum barcode",
                     "description": "Maximum (inclusive) numeric sample barcode ID to process.",
                     "help_text": "If multiplexed data is provided, this filter can be used to exclude certain samples from processing."
                 }
@@ -171,7 +198,7 @@
                 },
                 "medaka_model": {
                     "type": "string",
-                    "description": "The name of a Medaka model to use. This name will override the model automatically chosen based on the provided basecaller configuration.",
+                    "description": "The name of a Medaka model to use. By default the workflow will select an appropriate Medaka model from the basecaller configuration provided. Entering a name here will override the automated selection and use the Medaka model named here.",
                     "help_text": "The workflow will attempt to map the basecalling model used to a suitable Medaka model. You can override this by providing a model with this option instead."
                 },
                 "flye_quality": {
