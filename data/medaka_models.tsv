@@ -29,7 +29,7 @@ guppy	dna_r10.4_e8.1_hac	-	Model not supported by this workflow
 guppy	dna_r10.4_e8.1_hac_prom	-	Model not supported by this workflow
 guppy	dna_r10_450bps_hac	-	Model not supported by this workflow
 guppy	dna_r9.4.1_450bps_hac	r941_min_hac_g507	-
-guppy	dna_r9.4.1_e8.1_hac	-	r941_min_hac_g507
+guppy	dna_r9.4.1_e8.1_hac	r941_min_hac_g507	-	
 guppy	dna_r9.4.1_e8.1_hac_prom	r941_prom_hac_g507	-
 guppy	dna_r9.5_450bps	-	Model not supported by this workflow
 guppy	rna_r9.4.1_70bps_hac	-	RNA data is not suitable for this workflow
