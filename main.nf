@@ -137,8 +137,8 @@ process assembleCore {
     do
         SUBSET_NAME=\$(basename -s .fastq \$SUBSET)
         flye \
-            --${params.flye_quality}\
-            \${SUBSET} \
+            --${params.flye_quality} \${SUBSET} \
+            --deterministic \
             --threads $task.cpus \
             --genome-size $approx_size \
             --out-dir "assm_\${SUBSET_NAME}" \
