@@ -20,7 +20,7 @@ docker-run:
         matrix:
             - MATRIX_NAME: [
                 "clone-val", "check-model", "insert-reference", "insert-wrong-reference",
-                "sample-sheet-with-approx-size", "sample-sheet"]
+                "sample-sheet-with-approx-size", "sample-sheet", "no-assemblies"]
     rules:
         - if: ($CI_COMMIT_BRANCH == null || $CI_COMMIT_BRANCH == "dev-template")
           when: never
@@ -56,3 +56,7 @@ docker-run:
               NF_WORKFLOW_OPTS: "--fastq test_data/test --sample_sheet test_data/sample_sheet.txt \
               --assm_coverage 25"
               NF_IGNORE_PROCESSES: "filterHostReads,sampleStatus,insert_qc"
+        - if: $MATRIX_NAME == "no-assemblies"
+          variables:
+              NF_WORKFLOW_OPTS: "--fastq test_data/test --assm_coverage 250"
+              NF_IGNORE_PROCESSES: "filterHostReads,sampleStatus,insert_qc,assembleCore,assembly_qc,downsampledStats,findPrimers,medakaPolishAssembly"

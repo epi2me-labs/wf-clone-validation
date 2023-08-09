@@ -271,7 +271,7 @@ The Plasmid annotation plot and feature table are produced using
     # Assembly QC section
     section = report_doc.add_section()
     section.markdown('### Assembly Quality')
-    if 'assembly_quailty/OPTIONAL_FILE' not in args.assembly_quality:
+    if 'assembly_quality/OPTIONAL_FILE' not in args.assembly_quality:
         section.markdown(
             'This table gives the mean quality for the whole \
             plasmid assembly. This is provided by Medaka, derived \
