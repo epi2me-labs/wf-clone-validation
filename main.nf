@@ -302,10 +302,13 @@ process getVersions {
     seqkit version | sed 's/ /,/' >> versions.txt
     trycycler --version | sed 's/ /,/' >> versions.txt
     bedtools --version | sed 's/ /,/' >> versions.txt
-    flye --version | sed 's/ /,/' >> versions.txt
+    flye --version |  sed 's/^/flye,/' >> versions.txt
     fastcat --version | sed 's/^/fastcat,/' >> versions.txt
     rasusa --version | sed 's/ /,/' >> versions.txt
     python -c "import spoa; print(spoa.__version__)" | sed 's/^/spoa,/'  >> versions.txt
+    python -c "import pandas; print(pandas.__version__)" | sed 's/^/pandas,/'  >> versions.txt
+    python -c "import plannotate; print(plannotate.__version__)" | sed 's/^/plannotate,/'  >> versions.txt
+    python -c "import bokeh; print(bokeh.__version__)" | sed 's/^/bokeh,/'  >> versions.txt
     """
 }
 
@@ -434,6 +437,7 @@ process report {
         report_name = "wf-clone-validation-report.html"
     """
     workflow-glue report \
+     $report_name \
     --downsampled_stats downsampled_stats/* \
     --revision $workflow.revision \
     --commit $workflow.commitId \
@@ -442,11 +446,10 @@ process report {
     --host_filter_stats host_filter_stats/* \
     --params params.json \
     --versions versions \
-    --report_name $report_name \
     --plannotate_json $plannotate_json \
     --lengths $lengths \
     --inserts_json $inserts_json \
-    --qc_inserts qc_inserts/* \
+    --qc_inserts qc_inserts \
     --assembly_quality assembly_quality/*
     """
 }
