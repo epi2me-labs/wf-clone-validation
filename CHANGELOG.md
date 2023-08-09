@@ -4,13 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [unreleased]
+## [v0.5.0]
+### Changed
+- The report has been updated and re-ordered to improve usability.
+- Default basecaller cfg is now `dna_r10.4.1_e8.2_400bps_sup@v4.2.0`.
+- Docker will use an ARM platform image on appropriate devices.
 ### Fixed
 - Updated basecaller cfg model options.
 - Workflow will still output report if there are no assemblies.
-
-### Changed
-- Default basecaller cfg is now `dna_r10.4.1_e8.2_400bps_sup@v4.2.0`.
 
 ## [v0.4.0]
 ### Added

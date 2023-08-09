@@ -5,12 +5,12 @@ import argparse
 import json
 import os
 
-from aplanat import json_item
+from bokeh.embed import json_item
 import numpy as np
 import pandas as pd
 from plannotate.annotate import annotate
-from plannotate.bokeh_plot import get_bokeh
 import pysam
+from workflow_glue.bokeh_plot import get_bokeh
 from .util import wf_parser  # noqa: ABS101
 
 
