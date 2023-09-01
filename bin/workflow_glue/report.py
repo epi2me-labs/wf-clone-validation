@@ -124,6 +124,9 @@ cloning steps.
             for item in passed_samples:
                 plan_item = plannotate[item]
                 annotations = pd.read_json(plan_item['annotations'])
+                annotations = annotations.drop("Plasmid length", axis='columns')
+                annotations.loc[annotations['Strand'] == -1, 'Strand'] = "-"
+                annotations.loc[annotations['Strand'] == 1, 'Strand'] = "+"
                 with tabs.add_dropdown_tab(str(item)):
                     bk_plot = BokehPlot()
                     bk_plot._fig = get_bokeh(pd.read_json(plan_item['plot']))

@@ -579,7 +579,8 @@ workflow pipeline {
             annotation.annotations,
             workflow_params,
             bcf_insert,
-            qc_insert)
+            qc_insert,
+            polished.assembly_qc)
         
     emit:
         results

@@ -28,23 +28,23 @@ docker-run:
           variables:
               NF_BEFORE_SCRIPT: "wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/wf-clone-validation-db.tar.gz && tar -xzvf wf-clone-validation-db.tar.gz" 
               NF_WORKFLOW_OPTS: "--fastq test_data/test --db_directory wf-clone-validation-db \
-              --threads 4 --assm_coverage 25"
+              --threads 4 --assm_coverage 25 --primers data/primers.tsv"
               NF_IGNORE_PROCESSES: "filterHostReads,sampleStatus,insert_qc"
         - if: $MATRIX_NAME == "check-model"
           variables:
               NF_BEFORE_SCRIPT: "wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/wf-clone-validation-db.tar.gz && tar -xzvf wf-clone-validation-db.tar.gz" 
               NF_WORKFLOW_OPTS: "--fastq test_data/test --db_directory wf-clone-validation-db \
-              --threads 4 --basecaller_cfg dna_r9.4.1_450bps_hac --assm_coverage 25"
+              --threads 4 --basecaller_cfg dna_r9.4.1_450bps_hac --assm_coverage 25 --primers data/primers.tsv"
               NF_IGNORE_PROCESSES: "filterHostReads,sampleStatus,insert_qc"
         - if: $MATRIX_NAME == "insert-reference"
           variables:
               NF_WORKFLOW_OPTS: "--fastq test_data/test --insert_reference test_data/insert_reference.fasta \
-              --threads 4 --basecaller_cfg dna_r9.4.1_450bps_hac --assm_coverage 25"
+              --threads 4 --basecaller_cfg dna_r9.4.1_450bps_hac --assm_coverage 25 --primers data/primers.tsv"
               NF_IGNORE_PROCESSES: "filterHostReads,sampleStatus"
         - if: $MATRIX_NAME == "insert-wrong-reference"
           variables:
               NF_WORKFLOW_OPTS: "--fastq test_data/test --insert_reference test_data/other_reference.fasta \
-              --threads 4 --basecaller_cfg dna_r9.4.1_450bps_hac --assm_coverage 25"
+              --threads 4 --basecaller_cfg dna_r9.4.1_450bps_hac --assm_coverage 25 --primers data/primers.tsv"
               NF_IGNORE_PROCESSES: "filterHostReads,sampleStatus"
         - if: $MATRIX_NAME == "sample-sheet-with-approx-size"
           variables:
