@@ -39,8 +39,9 @@
                 },
                 "primers": {
                     "type": "string",
-                    "description": "File containing primers or null if you want to turn off",
-                    "help_text": "Specify one or more primer sets used which will be used to find the sequence inserted in the construct. Should be in .tsv format  [primer_name,  5', 3'] with no header."
+                    "format": "file-path",
+                    "description": "TSV File containing primers used to find inserts. If left empty then inserts will not be searched for.",
+                    "help_text": "Specify one or more primer sets which will be used to find the sequence inserted in the construct. Should be in .tsv format  [primer_name,  5', 3'] with no header. An example primers.tsv for pRham/T7 is available in the data folder of the workflow."
                 },
                 "analyse_unclassified": {
                     "type": "boolean",
@@ -117,13 +118,6 @@
                     "description": "Optional file containing insert reference sequence which will be used for comparison with consensus insert in the report.",
                     "help_text": "Providing a reference sequence can be useful as a QC on the base-level resolution of the the reconstructed insert sequences."
                 },
-                "db_directory": {
-                    "type": "string",
-                    "title": "Database directory",
-                    "format": "directory-path",
-                    "description": "Optional directory containing a gene annotation database.",
-                    "help_text": "A default generic annotation is provided in tar.gz format, containing entries from [fpbase](https://www.fpbase.org/), [Swiss-Prot](https://www.expasy.org/resources/uniprotkb-swiss-prot) , [Rfam](https://rfam.org/) and [snapgene](https://www.snapgene.com/)"
-                },
                 "host_reference": {
                     "type": "string",
                     "format": "file-path",
@@ -132,7 +126,8 @@
                 "regions_bedfile": {
                     "type": "string",
                     "title": "Regions BED file",
-                    "description": "If a host_reference supplied, add an optional BED file to give provide host reference regions that will be masked during filtering."
+                    "format": "file-path",
+                    "description": "If a host_reference supplied, add an optional BED file to provide host reference regions that will be masked during filtering."
                 }
             }
         },
@@ -211,6 +206,13 @@
                         "nano-corr",
                         "nano-raw"
                     ]
+                },
+                "db_directory": {
+                    "type": "string",
+                    "title": "Database directory",
+                    "format": "directory-path",
+                    "description": "Optional directory containing a gene annotation database.",
+                    "help_text": "A default generic annotation is provided in tar.gz format, containing entries from [fpbase](https://www.fpbase.org/), [Swiss-Prot](https://www.expasy.org/resources/uniprotkb-swiss-prot) , [Rfam](https://rfam.org/) and [snapgene](https://www.snapgene.com/)"
                 }
             }
         },
