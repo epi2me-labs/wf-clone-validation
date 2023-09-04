@@ -339,6 +339,7 @@ process runPlannotate {
         path "plannotate.json", emit: json
         path "*annotations.bed", optional: true, emit: annotations
         path "plannotate_report.json", emit: report
+        path "*annotations.gbk", optional: true, emit: gbk
     script:
         def database =  annotation_database.name.startsWith('OPTIONAL_FILE') ? "Default" : "${annotation_database}"
     """
@@ -577,6 +578,7 @@ workflow pipeline {
             insert.inserts,
             annotation.json,
             annotation.annotations,
+            annotation.gbk,
             workflow_params,
             bcf_insert,
             qc_insert,

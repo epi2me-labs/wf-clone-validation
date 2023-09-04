@@ -9,6 +9,7 @@ from bokeh.embed import json_item
 import numpy as np
 import pandas as pd
 from plannotate.annotate import annotate
+from plannotate.resources import get_gbk
 import pysam
 from workflow_glue.bokeh_plot import get_bokeh
 from .util import wf_parser  # noqa: ABS101
@@ -81,6 +82,10 @@ def per_assembly(sample_file, item):
     :param item: the sample
     """
     plot, annotations, clean_df = run_plannotate(sample_file)
+    gbk = get_gbk(clean_df, sample_file)
+    gbk_filename = item + 'annotations.gbk'
+    with open(gbk_filename, "w") as file:
+        file.write(gbk)
     bed_file(item, annotations)
     with pysam.FastxFile(sample_file) as fh:
         seq_len = len(next(fh).sequence)
