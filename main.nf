@@ -571,7 +571,7 @@ workflow pipeline {
             assembly_quality.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
             )
 
-        results = polished.polished.map { it -> it[1] }.concat(
+        results = polished.polished.map { meta, polished -> polished }.concat(
             report.html,
             report.sample_stat,
             annotation.feature_table,
@@ -582,7 +582,7 @@ workflow pipeline {
             workflow_params,
             bcf_insert,
             qc_insert,
-            polished.assembly_qc)
+            polished.assembly_qc.map { meta, assembly_qc -> assembly_qc })
         
     emit:
         results
