@@ -63,7 +63,7 @@ process filterHostReads {
     samtools view -b -F 4  ${name}.sorted.aligned.bam > mapped.bam
     samtools fastq unmapped.bam > ${name}.filtered.fastq
     fastcat -s ${name} -r ${name}.interim ${name}.filtered.fastq > /dev/null
-    if [[ "\$(wc -l <"${name}.stats")" -ge "1" ]];  then
+    if [[ "\$(wc -l <"${name}.interim")" -ge "1" ]];  then
         mv ${name}.interim ${name}.stats
     fi
     if [[ -f "$regs" ]]; then

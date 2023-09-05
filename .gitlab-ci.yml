@@ -20,7 +20,7 @@ docker-run:
         matrix:
             - MATRIX_NAME: [
                 "clone-val", "check-model", "insert-reference", "insert-wrong-reference",
-                "sample-sheet-with-approx-size", "sample-sheet", "no-assemblies"]
+                "sample-sheet-with-approx-size", "sample-sheet", "no-assemblies", "filter-host-reads"]
     rules:
         - if: ($CI_COMMIT_BRANCH == null || $CI_COMMIT_BRANCH == "dev-template")
           when: never
@@ -60,3 +60,8 @@ docker-run:
           variables:
               NF_WORKFLOW_OPTS: "--fastq test_data/test --assm_coverage 250"
               NF_IGNORE_PROCESSES: "filterHostReads,sampleStatus,insert_qc,assembleCore,assembly_qc,downsampledStats,findPrimers,medakaPolishAssembly"
+        - if: $MATRIX_NAME == "filter-host-reads"
+          variables:
+              NF_BEFORE_SCRIPT: "wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/clone_val_host_ref.tar.gz && tar -xzvf clone_val_host_ref.tar.gz" 
+              NF_WORKFLOW_OPTS: "--fastq clone_val_host_ref/test --host_reference clone_val_host_ref/reference.subseq.fa.gz"
+              NF_IGNORE_PROCESSES: "sampleStatus,insert_qc,assembleCore,assembly_qc,downsampledStats,findPrimers,medakaPolishAssembly"
