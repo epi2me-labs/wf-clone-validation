@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Strand column of plannotate feature to use `+` and `-` notation.
 - Default `--primers` parameter is now set to null.
+### Fixed
+- If `--host_filter` provided the fastcat stats will be included in the report.
 
 ## [v0.5.0]
 ### Changed
