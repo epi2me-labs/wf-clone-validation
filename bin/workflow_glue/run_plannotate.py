@@ -74,18 +74,30 @@ def bed_file(item, df):
     return df
 
 
+def create_gbk(sample_file, item, df):
+    """Run plannotate for a sample.
+
+    :param sample_file:
+    :param item: the sample name
+    :param df: the plannotate df
+    """
+    with pysam.FastxFile(sample_file) as fh:
+        seq = next(fh).sequence
+    gbk = get_gbk(df, seq)
+    gbk_filename = item + '.annotations.gbk'
+    with open(gbk_filename, "w") as file:
+        file.write(gbk)
+    return
+
+
 def per_assembly(sample_file, item):
     """Run plannotate for a sample.
 
-    :param database:
     :param sample_file:
     :param item: the sample
     """
     plot, annotations, clean_df = run_plannotate(sample_file)
-    gbk = get_gbk(clean_df, sample_file)
-    gbk_filename = item + 'annotations.gbk'
-    with open(gbk_filename, "w") as file:
-        file.write(gbk)
+    create_gbk(sample_file, item, clean_df)
     bed_file(item, annotations)
     with pysam.FastxFile(sample_file) as fh:
         seq_len = len(next(fh).sequence)
