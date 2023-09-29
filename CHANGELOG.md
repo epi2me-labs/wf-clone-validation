@@ -4,9 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [unrelease]
+
+## [unreleased]
 ### Fixed
+- Deconcatenate only if the assembly is not of the approx. expected size.
 - `.gbk` output file has the actual sequence for the origin
+### Added
+- Dotplot allowing to visualize the repetitive regions in assemblies.
+- If approximate size is <=3000 set Flye min overlap to 1000.
 
 ## [v0.5.1]
 ### Added
