@@ -96,6 +96,9 @@ process assembleCore {
         int max_len = approx_size.toInteger() * 1.2
         int min_q = 7
         int exit_number = task.attempt <= 4 ? 1 : 0
+        // min_overlap normally auto calculated but with a lower limit of 3000
+        // assembly with same size as overlap will likely fail
+        def min_overlap = approx_size.toInteger() <= 3000 ? '--min-overlap 1000' : '' 
     """
 
     ############################################################
@@ -142,7 +145,8 @@ process assembleCore {
             --threads $task.cpus \
             --genome-size $approx_size \
             --out-dir "assm_\${SUBSET_NAME}" \
-            --meta
+            --meta \
+            $min_overlap 
              
         mv assm_sample_0*/assembly.fasta "assm_\${SUBSET_NAME}/\${SUBSET_NAME}_assembly.fasta" 
     done) && STATUS="Failed to trim Assembly" &&
@@ -158,7 +162,8 @@ process assembleCore {
         ass_stats=\$(dirname \$assembly)/assembly_info.txt
         workflow-glue deconcatenate \
             \$assembly \
-            -o \${assembly_name}.deconcat.fasta
+            -o \${assembly_name}.deconcat.fasta \
+            --approx_size $approx_size
     done
     ls *.deconcat.fasta > /dev/null 2>&1) \
     && STATUS="Failed to reconcile assemblies" &&
@@ -327,6 +332,23 @@ process getParams {
 }
 
 
+process assemblyMafs {
+    label "wfplasmid"
+    cpus 1
+    input:
+        tuple val(sample_id), path("assembly.fasta")
+    output:
+        tuple val(sample_id), path("${sample_id}.assembly.maf"), emit: assembly_maf
+    // set -m(multiplicity) to 1000 to increase sensitivity from default of 10
+    // for assemblies these small computational cost is low
+    """
+    lastdb db.lastdb "assembly.fasta"
+    lastal -m10000 db.lastdb "assembly.fasta" > "${sample_id}.assembly.maf"
+  
+    """
+}
+
+
 process runPlannotate {
     label "wfplasmid"
     cpus 1
@@ -430,6 +452,7 @@ process report {
         path lengths
         path "qc_inserts/*"
         path "assembly_quality/*"
+        path "mafs/*"
     output:
         path "wf-clone-validation-*.html", emit: html
         path "sample_status.txt", emit: sample_stat
@@ -451,7 +474,8 @@ process report {
     --lengths $lengths \
     --inserts_json $inserts_json \
     --qc_inserts qc_inserts \
-    --assembly_quality assembly_quality/*
+    --assembly_quality assembly_quality/* \
+    --mafs mafs
     """
 }
 
@@ -557,6 +581,8 @@ workflow pipeline {
             database, polished.polished.map { it -> it[1] }.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
             final_status)
 
+        mafs = assemblyMafs(polished.polished)
+
         report = report(
             downsampled_stats.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
             final_status,
@@ -569,6 +595,7 @@ workflow pipeline {
             annotation.json,
             qc_insert.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
             assembly_quality.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
+            mafs.map{ meta, maf -> maf}.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE"))
             )
 
         results = polished.polished.map { meta, polished -> polished }.concat(

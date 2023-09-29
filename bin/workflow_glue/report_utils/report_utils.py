@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 """Create tables for the report."""
 
+from bokeh.models import ColumnDataSource, Segment
+from bokeh.plotting import figure
 from dominate.tags import p
-from ezcharts.components import bcfstats
-from ezcharts.components.ezchart import EZChart
-from ezcharts.plots.categorical import barplot
-from ezcharts.plots.util import read_files
+import ezcharts as ezc
+from ezcharts.components import bcfstats, ezchart
+from ezcharts.plots.util import Colors, read_files
 import pandas as pd
+
 
 THEME = 'epi2melabs'
 
@@ -59,15 +61,16 @@ def read_count_barplot(per_barcode_stats, report):
             """Number of reads per sample."""
         )
         order = barcode_counts["Sample"].values.tolist()
-        plt = barplot(
-            data=barcode_counts, x='Sample', y='Count', order=order)
+        plt = ezc.barplot(
+            data=barcode_counts, x='Sample', y='Count', order=order,
+            fill_color=Colors.cerulean, line_color=Colors.cerulean)
         plt.xAxis = dict(
             name="Sample",
             type='category',
             axisLabel=dict(interval=0, rotate=45),
             axisTick=dict(alignWithLabel=True))
         plt.yAxis = dict(name="Count", type='value')
-        EZChart(
+        ezchart.EZChart(
             plt,
             theme='epi2melabs')
 
@@ -156,3 +159,67 @@ See output bcf file for info on individual transitions.
 """)
     df = bcf_stats['TSTV']
     return df
+
+
+def dotplot_assembly(maf_assembly):
+    """Dotplot of assembly using a .maf format file."""
+    # Create a bokeh plot
+    plot = figure(
+        width=400, height=400,
+        min_border=0, x_axis_label="position",
+        y_axis_label="position", title="Dot plot")
+    plot.toolbar_location = None
+    # Iterate through maf file to create a dataframe
+    records = list()
+    with open(f"mafs/{maf_assembly}") as maf:
+        while True:
+            line = maf.readline()
+            if line.startswith('#'):
+                # get read length
+                if 'letters' in line:
+                    read_length = int(line.split('letters=')[1])
+                    continue
+                else:
+                    continue
+            # a is for each alignment
+            elif line.startswith('a'):
+                # take successive 's' lines
+                r1 = maf.readline().split()[1:5]
+                r2 = maf.readline().split()[1:5]
+                maf.readline()
+                records.append(r1 + r2)
+            elif line == "":
+                break
+            else:
+                raise IOError("Cannot read alignment file")
+    # take reference start, length and orientation
+    # and query start, length and orientation
+    names = [
+        'ref', 'rstart', 'rlen', 'rorient',
+        'query', 'qstart', 'qlen', 'qorient']
+    df_all = pd.DataFrame(records, columns=names)
+    df_all = df_all.astype({'qstart': int, 'qlen': int, 'rstart': int, 'rlen': int})
+    # If query orientation is +
+    df = df_all[df_all.qorient.isin(['+'])]
+    # create query and ref end columns by adding length to start
+    df['qend'] = df['qstart'] + df['qlen']
+    df.loc[df['rorient'] == '+', 'rend'] = df['rstart'] + df['rlen']
+    # If reference orientation is negative switch reference start and end
+    df.loc[df['rorient'] == '-', 'rend'] = df['rstart']
+    df.loc[df['rorient'] == '-', 'rstart'] = df['rstart'] - df['rlen']
+    # Add fwd lines to plot
+    source = ColumnDataSource(df)
+    glyph = Segment(x0='rstart', y0='qstart', x1='rend', y1='qend', line_color="black")
+    plot.add_glyph(source, glyph)
+    # if query orientation is -
+    df = df_all[df_all.qorient.isin(['-'])]
+    # If the orientation is "-", start coordinate is in the reverse strand (maf docs)
+    # Therefore as plot will be + vs + query start needs to be flipped
+    df['qstart'] = read_length - df['qstart']
+    df['qend'] = df['qstart'] - df['qlen']
+    df['rend'] = df['rstart'] + df['rlen']
+    # Add reverse complement lines to plot
+    source = ColumnDataSource(df)
+    glyph = Segment(x0='rstart', y0='qstart', x1='rend', y1='qend', line_color="red")
+    plot.add_glyph(source, glyph)
+    return plot

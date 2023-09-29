@@ -6,12 +6,12 @@ import os
 
 from dominate.tags import p, pre
 from dominate.util import raw
-from ezcharts.components import bokehchart
+from ezcharts.components.ezchart import EZChart
 from ezcharts.components.fastcat import draw_all_plots
 from ezcharts.components.reports import labs
 from ezcharts.layout.snippets import Stats, Tabs
 from ezcharts.layout.snippets.table import DataTable
-from ezcharts.plots.__init__ import BokehPlot
+from ezcharts.plots import BokehPlot
 from ezcharts.plots.util import read_files
 from ezcharts.util import get_named_logger  # noqa: ABS101
 import pandas as pd
@@ -132,7 +132,7 @@ cloning steps.
                     bk_plot._fig = get_bokeh(pd.read_json(plan_item['plot']))
                     bk_plot._fig.xgrid.grid_line_color = None
                     bk_plot._fig.ygrid.grid_line_color = None
-                    bokehchart.BokehChart(
+                    EZChart(
                         bk_plot, 'epi2melabs',
                         width='100%', height='100%')
                     DataTable.from_pandas(annotations, use_index=False)
@@ -203,6 +203,29 @@ insert.
             DataTable.from_pandas(variants_df, use_index=False)
             trans_df = report_utils.trans_counts(args.qc_inserts, report)
             DataTable.from_pandas(trans_df, use_index=False)
+    # dot plots
+    if ('OPTIONAL_FILE' not in os.listdir(args.mafs)):
+        with report.add_section("Dot plots", "Dot plots"):
+            raw("""
+These dot plots have been created by aligning the assembly to itself
+to reveal any repeats or repetitive regions.
+Black is for repeats found in the forward strand and
+red for repeats found in the reverse complement.
+This was done using
+<a href=
+"https://github.com/UCSantaCruzComputationalGenomicsLab/last/tree/master">
+last</a>
+""")
+            tabs = Tabs()
+            with tabs.add_dropdown_menu():
+                for item in sorted(os.listdir(args.mafs)):
+                    sample_name = item.split('.')[0]
+                    with tabs.add_dropdown_tab(str(sample_name)):
+                        bk_plot = BokehPlot()
+                        bk_plot._fig = report_utils.dotplot_assembly(item)
+                        EZChart(
+                            bk_plot, 'epi2melabs', height="500px", width="500px")
+
     report.write(args.report)
     logger.info(f"Report written to {args.report}.")
 
@@ -252,6 +275,9 @@ def argparser():
     parser.add_argument(
         "--assembly_quality",  nargs='+',
         help="qc quality summaries")
+    parser.add_argument(
+        "--mafs",
+        help="mafs")
     return parser
 
 

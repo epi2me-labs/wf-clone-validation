@@ -34,20 +34,25 @@ def align_self(seq):
     return hits, first, second
 
 
-def deconcatenate(seq):
+def deconcatenate(seq, approx_size):
     """Self-align to remove duplicate regions."""
     finished = False
     iteration = 0
     trimmed_assm = seq
-
     while not finished:
         iteration += 1
         sys.stdout.write(f"Trimming sequence... Round {iteration}")
+        approx_size = int(approx_size)
+        upper_limit = approx_size * 1.2
+        lower_limit = approx_size * 0.8
         hits, first, second = align_self(trimmed_assm)
-
-        if len(hits) == 1:
+        if lower_limit < len(trimmed_assm) < upper_limit:
+            sys.stdout.write(
+                "Approx size is as expected, stopping here.")
+            finished = True
+            break
+        elif len(hits) == 1:
             sys.stdout.write("> Single self-alignment detected.")
-
         elif len(hits) > 1:
             sys.stdout.write("> Multiple self-alignments detected.")
             # Tested variations of this, but if works...
@@ -76,7 +81,7 @@ def main(args):
     output = args.output
     corrected = []
     for name, seq, _ in mp.fastx_read(sequence_fasta):
-        corrected.append([name, deconcatenate(seq)])
+        corrected.append([name, deconcatenate(seq, args.approx_size)])
 
     if not corrected:
         return
@@ -94,7 +99,11 @@ def argparser():
         dest="sequence",
         help="File in .FASTA format containing a single sequence/contig."
     )
-
+    parser.add_argument(
+        "--approx_size",
+        dest="approx_size",
+        help="Approx plasmid size."
+    )
     parser.add_argument(
         "-o",
         "--output",
