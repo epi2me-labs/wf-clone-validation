@@ -6,7 +6,7 @@ from bokeh.plotting import figure
 from dominate.tags import p
 import ezcharts as ezc
 from ezcharts.components import bcfstats, ezchart
-from ezcharts.plots.util import Colors, read_files
+from ezcharts.plots.util import Colors
 import pandas as pd
 
 
@@ -48,14 +48,15 @@ def tidyup_status_file(status_sheet, annotations):
 def read_count_barplot(per_barcode_stats, report):
     """Plot per sample read count bar chart."""
     # Per barcode read count
-    seq_summary = read_files(per_barcode_stats)
-    barcode_counts = (
-        pd.DataFrame(seq_summary['sample_name'].value_counts())
-        .sort_index()
-        .reset_index()
-        .rename(
-            columns={'index': 'Sample', 'sample_name': 'Count'})
-    )
+    readcounts = {}
+    for summary_fn in per_barcode_stats:
+        df_sample = pd.read_csv(summary_fn, sep="\t")
+        sample_id = df_sample['sample_name'].iloc[0]
+        readcounts[sample_id] = df_sample.shape[0]
+    barcode_counts = pd.DataFrame.from_dict(
+        readcounts, orient='index', columns=['Count'])
+    barcode_counts = barcode_counts.sort_index().reset_index().rename(
+        columns={'index': 'Sample'})
     with report.add_section("Read Counts", "Read Counts"):
         p(
             """Number of reads per sample."""

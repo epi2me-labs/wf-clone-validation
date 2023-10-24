@@ -3,7 +3,7 @@
 import groovy.json.JsonBuilder
 nextflow.enable.dsl = 2
 
-include { fastq_ingress } from './lib/fastqingress'
+include { fastq_ingress } from './lib/ingress'
 
 
 process checkIfEnoughReads {
@@ -12,13 +12,13 @@ process checkIfEnoughReads {
     input:
         tuple val(meta),
             path("input.fastq.gz"),
-            path("per-read-stats.tsv"),
+            path("per-read-stats.tsv.gz"),
             val(approx_size)
         val extra_args
     output:
         tuple val(meta.alias), path("${meta.alias}.fastq.gz"), val(approx_size),
             optional: true, emit: sample
-        path "${meta.alias}.stats", emit: stats
+        path "${meta.alias}.stats.gz", emit: stats
         tuple val(meta.alias), env(STATUS), emit: status
     script:
         def expected_depth = "$params.assm_coverage"
@@ -27,7 +27,7 @@ process checkIfEnoughReads {
         int bgzip_threads = task.cpus == 1 ? 1 : task.cpus - 1
     """
     STATUS="Failed due to insufficient reads"
-    mv per-read-stats.tsv ${meta.alias}.stats
+    mv per-read-stats.tsv.gz ${meta.alias}.stats.gz
     fastcat -s ${meta.alias} -r ${meta.alias}.interim $extra_args input.fastq.gz \
     | bgzip -@ $bgzip_threads > interim.fastq.gz
     if [[ "\$(wc -l < "${meta.alias}.interim")" -ge "$value" ]]; then
@@ -436,7 +436,7 @@ process assembly_qc {
 
 
 
-
+// downsampled, per barcode and host filtered stats files are handled earlier in the workflow and need to be named with the sample alias
 process report {
     label "wfplasmid"
     cpus 1
@@ -496,7 +496,7 @@ workflow pipeline {
         // the fastcat stats dir
         samples = samples
         | filter { it[1] }
-        | map { it[2] = it[2].resolve("per-read-stats.tsv"); it }
+        | map { it[2] = it[2].resolve("per-read-stats.tsv.gz"); it }
 
         // Min/max filter reads
         fastcat_extra_args = "-a $min_read_length -b $max_read_length"
@@ -583,6 +583,7 @@ workflow pipeline {
 
         mafs = assemblyMafs(polished.polished)
 
+
         report = report(
             downsampled_stats.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
             final_status,
@@ -638,9 +639,7 @@ process output {
 // entrypoint workflow
 WorkflowMain.initialise(workflow, params, log)
 workflow {
-    if (params.disable_ping == false) {
-        Pinguscript.ping_post(workflow, "start", "none", params.out_dir, params)
-    }
+    Pinguscript.ping_start(nextflow, workflow, params)
 
     if (params.containsKey("reference")) {
         throw new Exception("--reference is deprecated, use --insert_reference instead.")
@@ -672,7 +671,7 @@ workflow {
         "input":params.fastq,
         "sample":params.sample,
         "sample_sheet":params.sample_sheet,
-        "fastcat_stats": true
+        "stats": true
         ])
 
     // add the size estimates to the channel with the samples
@@ -718,13 +717,9 @@ workflow {
    
 }
 
-
-if (params.disable_ping == false) {
-    workflow.onComplete {
-        Pinguscript.ping_post(workflow, "end", "none", params.out_dir, params)
-    }
-    
-    workflow.onError {
-        Pinguscript.ping_post(workflow, "error", "$workflow.errorMessage", params.out_dir, params)
-    }
+workflow.onComplete {
+    Pinguscript.ping_complete(nextflow, workflow, params)
+}
+workflow.onError {
+    Pinguscript.ping_error(nextflow, workflow, params)
 }

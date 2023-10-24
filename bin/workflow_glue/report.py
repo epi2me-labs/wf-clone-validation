@@ -7,7 +7,7 @@ import os
 from dominate.tags import p, pre
 from dominate.util import raw
 from ezcharts.components.ezchart import EZChart
-from ezcharts.components.fastcat import draw_all_plots
+from ezcharts.components.fastcat import load_stats, SeqSummary
 from ezcharts.components.reports import labs
 from ezcharts.layout.snippets import Stats, Tabs
 from ezcharts.layout.snippets.table import DataTable
@@ -157,14 +157,14 @@ if a host reference was provided.
                     fastcat_tabs = fastcat_dic[item]
                     for key, value in fastcat_tabs.items():
                         with internal_tabs.add_tab(key):
-                            seq_summary = pd.read_csv(value, sep='\t')
-                            depth = len(seq_summary.index)
+                            stats = load_stats(value, format="fastcat")
+                            depth = len(stats.index)
                             Stats(
                                 columns=2,
                                 items=[
                                     (depth, 'Read count'),
                                 ])
-                            draw_all_plots(seq_summary, THEME)
+                            SeqSummary(value)
         # Insert info table
     if os.stat(args.inserts_json).st_size != 0:
         inserts = json.load(open(args.inserts_json))
