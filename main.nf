@@ -655,6 +655,7 @@ workflow {
         if (approx_sizes.contains(null)) {
             throw new Exception("Either use the `--approx_size` parameter or include an `approx_size` column in the sample sheet for all samples.")
         }
+        log.warn "Overriding the approx size parameter with per sample approx sizes provided by the sample_sheet."
         // the file provided with `--sample_sheet` contains a size estimate for
         // each sample, but we will filter all samples with the same parameters)
         min_read_length = approx_sizes.collect { it.toInteger() }.min()
