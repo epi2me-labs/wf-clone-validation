@@ -148,20 +148,6 @@
                 "sample": {
                     "type": "string",
                     "description": "A single sample name for non-multiplexed data. Permissible if passing a single .fastq(.gz) file or directory of .fastq(.gz) files."
-                },
-                "min_barcode": {
-                    "type": "integer",
-                    "default": 0,
-                    "title": "Minimum barcode",
-                    "description": "Minimum numeric sample barcode ID to process.",
-                    "help_text": "If multiplexed data is provided, this filter can be used to exclude certain samples from processing."
-                },
-                "max_barcode": {
-                    "type": "integer",
-                    "default": 192,
-                    "title": "Maximum barcode",
-                    "description": "Maximum (inclusive) numeric sample barcode ID to process.",
-                    "help_text": "If multiplexed data is provided, this filter can be used to exclude certain samples from processing."
                 }
             }
         },
