@@ -2,4 +2,4 @@ barcode,alias
 barcode01,sample01
 barcode02,sample02
 barcode04,sample04
-barcode06,sample06
+barcode06,06

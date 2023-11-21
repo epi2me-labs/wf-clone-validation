@@ -105,7 +105,7 @@ def create_fastcat_dic(sample_names, raw, host_file, downsampled_file):
     lists = {'Raw': raw, 'Hostfilt': host_filt, 'Downsampled': summary_stats}
     for sample in sample_names:
         new_dic = {}
-        item_search = '/' + sample + '.'
+        item_search = '/' + str(sample) + '.'
         for list_name, fc_list in lists.items():
             #  find index of item that contains the sample name as a substring
             item_index = [i for i, s in enumerate(fc_list) if item_search in s]

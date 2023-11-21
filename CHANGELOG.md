@@ -8,7 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - Parameters `--min_barcode` and `--max_barcode`
 - Default local executor CPU and RAM limits.
-
+### Fixed
+- Now handles sample aliases consisting only of numbers.
 
 ## [v0.5.3]
 ### Fixed
