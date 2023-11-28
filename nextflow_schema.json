@@ -2,7 +2,8 @@
     "$schema": "http://json-schema.org/draft-07/schema",
     "$id": "https://raw.githubusercontent.com/./master/nextflow_schema.json",
     "title": "epi2me-labs/wf-clone-validation",
-    "description": "De-novo reconstruction of synthetic plasmid sequences.",
+    "description": "*De novo* assembly of plasmid sequences, designed for verifying the results of molecular cloning experiments.",
+    "workflow_title": "Clone validation workflow",
     "demo_url": "https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/wf-clone-validation-demo.tar.gz",
     "aws_demo_url": "https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/wf-clone-validation-demo/aws.nextflow.config",
     "url": "https://github.com/epi2me-labs/wf-clone-validation",
@@ -18,15 +19,15 @@
                     "type": "string",
                     "title": "FASTQ",
                     "format": "path",
-                    "description": "Directory containing fastq input files. May contain fastq files directly or directories name barcodeXX relating to independent samples.",
+                    "description": "FASTQ files to use in the analysis.",
                     "fa_icon": "fab fa-adobe",
-                    "help_text": "If directories named \"barcode*\" are found under the `--fastq` directory the data is assumed to be multiplex and each barcode directory will be processed independently. If `.fastq(.gz)` files are found under the `--fastq` directory the sample is assumed to not be multiplexed. In this second case `--samples` should be a simple name rather than a CSV file."
+                    "help_text": "This accepts one of three cases: (i) the path to a single FASTQ file; (ii) the path to a top-level directory containing FASTQ files; (iii) the path to a directory containing one level of sub-directories which in turn contain FASTQ files. In the first and second case, a sample name can be supplied with `--sample`. In the last case, the data is assumed to be multiplexed with the names of the sub-directories as barcodes. In this case, a sample sheet can be provided with `--sample_sheet`."
                 },
                 "approx_size": {
                     "type": "integer",
                     "title": "Approximate plasmid size",
                     "default": 7000,
-                    "description": "Approximate size of the plasmid in base pairs, can also be defined per sample see sample_sheet param",
+                    "description": "Approximate size of the plasmid in base pairs. This can also be defined per sample: see sample_sheet parameter.",
                     "minimum": 1
                 },
                 "assm_coverage": {
@@ -41,7 +42,7 @@
                     "type": "string",
                     "format": "file-path",
                     "description": "TSV File containing primers used to find inserts. If left empty then inserts will not be searched for.",
-                    "help_text": "Specify one or more primer sets which will be used to find the sequence inserted in the construct. Should be in .tsv format  [primer_name,  5', 3'] with no header. An example primers.tsv for pRham/T7 is available in the data folder of the workflow."
+                    "help_text": "Specify one or more primer sets which will be used to find the sequence inserted in the construct. This file should be in .tsv format containing columns [primer_name,  5' primer, 3' primer] with no header. An example `primers.tsv` for pRham/T7 is available in the demo data for the workflow."
                 },
                 "analyse_unclassified": {
                     "type": "boolean",
@@ -122,7 +123,7 @@
                 "host_reference": {
                     "type": "string",
                     "format": "file-path",
-                    "description": "FASTA file, reads which map to it are discarded."
+                    "description": "A host reference genome FASTA file. Read which map to this reference are discarded and not used for the assembly."
                 },
                 "regions_bedfile": {
                     "type": "string",
@@ -259,8 +260,16 @@
             "$ref": "#/definitions/miscellaneous_options"
         }
     ],
-    "docs": {
-        "intro": "## Introduction\n\nThe workflow accepts FASTQ as the primary input.\n\nOptional inputs:\n\n* A `host_reference` FASTA file.\n  \n* A primers TSV file if they differ from the default pRham/T7.\n\nThe steps of the workflow are as follows - \n\n* If a `host_reference` is provided, [minimap2](https://github.com/lh3/minimap2) is used to align the reads to the `host_reference`, aligned reads are filtered out.\n\n* The reads are then trimmed at the ends using [Seqkit](https://bioinf.shenwei.me/seqkit/) with the provided `--trim_length` parameter. \n\n* The sequences are then downsampled using the tool [Rasusa](https://github.com/mbhall88/rasusa).\n\n* [Trycycler](https://github.com/rrwick/Trycycler) is used to create 3 subsamples which are each assembled using [Flye](https://github.com/fenderglass/Flye).\n\n* If there are concatemers in the assembly these are found using minimap2 and deconcatenated using a Python script. \n\n* Trycycler is used to reconcile the subsampled assemblies into one final assembly. This is polished with [Medaka](https://github.com/nanoporetech/medaka).\n\n* [Seqkit](https://bioinf.shenwei.me/seqkit/) is used to find inserts using the primers supplied to the `--primers` parameter. \n\n* The assembly is annotated using [pLannotate](https://github.com/barricklab/pLannotate) with the default database containing entries from [fpbase](https://www.fpbase.org/), [Swiss-Prot](https://www.expasy.org/resources/uniprotkb-swiss-prot), [Rfam](https://rfam.org/) and [snapgene](https://www.snapgene.com/). \n\n* A quality score for the assembly is provided by Medaka.\n\n* Optionally a reference insert sequence can be provided with --insert_reference, which is aligned to the consensus and any variants are reported by [bcftools](https://samtools.github.io/bcftools/bcftools.html).",
-        "links": "## Useful links\n\n* [nextflow](https://www.nextflow.io/)\n* [docker](https://www.docker.com/products/docker-desktop)\n* [singularity](https://docs.sylabs.io/)\n* [minimap2](https://github.com/lh3/minimap2)\n* [Seqkit](https://bioinf.shenwei.me/seqkit/)\n* [Rasusa](https://github.com/mbhall88/rasusa)\n* [Trycycler](https://github.com/rrwick/Trycycler)\n* [Flye](https://github.com/fenderglass/Flye)\n* [Medaka](https://github.com/nanoporetech/medaka)\n* [plannotate tool](https://github.com/barricklab/pLannotate)\n* [bcftools](https://samtools.github.io/bcftools/bcftools.html)"
+    "resources": {
+        "recommended": {
+            "cpus": 4,
+            "memory": "8GB"
+        },
+        "minimum": {
+            "cpus": 4,
+            "memory": "4GB"
+        },
+        "run_time": "6 minutes per sample for 10,000 reads",
+        "arm_support": true
     }
 }

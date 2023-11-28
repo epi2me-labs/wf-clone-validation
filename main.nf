@@ -9,6 +9,7 @@ include { fastq_ingress } from './lib/ingress'
 process checkIfEnoughReads {
     label "wfplasmid"
     cpus params.threads
+    memory "2GB"
     input:
         tuple val(meta),
             path("input.fastq.gz"),
@@ -43,6 +44,7 @@ process filterHostReads {
     errorStrategy 'ignore'
     label "wfplasmid"
     cpus params.threads
+    memory "4GB"
     input:
         tuple val(sample_id), path(fastq), val(approx_size)
         path reference
@@ -53,7 +55,7 @@ process filterHostReads {
         tuple val(sample_id), env(STATUS), emit: status
     script:
         def name = sample_id
-        def regs = regions_bedfile.name != 'NO_REG_BED' ? regs : 'none'
+        def regs = regions_bedfile.name != 'NO_REG_BED' ? regions_bedfile : 'none'
     """
     STATUS="Failed due to filtered host reads"
     (minimap2 -t $task.cpus -y -ax map-ont $reference $fastq \
@@ -81,6 +83,7 @@ process assembleCore {
     maxRetries 4
     label "wfplasmid"
     cpus params.threads
+    memory "4GB"
     input:
         tuple val(sample_id), path(fastq), val(approx_size)
     output:
@@ -213,6 +216,8 @@ process assembleCore {
 
 process lookup_medaka_model {
     label "wfplasmid"
+    cpus 1
+    memory "1GB"
     input:
         path("lookup_table")
         val basecall_model
@@ -229,6 +234,7 @@ process lookup_medaka_model {
 process medakaPolishAssembly {
     label "medaka"
     cpus params.threads
+    memory "2GB"
     input:
         tuple val(sample_id), path(draft), path(fastq), val(medaka_model)
     output:
@@ -252,6 +258,7 @@ process medakaPolishAssembly {
 process downsampledStats {
     label "wfplasmid"
     cpus 1
+    memory "2GB"
     input:
         tuple val(sample_id), path(sample)
     output:
@@ -269,6 +276,7 @@ process findPrimers {
     errorStrategy 'ignore'
     label "wfplasmid"
     cpus 1
+    memory "2GB"
     input:
         path primers
         tuple val(sample_id), path(sequence)
@@ -285,6 +293,8 @@ process findPrimers {
 
 process medakaVersion {
     label "medaka"
+    cpus 1 
+    memory "2GB"
     output:
         path "medaka_version.txt"
     """
@@ -295,6 +305,7 @@ process medakaVersion {
 process getVersions {
     label "wfplasmid"
     cpus 1
+    memory "2GB"
     input:
         path "input_versions.txt"
     output:
@@ -321,6 +332,7 @@ process getVersions {
 process getParams {
     label "wfplasmid"
     cpus 1
+    memory "2GB"
     output:
         path "params.json"
     script:
@@ -335,6 +347,7 @@ process getParams {
 process assemblyMafs {
     label "wfplasmid"
     cpus 1
+    memory "2GB"
     input:
         tuple val(sample_id), path("assembly.fasta")
     output:
@@ -352,6 +365,7 @@ process assemblyMafs {
 process runPlannotate {
     label "wfplasmid"
     cpus 1
+    memory "2GB"
     input:
         path annotation_database
         path "assemblies/*"
@@ -378,6 +392,7 @@ process runPlannotate {
 process inserts {
     label "wfplasmid"
     cpus 1
+    memory "1GB"
     input:
          path "primer_beds/*"
          path "assemblies/*"
@@ -401,6 +416,7 @@ process inserts {
 process insert_qc {
     label "wfplasmid"
     cpus 1
+    memory "2GB"
     input:
          tuple val(sample_id), path("insert_assembly.fasta")
          path "reference_assembly.fasta"
@@ -424,6 +440,7 @@ process insert_qc {
 process assembly_qc {
     label "wfplasmid"
     cpus 1
+    memory "2GB"
     input:
         tuple val(sample_id), path("assembly.fastq")
     output:
@@ -440,6 +457,7 @@ process assembly_qc {
 process report {
     label "wfplasmid"
     cpus 1
+    memory "2GB"
     input:
         path "downsampled_stats/*"
         path final_status

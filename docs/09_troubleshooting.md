@@ -1,0 +1,4 @@
++ If there are no assemblies output by the workflow, open the wf-clone-validation-report.html to look at failure reasons. Check the read summary section for quality and quantity
+of reads before and after downsampling to ensure there is enough data for the assembly. If there is not sufficient data, you may need to adjust the approx size and coverage options.
++ If the workflow fails please run it with the demo data set to ensure the workflow itself is working. This will help us determine if the issue is related to the environment, input parameters or a bug.
++ See how to interpret some common nextflow exit codes [here](https://labs.epi2me.io/trouble-shooting/).
