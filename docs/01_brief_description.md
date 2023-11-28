@@ -1,0 +1,1 @@
+*De novo* assembly of plasmid sequences, designed for verifying the results of molecular cloning experiments.

@@ -1,0 +1,60 @@
+{
+  "files": {
+    "workflow-report": {
+      "filepath": "./wf-clone-validation-report.html",
+      "title": "worfklow report",
+      "description": "A report bringing together the main results of the workflow, across samples.",
+      "mime-type": "text/html",
+      "optional": false,
+      "type": "aggregated"
+    },
+    "sample-status-csv-summary": {
+      "filepath": "./sample_status.txt",
+      "title": "sample status",
+      "description": "A CSV file with per-sample assembly success or failure reasons",
+      "mime-type": "text/csv",
+      "optional": false,
+      "type": "aggregated"
+    },
+    "plannotate-annotations": {
+      "filepath": "./plannotate.json",
+      "title": "plasmid annotations",
+      "description": "Plasmid annotations in a JSON structure.",
+      "mime-type": "text/json",
+      "optional": false,
+      "type": "aggregated"
+    },
+    "annotations_bed" : {
+      "filepath": "./{{ alias }}.annotations.bed",
+      "title": "annotations bed",
+      "description": "Plasmid annotations in a BED file format for onward use",
+      "mime-type": "text/tab-separated-values",
+      "optional": false,
+      "type": "per-sample"
+    },
+    "annotations_gbk" : {
+      "filepath": "./{{ alias }}.annotations.gbk",
+      "title": "annotations gbk",
+      "description": "Plasmid annotations in a GBK file format for onward use",
+      "mime-type": "application/octet-stream",
+      "optional": false,
+      "type": "per-sample"
+    },
+    "assembly_fastq" : {
+      "filepath": "./{{ alias }}.final.fastq",
+      "title": "Assembly FASTQ",
+      "description": "Sequence and quality score of the final assembly.",
+      "mime-type": "text/plain",
+      "optional": false,
+      "type": "per-sample"
+    },
+    "insert_fasta" : {
+      "filepath": "./{{ alias }}.insert.fasta",
+      "title": "Insert FASTA",
+      "description": "Insert sequence found in the final assembly, only relevant if the primers parameter was used.",
+      "mime-type": "text/plain",
+      "optional": true,
+      "type": "per-sample"
+    }
+  }
+}

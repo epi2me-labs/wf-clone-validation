@@ -8,8 +8,10 @@ variables:
     # The workflow should define `--out_dir`, the CI template sets this.
     # Only common file inputs and option values need to be given here
     # (not things such as -profile)
-    NF_BEFORE_SCRIPT: "wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/wf-clone-validation-db.tar.gz && tar -xzvf wf-clone-validation-db.tar.gz" 
-    NF_WORKFLOW_OPTS: "--fastq test_data/test --db_directory wf-clone-validation-db --threads 4 --assm_coverage 25"
+    NF_BEFORE_SCRIPT: "wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/clone_val_test.tar.gz && tar -xzvf clone_val_test.tar.gz" 
+    NF_WORKFLOW_OPTS: "--fastq clone_val_test/fastq --primers clone_val_test/primers.tsv \
+    --host_reference clone_val_test/host_reference.fa.gz --regions_bedfile clone_val_test/reference.bed \
+    --insert_reference clone_val_test/insert_reference.fasta --sample_sheet clone_val_test/sample_sheet.csv"
     NF_IGNORE_PROCESSES: "filterHostReads,sampleStatus"
     CI_FLAVOUR: "new"
 
@@ -27,31 +29,21 @@ docker-run:
           when: never
         - if: $MATRIX_NAME == "clone-val"
           variables:
-              NF_BEFORE_SCRIPT: "wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/wf-clone-validation-db.tar.gz && tar -xzvf wf-clone-validation-db.tar.gz" 
-              NF_WORKFLOW_OPTS: "--fastq test_data/test --db_directory wf-clone-validation-db \
-              --threads 4 --assm_coverage 25 --primers data/primers.tsv"
-              NF_IGNORE_PROCESSES: "filterHostReads,sampleStatus,insert_qc"
+              NF_BEFORE_SCRIPT: "wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/clone_val_test.tar.gz && tar -xzvf clone_val_test.tar.gz"
+              NF_WORKFLOW_OPTS: "--fastq clone_val_test/fastq --primers clone_val_test/primers.tsv --host_reference clone_val_test/host_reference.fa.gz
+              --regions_bedfile clone_val_test/reference.bed --insert_reference clone_val_test/insert_reference.fasta --sample_sheet clone_val_test/sample_sheet.csv"
+              NF_IGNORE_PROCESSES: ""
         - if: $MATRIX_NAME == "check-model"
           variables:
               NF_BEFORE_SCRIPT: "wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/wf-clone-validation-db.tar.gz && tar -xzvf wf-clone-validation-db.tar.gz" 
               NF_WORKFLOW_OPTS: "--fastq test_data/test --db_directory wf-clone-validation-db \
               --threads 4 --basecaller_cfg dna_r9.4.1_450bps_hac --assm_coverage 25 --primers data/primers.tsv"
               NF_IGNORE_PROCESSES: "filterHostReads,sampleStatus,insert_qc"
-        - if: $MATRIX_NAME == "insert-reference"
-          variables:
-              NF_WORKFLOW_OPTS: "--fastq test_data/test --insert_reference test_data/insert_reference.fasta \
-              --threads 4 --basecaller_cfg dna_r9.4.1_450bps_hac --assm_coverage 25 --primers data/primers.tsv"
-              NF_IGNORE_PROCESSES: "filterHostReads,sampleStatus"
         - if: $MATRIX_NAME == "insert-wrong-reference"
           variables:
               NF_WORKFLOW_OPTS: "--fastq test_data/test --insert_reference test_data/other_reference.fasta \
               --threads 4 --basecaller_cfg dna_r9.4.1_450bps_hac --assm_coverage 25 --primers data/primers.tsv"
               NF_IGNORE_PROCESSES: "filterHostReads,sampleStatus"
-        - if: $MATRIX_NAME == "sample-sheet-with-approx-size"
-          variables:
-              NF_WORKFLOW_OPTS: "--fastq test_data/test --sample_sheet test_data/sample_sheet_approx_size.txt \
-              --assm_coverage 25"
-              NF_IGNORE_PROCESSES: "filterHostReads,sampleStatus,insert_qc"
         - if: $MATRIX_NAME == "sample-sheet"
           variables:
               NF_WORKFLOW_OPTS: "--fastq test_data/test --sample_sheet test_data/sample_sheet.txt \
@@ -61,11 +53,6 @@ docker-run:
           variables:
               NF_WORKFLOW_OPTS: "--fastq test_data/test --assm_coverage 250"
               NF_IGNORE_PROCESSES: "filterHostReads,sampleStatus,insert_qc,assembleCore,assembly_qc,downsampledStats,findPrimers,medakaPolishAssembly,assemblyMafs"
-        - if: $MATRIX_NAME == "filter-host-reads"
-          variables:
-              NF_BEFORE_SCRIPT: "wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/clone_val_host_ref.tar.gz && tar -xzvf clone_val_host_ref.tar.gz" 
-              NF_WORKFLOW_OPTS: "--fastq clone_val_host_ref/test --host_reference clone_val_host_ref/reference.subseq.fa.gz"
-              NF_IGNORE_PROCESSES: "sampleStatus,insert_qc,assembleCore,assembly_qc,downsampledStats,findPrimers,medakaPolishAssembly"
         - if: $MATRIX_NAME == "repetitive-region-dotplot"
           variables:
               NF_BEFORE_SCRIPT: "wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/clone_validation_repetitive_region.tar.gz && tar -xzvf clone_validation_repetitive_region.tar.gz" 

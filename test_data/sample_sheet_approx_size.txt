@@ -1,5 +1,0 @@
-barcode,alias,approx_size
-barcode01,sample01,3500
-barcode02,sample02,1500
-barcode04,sample04,1500
-barcode06,sample06,1500
