@@ -248,8 +248,8 @@ process medakaPolishAssembly {
     STATUS="Failed to polish assembly with Medaka"
     medaka_consensus -i "${fastq}" -d "${draft}" -m "${model}" -o . -t $task.cpus -f -q
     echo ">${sample_id}" >> "${sample_id}.final.fasta"
-    sed "2q;d" consensus.fasta >> "${sample_id}.final.fasta"
-    mv consensus.fasta "${sample_id}.final.fastq"
+    sed "2q;d" consensus.fastq >> "${sample_id}.final.fasta"
+    mv consensus.fastq "${sample_id}.final.fastq"
     STATUS="Completed successfully"
     """
 }
