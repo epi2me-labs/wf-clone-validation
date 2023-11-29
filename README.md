@@ -113,8 +113,6 @@ https://community.nanoporetech.com/docs/prepare/library_prep_protocols/plasmid-s
 |--------------------------|------|-------------|------|---------|
 | sample_sheet | string | A CSV file used to map barcodes to sample aliases. The sample sheet can be provided when the input data is a directory containing sub-directories with FASTQ files. An optional column `approx_size` can be added to provide size estimates for each sample. When not provided, the `--approx_size` parameter will be used for all samples. | The sample sheet is a CSV file with, minimally, columns named `barcode` and `alias`. Extra columns are allowed. A `type` column is required for certain workflows and should have the following values; `test_sample`, `positive_control`, `negative_control`, `no_template_control`. |  |
 | sample | string | A single sample name for non-multiplexed data. Permissible if passing a single .fastq(.gz) file or directory of .fastq(.gz) files. |  |  |
-| min_barcode | integer | Minimum numeric sample barcode ID to process. | If multiplexed data is provided, this filter can be used to exclude certain samples from processing. | 0 |
-| max_barcode | integer | Maximum (inclusive) numeric sample barcode ID to process. | If multiplexed data is provided, this filter can be used to exclude certain samples from processing. | 192 |
 
 
 ### Output Options
