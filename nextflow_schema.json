@@ -197,6 +197,12 @@
                         "nano-raw"
                     ]
                 },
+                "non_uniform_coverage": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Set this to true if your reads have highly non-uniform coverage.",
+                    "help_text": "Run `flye` in metagenome assembly mode, which may help with the assembly if you have high non-uniform coverage reads; generally, should not be required."
+                },
                 "db_directory": {
                     "type": "string",
                     "title": "Database directory",

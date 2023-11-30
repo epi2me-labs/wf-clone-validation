@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - Parameters `--min_barcode` and `--max_barcode`
 - Default local executor CPU and RAM limits.
+### Changed
+- Parameterised Flye meta option (`--non_uniform_coverage`) for non-uniform data and defaulted to false.
 ### Fixed
 - Now handles sample aliases consisting only of numbers.
 
