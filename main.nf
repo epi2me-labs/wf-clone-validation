@@ -101,7 +101,8 @@ process assembleCore {
         int exit_number = task.attempt <= 4 ? 1 : 0
         // min_overlap normally auto calculated but with a lower limit of 3000
         // assembly with same size as overlap will likely fail
-        def min_overlap = approx_size.toInteger() <= 3000 ? '--min-overlap 1000' : '' 
+        def min_overlap = approx_size.toInteger() <= 3000 ? '--min-overlap 1000' : ''
+        def meta = params.non_uniform_coverage ? '--meta' : ''
     """
 
     ############################################################
@@ -148,7 +149,7 @@ process assembleCore {
             --threads $task.cpus \
             --genome-size $approx_size \
             --out-dir "assm_\${SUBSET_NAME}" \
-            --meta \
+            ${meta} \
             $min_overlap 
              
         mv assm_sample_0*/assembly.fasta "assm_\${SUBSET_NAME}/\${SUBSET_NAME}_assembly.fasta" 
