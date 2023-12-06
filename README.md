@@ -25,12 +25,12 @@ In brief, this workflow will perform the following:
 Recommended requirements:
 
 + CPUs = 4
-+ memory = 8GB
++ Memory = 8GB
 
-Minimum requirement:
+Minimum requirements:
 
 + CPUs = 4
-+ memory = 4GB
++ Memory = 4GB
 
 Approximate run time: 6 minutes per sample for 10,000 reads
 
@@ -148,7 +148,7 @@ https://community.nanoporetech.com/docs/prepare/library_prep_protocols/plasmid-s
 
 ## Outputs
 
-Outputs files may be aggregated including information for all             samples or provided per sample. Per sample files             will be prefixed with respective aliases and represented             below as {{ alias }}.
+Outputs files may be aggregated including information for all samples or provided per sample. Per-sample files will be prefixed with respective aliases and represented below as {{ alias }}.
 
 | Title | File path | Description | Per sample or aggregated |
 |-------|-----------|-------------|--------------------------|
