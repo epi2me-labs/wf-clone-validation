@@ -235,7 +235,7 @@ process lookup_medaka_model {
 process medakaPolishAssembly {
     label "medaka"
     cpus params.threads
-    memory "2GB"
+    memory "4GB"
     input:
         tuple val(sample_id), path(draft), path(fastq), val(medaka_model)
     output:
@@ -366,7 +366,7 @@ process assemblyMafs {
 process runPlannotate {
     label "wfplasmid"
     cpus 1
-    memory "2GB"
+    memory params.large_construct ? "8GB" : "2GB"
     input:
         path annotation_database
         path "assemblies/*"
@@ -403,13 +403,14 @@ process inserts {
         path "*.json", emit: json
     script:
         def ref =  align_ref.name.startsWith('OPTIONAL_FILE') ? '' : "--reference ${align_ref}"
+        def large_construct = params.large_construct ? "--large_construct" : ""
     """
     if [ -e "primer_beds/OPTIONAL_FILE" ]; then
         inserts=""
     else
         inserts="--primer_beds primer_beds/*"
     fi
-    workflow-glue find_inserts \$inserts $ref
+    workflow-glue find_inserts \$inserts $ref $large_construct
     """
 }
 
@@ -685,6 +686,10 @@ workflow {
     }
     // +/- 50% margins for read length thresholds
     min_read_length *= 0.5
+    // if large construct don't filter out shorter reads as approx size no longer equal to read length
+    if (params.large_construct){
+        min_read_length = 200
+    }
     max_read_length *= 1.5
 
     samples = fastq_ingress([

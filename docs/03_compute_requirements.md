@@ -6,7 +6,7 @@ Recommended requirements:
 Minimum requirements:
 
 + CPUs = 4
-+ Memory = 4GB
++ Memory = 8GB
 
 Approximate run time: 6 minutes per sample for 10,000 reads
 

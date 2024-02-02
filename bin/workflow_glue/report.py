@@ -116,6 +116,9 @@ feature, they likely do not still have the annotated function. However, even
 small feature fragments may affect plasmid function if they result in cryptic
 gene expression or are inadvertently combined with other elements during later
 cloning steps.
+
+The plannotate plot may have overlapping annotation labels,
+use the zoom and hover tools to decipher the labels.
 """)
         # Load and plot per sample plannotate json
         plannotate = json.load(open(args.plannotate_json))
@@ -183,14 +186,15 @@ This table shows which primers were found in the consensus sequence
 of each sample and where the inserts were found.
 """)
             DataTable.from_pandas(insert_df, use_index=False)
-        # MSA section if inserts available
-        with report.add_section("Multiple Sequence Alignment", "MSA"):
-            p("""
+        # MSA section if available
+        if "msa" in inserts:
+            with report.add_section("Multiple Sequence Alignment", "MSA"):
+                p("""
 This section shows the inserts aligned with each other or a reference
 sequence if provided.
-""")
-            formatted_msa = format_msa(inserts)
-            pre(os.linesep.join(formatted_msa))
+    """)
+                formatted_msa = format_msa(inserts)
+                pre(os.linesep.join(formatted_msa))
     if ('OPTIONAL_FILE' not in os.listdir(args.qc_inserts)):
         with report.add_section("Insert variants", "Insert variants"):
             p("""

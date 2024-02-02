@@ -30,7 +30,7 @@ Recommended requirements:
 Minimum requirements:
 
 + CPUs = 4
-+ Memory = 4GB
++ Memory = 8GB
 
 Approximate run time: 6 minutes per sample for 10,000 reads
 
@@ -150,6 +150,7 @@ input_reads.fastq   ─── input_directory  ─── input_directory
 
 | Nextflow parameter name  | Type | Description | Help | Default |
 |--------------------------|------|-------------|------|---------|
+| large_construct | boolean | Enable assembly of larger constructs including Bacterial Artificial Chromosomes (50,000-300,000 base pairs). | Selecting this will skip approximate size filtering steps allowing the assembly of larger genomes. Multiple sequence alignment of inserts will be skipped in this mode. | False |
 | trim_length | integer | Number of base pairs to trim from the both ends of read. |  | 150 |
 | medaka_model | string | The name of a Medaka model to use. By default the workflow will select an appropriate Medaka model from the basecaller configuration provided. Entering a name here will override the automated selection and use the Medaka model named here. | The workflow will attempt to map the basecalling model used to a suitable Medaka model. You can override this by providing a model with this option instead. |  |
 | flye_quality | string | The Flye parameter for quality of input reads, default `nano-hq`: high-quality reads, Guppy5+ SUP or Q20 (<5% error). | Other options include `nano-corr`: reads that were corrected with other methods (<3% error), `nano-raw`: pre-Guppy5 (<20% error). | nano-hq |
@@ -190,7 +191,7 @@ Output files may be aggregated including information for all samples or provided
 
 ### 1. Concatenates input files and generate per read stats.
 
-The [fastcat](https://github.com/epi2me-labs/fastcat) tool is used to concatenate multifile samples to be processed by the workflow. It will also output per read stats including average read lengths and qualities.
+The [fastcat](https://github.com/epi2me-labs/fastcat) tool is used to concatenate multifile samples to be processed by the workflow. It will also output per read stats including average read lengths and qualities. Reads with lengths between 0.5 X and 1.5 X the approximate size are filtered out unless the `--large_construct` parameter is provided which indicates the assembly is expected to be larger (50,000-300,000 bps).
 
 ### 2. Filter out host reference reads
 
