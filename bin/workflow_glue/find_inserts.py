@@ -95,12 +95,22 @@ def main(args):
             insert_fn = os.path.join('inserts/', str(k) + '.insert.fasta')
             with open(insert_fn, "a") as fp:
                 fp.write('>' + str(k) + '\n' + str(v) + '\n')
-        if args.reference:
-            msa = make_msa(seqkit[1], args.reference)
+        # If assembly will be large, skip MSA creation
+        if args.large_construct:
+            inserts_json = {
+                'bed_df': seqkit[0].to_json(),
+                'bed_dic': seqkit[1]}
         else:
-            msa = make_msa(seqkit[1])
-        inserts_json = {
-            'bed_df': seqkit[0].to_json(), 'bed_dic': seqkit[1], 'msa': msa}
+            # If reference is available, it will be included to perform the
+            # Multiple sequence alignment.
+            # Otherwise MSA will be done using the inserts available
+            if args.reference:
+                msa = make_msa(seqkit[1], args.reference)
+            else:
+                msa = make_msa(seqkit[1])
+            inserts_json = {
+                'bed_df': seqkit[0].to_json(),
+                'bed_dic': seqkit[1], 'msa': msa}
         json.dump(inserts_json, f)
 
 
@@ -110,6 +120,10 @@ def argparser():
     parser.add_argument(
         "--primer_beds", nargs='+',
         help="bed files of extracted sequences",
+        required=False)
+    parser.add_argument(
+        "--large_construct", default=False, action="store_true",
+        help="large construct mode skip msa",
         required=False)
     parser.add_argument(
         "--reference",

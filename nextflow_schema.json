@@ -176,6 +176,13 @@
             "description": "Advanced options for configuring processes inside the workflow.",
             "default": "",
             "properties": {
+                "large_construct": {
+                    "type": "boolean",
+                    "title": "Enable large contruct mode (e.g. Bacterial Artificial Chromosomes)",
+                    "default": false,
+                    "description": "Enable assembly of larger constructs including Bacterial Artificial Chromosomes (50,000-300,000 base pairs).",
+                    "help_text": "Selecting this will skip approximate size filtering steps allowing the assembly of larger genomes. Multiple sequence alignment of inserts will be skipped in this mode."
+                },
                 "trim_length": {
                     "type": "integer",
                     "default": 150,
@@ -273,7 +280,7 @@
         },
         "minimum": {
             "cpus": 4,
-            "memory": "4GB"
+            "memory": "8GB"
         },
         "run_time": "6 minutes per sample for 10,000 reads",
         "arm_support": true
