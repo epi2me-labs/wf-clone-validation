@@ -353,11 +353,13 @@ process assemblyMafs {
         tuple val(sample_id), path("assembly.fasta")
     output:
         tuple val(sample_id), path("${sample_id}.assembly.maf"), emit: assembly_maf
-    // set -m(multiplicity) to 1000 to increase sensitivity from default of 10
-    // for assemblies these small computational cost is low
+    // set -m(multiplicity) to 10000 to increase sensitivity from default of 10
+    // for assemblies this small computational cost is low
+    // reduce offset distance for suppressing repeats inside exact matches -w 
+    // from default of 1000 to 10.
     """
     lastdb db.lastdb "assembly.fasta"
-    lastal -m10000 db.lastdb "assembly.fasta" > "${sample_id}.assembly.maf"
+    lastal -m 10000 -w 10 db.lastdb "assembly.fasta" > "${sample_id}.assembly.maf"
   
     """
 }
