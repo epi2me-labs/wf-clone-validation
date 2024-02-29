@@ -4,6 +4,11 @@ import groovy.json.JsonBuilder
 nextflow.enable.dsl = 2
 
 include { fastq_ingress } from './lib/ingress'
+if (params.assembly_tool == 'canu'){
+    include {assembleCore_canu as assembleCore} from "./modules/local/canu_assembly.nf"
+} else {
+    include {assembleCore_flye as assembleCore} from "./modules/local/flye_assembly.nf"
+}
 
 
 process checkIfEnoughReads {
@@ -76,144 +81,6 @@ process filterHostReads {
     """
 }
 
-
-
-process assembleCore {
-    errorStrategy = {task.attempt <= 4 ? 'retry' : 'ignore'}
-    maxRetries 4
-    label "wfplasmid"
-    cpus params.threads
-    memory "4GB"
-    input:
-        tuple val(sample_id), path(fastq), val(approx_size)
-    output:
-        tuple val(sample_id), path("*.reconciled.fasta"), optional: true, emit: assembly
-        tuple val(sample_id), path("*.downsampled.fastq"), optional: true, emit: downsampled
-        tuple val(sample_id), env(STATUS), emit: status
-    script:
-        name = sample_id
-        cluster_dir = "trycycler/cluster_001"
-        int target = params.assm_coverage * 3
-        int min_dep = (params.assm_coverage / 3) * 2
-        int min_len = 100
-        int max_len = approx_size.toInteger() * 1.2
-        int min_q = 7
-        int exit_number = task.attempt <= 4 ? 1 : 0
-        // min_overlap normally auto calculated but with a lower limit of 3000
-        // assembly with same size as overlap will likely fail
-        def min_overlap = approx_size.toInteger() <= 3000 ? '--min-overlap 1000' : ''
-        def meta = params.non_uniform_coverage ? '--meta' : ''
-    """
-
-    ############################################################
-    # Trimming
-    ############################################################
-    STATUS="Failed to trim reads"
-    (seqkit subseq -j $task.cpus -r $params.trim_length:-$params.trim_length $fastq | \
-        seqkit subseq -j $task.cpus -r 1:$max_len | \
-        seqkit seq -j $task.cpus -m $min_len -Q $min_q -g > ${name}.trimmed.fastq) \
-        && STATUS="Failed to downsample reads" &&
-
-    ############################################################
-    # Downsampling
-    ############################################################
-
-
-    (rasusa \
-        --coverage $target \
-        --genome-size $approx_size \
-        --input ${name}.trimmed.fastq > ${name}.downsampled.fastq) \
-        && STATUS="Failed to Subset reads" &&
-
-    ############################################################
-    # Subsetting
-    ############################################################
-
-    (trycycler subsample \
-        --count 3 \
-        --min_read_depth $min_dep \
-        --reads ${name}.downsampled.fastq \
-        --out_dir sets \
-        --genome_size $approx_size) \
-        && STATUS="Failed to assemble using Flye" &&
-
-    ############################################################
-    # Assembly
-    ############################################################
-    (for SUBSET in \$(ls sets/sample_*.fastq)
-    do
-        SUBSET_NAME=\$(basename -s .fastq \$SUBSET)
-        flye \
-            --${params.flye_quality} \${SUBSET} \
-            --deterministic \
-            --threads $task.cpus \
-            --genome-size $approx_size \
-            --out-dir "assm_\${SUBSET_NAME}" \
-            ${meta} \
-            $min_overlap 
-             
-        mv assm_sample_0*/assembly.fasta "assm_\${SUBSET_NAME}/\${SUBSET_NAME}_assembly.fasta" 
-    done) && STATUS="Failed to trim Assembly" &&
-
-    ############################################################
-    # Trim assemblies
-    ############################################################
-
-    (for assembly in \$(ls assm_sample_0*/*assembly.fasta)
-    do  
-        echo \$assembly
-        assembly_name=\$(basename -s .fasta \$assembly)
-        ass_stats=\$(dirname \$assembly)/assembly_info.txt
-        workflow-glue deconcatenate \
-            \$assembly \
-            -o \${assembly_name}.deconcat.fasta \
-            --approx_size $approx_size
-    done
-    ls *.deconcat.fasta > /dev/null 2>&1) \
-    && STATUS="Failed to reconcile assemblies" &&
-
-
-    ############################################################
-    # Reconciliation
-    ############################################################
-
-    (trycycler cluster \
-        --assemblies *.deconcat.fasta \
-        --reads ${name}.downsampled.fastq \
-        --out_dir trycycler) &&
-    (trycycler reconcile \
-        --reads ${name}.downsampled.fastq \
-        --cluster_dir $cluster_dir \
-        --max_trim_seq_percent 20 \
-        --max_add_seq_percent 10) &&
-    (trycycler msa --cluster_dir $cluster_dir) &&
-    (trycycler partition --reads ${name}.downsampled.fastq --cluster_dirs $cluster_dir) &&
-    (trycycler consensus --cluster_dir $cluster_dir)
-
-    ############################################################
-    # Exit handling
-    ############################################################
-
-    if [ ! -f "${cluster_dir}/7_final_consensus.fasta" ]; then
-        if ls ${cluster_dir}/1_contigs/*.fasta 1> /dev/null 2>&1; then
-            STATUS="Completed but failed to reconcile"
-            (seqkit sort ${cluster_dir}/1_contigs/*.fasta --by-length \
-                | seqkit head -n 1 > ${name}.reconciled.fasta) \
-                && echo "Trycycler failed, outputting un-reconciled assembly"
-        elif [ "$exit_number" == "1" ]; then
-            echo \$STATUS
-            echo "Assembly failed, retrying process"
-            exit 1
-        elif [ "$exit_number" == "0" ]; then
-            echo \$STATUS
-            echo "Failed final attempt"
-        fi
-    else
-        mv ${cluster_dir}/7_final_consensus.fasta ${name}.reconciled.fasta
-        STATUS="Completed successfully"
-    fi
-    """
-}
 
 process lookup_medaka_model {
     label "wfplasmid"
@@ -303,6 +170,34 @@ process medakaVersion {
     """
 }
 
+process flyeVersion {
+    label "wfplasmid"
+    cpus 1 
+    memory "2GB"
+    input:
+        path "versions.txt"
+    output:
+        path "assembly_version.txt"
+    """
+    cat "versions.txt" >> "assembly_version.txt"
+    flye --version |  sed 's/^/flye,/' >> "assembly_version.txt"
+    """
+}
+
+process canuVersion {
+    label "canu"
+    cpus 1 
+    memory "2GB"
+    input:
+        path "versions.txt"
+    output:
+        path "assembly_version.txt"
+    """
+    cat "versions.txt" >> "assembly_version.txt"
+    canu -version | sed 's/ /,/' >>"assembly_version.txt"
+    """
+}
+
 process getVersions {
     label "wfplasmid"
     cpus 1
@@ -319,7 +214,6 @@ process getVersions {
     seqkit version | sed 's/ /,/' >> versions.txt
     trycycler --version | sed 's/ /,/' >> versions.txt
     bedtools --version | sed 's/ /,/' >> versions.txt
-    flye --version |  sed 's/^/flye,/' >> versions.txt
     fastcat --version | sed 's/^/fastcat,/' >> versions.txt
     rasusa --version | sed 's/ /,/' >> versions.txt
     python -c "import spoa; print(spoa.__version__)" | sed 's/^/spoa,/'  >> versions.txt
@@ -497,7 +391,8 @@ process report {
     --inserts_json $inserts_json \
     --qc_inserts qc_inserts \
     --assembly_quality assembly_quality/* \
-    --mafs mafs
+    --mafs mafs \
+    --assembly_tool ${params.assembly_tool}
     """
 }
 
@@ -544,7 +439,6 @@ workflow pipeline {
        
         // Core assembly and reconciliation
         assemblies = assembleCore(samples_filtered)
-        
         named_drafts = assemblies.assembly.groupTuple()
         named_samples = assemblies.downsampled.groupTuple()
         named_drafts_samples = named_drafts
@@ -568,7 +462,12 @@ workflow pipeline {
 
         primer_beds = findPrimers(primers, polished.polished)
         medaka_version = medakaVersion()
-        software_versions = getVersions(medaka_version)
+        if (params.assembly_tool == "flye"){
+            assembly_version = flyeVersion(medaka_version)
+        }else{
+            assembly_version = canuVersion(medaka_version)
+        }
+        software_versions = getVersions(assembly_version)
         workflow_params = getParams()
 
         
@@ -688,6 +587,10 @@ workflow {
     }
     // +/- 50% margins for read length thresholds
     min_read_length *= 0.5
+    // if canu is requested, log a warning
+    if (params.assembly_tool == 'canu'){
+        log.warn "Assembly tool Canu. This may result in suboptimal performance on ARM devices."
+    }
     // if large construct don't filter out shorter reads as approx size no longer equal to read length
     if (params.large_construct){
         min_read_length = 200

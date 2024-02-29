@@ -186,7 +186,7 @@
                 "trim_length": {
                     "type": "integer",
                     "default": 150,
-                    "description": "Number of base pairs to trim from the both ends of read."
+                    "description": "Number of base pairs to trim from both ends of each read."
                 },
                 "medaka_model": {
                     "type": "string",
@@ -216,6 +216,24 @@
                     "format": "directory-path",
                     "description": "Optional directory containing a gene annotation database.",
                     "help_text": "A default generic annotation is provided in tar.gz format, containing entries from [fpbase](https://www.fpbase.org/), [Swiss-Prot](https://www.expasy.org/resources/uniprotkb-swiss-prot) , [Rfam](https://rfam.org/) and [snapgene](https://www.snapgene.com/)"
+                },
+                "assembly_tool": {
+                    "type": "string",
+                    "default": "flye",
+                    "title": "Assembly tool",
+                    "description": "Select the assembly tool to use, either Canu or Flye.",
+                    "help_text": "Flye is the default assembler tool which will work in most cases. Alternatively select Canu but it will not work with ARM processors.",
+                    "enum": [
+                        "canu",
+                        "flye"
+                    ]
+                },
+                "canu_fast": {
+                    "type": "boolean",
+                    "default": false,
+                    "title": "Run Canu in fast mode",
+                    "description": "Fast option can make the assembly step significantly faster. It can be used on any genome size but may produce less continuous assemblies on genomes larger than 1 Gbp.",
+                    "help_text": "This option is only relevant if Canu is set as the assembly_tool parameter"
                 }
             }
         },
