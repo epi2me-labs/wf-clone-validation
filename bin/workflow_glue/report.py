@@ -73,6 +73,15 @@ If applicable the mean quality for the whole \
 plasmid assembly has been provided, derived by Medaka \
 from aligning the reads to the consensus.
 """)
+        if args.assembly_tool == "flye":
+            raw("""
+The assembly was generated using <a href="https://github.com/fenderglass/Flye">Flye</a>.
+        """)
+        else:
+            # Must be canu
+            raw("""
+The assembly was generated using <a href="https://github.com/marbl/canu">Canu</a>.
+        """)
         lengths = json.load(open(args.lengths))
         sample_stats = []
         for item in sample_names:
@@ -282,6 +291,9 @@ def argparser():
     parser.add_argument(
         "--mafs",
         help="mafs")
+    parser.add_argument(
+        "--assembly_tool", choices=['canu', 'flye'],
+        help="Assembly tool selected Canu or Flye")
     return parser
 
 

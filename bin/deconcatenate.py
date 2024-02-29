@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 """Go deconcatenate your sequences."""
+import argparse
 import sys
 
 import mappy as mp
-from .util import wf_parser  # noqa: ABS101
 
 
 def get_output_handler(path):
@@ -94,7 +94,10 @@ def main(args):
 
 def argparser():
     """Argument parser for entrypoint."""
-    parser = wf_parser("deconcatenate")
+    parser = argparse.ArgumentParser(
+        "deconcatenate",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        add_help=False)
     parser.add_argument(
         dest="sequence",
         help="File in .FASTA format containing a single sequence/contig."

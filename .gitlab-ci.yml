@@ -23,7 +23,7 @@ docker-run:
             - MATRIX_NAME: [
                 "clone-val", "check-model", "insert-reference", "insert-wrong-reference",
                 "sample-sheet-with-approx-size", "sample-sheet", "no-assemblies", "filter-host-reads",
-                "repetitive-region-dotplot", "large_construct"]
+                "repetitive-region-dotplot", "large_construct", "canu", "canu-fast"]
     rules:
         - if: ($CI_COMMIT_BRANCH == null || $CI_COMMIT_BRANCH == "dev-template")
           when: never
@@ -32,34 +32,44 @@ docker-run:
               NF_BEFORE_SCRIPT: "wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/clone_val_test.tar.gz && tar -xzvf clone_val_test.tar.gz"
               NF_WORKFLOW_OPTS: "--fastq clone_val_test/fastq --primers clone_val_test/primers.tsv --host_reference clone_val_test/host_reference.fa.gz
               --regions_bedfile clone_val_test/reference.bed --insert_reference clone_val_test/insert_reference.fasta --sample_sheet clone_val_test/sample_sheet.csv"
-              NF_IGNORE_PROCESSES: ""
+              NF_IGNORE_PROCESSES: "canuVersion"
         - if: $MATRIX_NAME == "check-model"
           variables:
               NF_BEFORE_SCRIPT: "wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/wf-clone-validation-db.tar.gz && tar -xzvf wf-clone-validation-db.tar.gz" 
               NF_WORKFLOW_OPTS: "--fastq test_data/test --db_directory wf-clone-validation-db \
               --threads 4 --basecaller_cfg dna_r9.4.1_450bps_hac --assm_coverage 25 --primers data/primers.tsv --non_uniform_coverage"
-              NF_IGNORE_PROCESSES: "filterHostReads,sampleStatus,insert_qc"
+              NF_IGNORE_PROCESSES: "filterHostReads,sampleStatus,insert_qc,canuVersion"
         - if: $MATRIX_NAME == "insert-wrong-reference"
           variables:
               NF_WORKFLOW_OPTS: "--fastq test_data/test --insert_reference test_data/other_reference.fasta \
               --threads 4 --basecaller_cfg dna_r9.4.1_450bps_hac --assm_coverage 25 --primers data/primers.tsv"
-              NF_IGNORE_PROCESSES: "filterHostReads,sampleStatus"
+              NF_IGNORE_PROCESSES: "filterHostReads,sampleStatus,canuVersion"
         - if: $MATRIX_NAME == "sample-sheet"
           variables:
               NF_WORKFLOW_OPTS: "--fastq test_data/test --sample_sheet test_data/sample_sheet.txt \
               --assm_coverage 25"
-              NF_IGNORE_PROCESSES: "filterHostReads,sampleStatus,insert_qc"
+              NF_IGNORE_PROCESSES: "filterHostReads,sampleStatus,insert_qc,canuVersion"
         - if: $MATRIX_NAME == "no-assemblies"
           variables:
               NF_WORKFLOW_OPTS: "--fastq test_data/test --assm_coverage 250"
-              NF_IGNORE_PROCESSES: "filterHostReads,sampleStatus,insert_qc,assembleCore,assembly_qc,downsampledStats,findPrimers,medakaPolishAssembly,assemblyMafs"
+              NF_IGNORE_PROCESSES: "filterHostReads,sampleStatus,insert_qc,assembleCore,assembly_qc,downsampledStats,findPrimers,medakaPolishAssembly,assemblyMafs,canuVersion"
         - if: $MATRIX_NAME == "repetitive-region-dotplot"
           variables:
               NF_BEFORE_SCRIPT: "wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/clone_validation_repetitive_region.tar.gz && tar -xzvf clone_validation_repetitive_region.tar.gz" 
               NF_WORKFLOW_OPTS: "--fastq clone_validation_repetitive_region/test.fastq --approx_size 3000"
-              NF_IGNORE_PROCESSES: "sampleStatus,insert_qc,assembleCore,assembly_qc,downsampledStats,findPrimers,medakaPolishAssembly,filterHostReads"
+              NF_IGNORE_PROCESSES: "sampleStatus,insert_qc,assembleCore,assembly_qc,downsampledStats,findPrimers,medakaPolishAssembly,filterHostReads,canuVersion"
         - if: $MATRIX_NAME == "large_construct"
           variables:
               NF_BEFORE_SCRIPT: "wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/clone_validation_bacs.tar.gz && tar -xzvf clone_validation_bacs.tar.gz"
               NF_WORKFLOW_OPTS: "-executor.\\$$local.memory 16GB --fastq clone_validation_bacs/bacs_reads.fastq \
-              --large_construct --approx_size 200000 --insert_reference clone_validation_bacs/bacs_insert.fasta --primers data/primers.tsv --assm_coverage 100"     
+              --large_construct --approx_size 200000 --insert_reference clone_validation_bacs/bacs_insert.fasta --primers data/primers.tsv --assm_coverage 100"
+              NF_IGNORE_PROCESSES: "canuVersion,filterHostReads"
+        - if: $MATRIX_NAME == "canu"
+          variables:
+              NF_WORKFLOW_OPTS: "--fastq test_data/test --approx_size 3000 --assembly_tool canu"
+              NF_IGNORE_PROCESSES: "sampleStatus,insert_qc,assembleCore,assembly_qc,downsampledStats,findPrimers,medakaPolishAssembly,filterHostReads,flyeVersion"
+        - if: $MATRIX_NAME == "canu-fast"
+          variables:
+              NF_WORKFLOW_OPTS: "--fastq test_data/test --approx_size 3000 --assembly_tool canu --canu_fast"
+              NF_IGNORE_PROCESSES: "sampleStatus,insert_qc,assembleCore,assembly_qc,downsampledStats,findPrimers,medakaPolishAssembly,filterHostReads,flyeVersion"
+         

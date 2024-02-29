@@ -40,11 +40,13 @@
 | Nextflow parameter name  | Type | Description | Help | Default |
 |--------------------------|------|-------------|------|---------|
 | large_construct | boolean | Enable assembly of larger constructs including Bacterial Artificial Chromosomes (50,000-300,000 base pairs). | Selecting this will skip approximate size filtering steps allowing the assembly of larger genomes. Multiple sequence alignment of inserts will be skipped in this mode. | False |
-| trim_length | integer | Number of base pairs to trim from the both ends of read. |  | 150 |
+| trim_length | integer | Number of base pairs to trim from both ends of each read. |  | 150 |
 | medaka_model | string | The name of a Medaka model to use. By default the workflow will select an appropriate Medaka model from the basecaller configuration provided. Entering a name here will override the automated selection and use the Medaka model named here. | The workflow will attempt to map the basecalling model used to a suitable Medaka model. You can override this by providing a model with this option instead. |  |
 | flye_quality | string | The Flye parameter for quality of input reads, default `nano-hq`: high-quality reads, Guppy5+ SUP or Q20 (<5% error). | Other options include `nano-corr`: reads that were corrected with other methods (<3% error), `nano-raw`: pre-Guppy5 (<20% error). | nano-hq |
 | non_uniform_coverage | boolean | Set this to true if your reads have highly non-uniform coverage. | Run `flye` in metagenome assembly mode, which may help with the assembly if you have high non-uniform coverage reads; generally, should not be required. | False |
 | db_directory | string | Optional directory containing a gene annotation database. | A default generic annotation is provided in tar.gz format, containing entries from [fpbase](https://www.fpbase.org/), [Swiss-Prot](https://www.expasy.org/resources/uniprotkb-swiss-prot) , [Rfam](https://rfam.org/) and [snapgene](https://www.snapgene.com/) |  |
+| assembly_tool | string | Select the assembly tool to use, either Canu or Flye. | Flye is the default assembler tool which will work in most cases. Alternatively select Canu but it will not work with ARM processors. | flye |
+| canu_fast | boolean | Fast option can make the assembly step significantly faster. It can be used on any genome size but may produce less continuous assemblies on genomes larger than 1 Gbp. | This option is only relevant if Canu is set as the assembly_tool parameter | False |
 
 
 ### Miscellaneous Options

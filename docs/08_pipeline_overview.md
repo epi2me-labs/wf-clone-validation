@@ -20,7 +20,7 @@ The sequences are then subsampled using [Rasusa](https://github.com/mbhall88/ras
 
 ### 6. Assembly
 
-We perform the assembly for each of the 3 subsamples separately using the assembly tool [Flye](https://github.com/fenderglass/Flye).
+We perform the assembly for each of the 3 subsamples separately. The assembly is done using either [Flye](https://github.com/fenderglass/Flye) or [Canu](https://github.com/marbl/canu) depending on what is set as the `assembly_tool` parameter. Both Flye and Canu are popular assemblers that usually produce reliable assemblies. Flye is our default assembler as it usually provides reliable assemblies in less time than Canu, and supports ARM processors. If Flye fails to assemble you may wish to try Canu.
 
 ### 7. De-concatenate
 
