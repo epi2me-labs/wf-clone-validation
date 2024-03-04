@@ -84,6 +84,13 @@
                         "dna_r9.4.1_e8.1_hac",
                         "dna_r9.4.1_e8.1_hac_prom"
                     ]
+                },
+                "client_fields": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "A JSON file of key value pairs to display on the report.",
+                    "help_text": "This is used to populate a table of additional information (for example, about upstream components of an assay) to the workflow report.",
+                    "hidden": true
                 }
             },
             "allOf": [

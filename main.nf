@@ -369,12 +369,15 @@ process report {
         path "qc_inserts/*"
         path "assembly_quality/*"
         path "mafs/*"
+        path client_fields
     output:
         path "wf-clone-validation-*.html", emit: html
         path "sample_status.txt", emit: sample_stat
         path "inserts/*", optional: true, emit: inserts
     script:
         report_name = "wf-clone-validation-report.html"
+        String client_fields_args = client_fields.name != "OPTIONAL_FILE" ? "--client_fields ${client_fields}" : ""
+    
     """
     workflow-glue report \
      $report_name \
@@ -392,7 +395,8 @@ process report {
     --qc_inserts qc_inserts \
     --assembly_quality assembly_quality/* \
     --mafs mafs \
-    --assembly_tool ${params.assembly_tool}
+    --assembly_tool ${params.assembly_tool} \
+    $client_fields_args
     """
 }
 
@@ -504,6 +508,7 @@ workflow pipeline {
 
         mafs = assemblyMafs(polished.polished)
 
+        client_fields = params.client_fields && file(params.client_fields).exists() ? file(params.client_fields) : file("$projectDir/data/OPTIONAL_FILE")
 
         report = report(
             downsampled_stats.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
@@ -517,7 +522,8 @@ workflow pipeline {
             annotation.json,
             qc_insert.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
             assembly_quality.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
-            mafs.map{ meta, maf -> maf}.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE"))
+            mafs.map{ meta, maf -> maf}.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
+            client_fields
             )
 
         results = polished.polished.map { meta, polished -> polished }.concat(

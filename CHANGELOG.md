@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Reinstate Canu assembler alongside Flye.
 - `--assembly_tool` parameter with options `canu` and `flye` (default: flye).
+- `--client_fields` parameter to add extra info to the report
 
 ## [v1.1.0]
 ### Changed
