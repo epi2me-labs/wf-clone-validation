@@ -239,6 +239,34 @@ last</a>
                         EZChart(
                             bk_plot, 'epi2melabs', height="500px", width="500px")
 
+    client_fields = None
+    if args.client_fields:
+        with open(args.client_fields) as f:
+            try:
+                client_fields = json.load(f)
+            except json.decoder.JSONDecodeError:
+                error = "ERROR: Client info is not correctly formatted"
+
+        with report.add_section("Workflow Metadata", "Workflow Metadata"):
+            raw("""This table records the data specified in the client fields
+                input.
+                """)
+
+            if client_fields:
+                df = pd.DataFrame.from_dict(
+                    client_fields, orient="index", columns=["Value"])
+                df.index.name = "Key"
+
+                # Examples from the client had lists as values so join lists
+                # for better display
+                df['Value'] = df.Value.apply(
+                    lambda x: ', '.join(
+                        [str(i) for i in x]) if isinstance(x, list) else x)
+
+                DataTable.from_pandas(df)
+            else:
+                p(error)
+
     report.write(args.report)
     logger.info(f"Report written to {args.report}.")
 
@@ -294,6 +322,9 @@ def argparser():
     parser.add_argument(
         "--assembly_tool", choices=['canu', 'flye'],
         help="Assembly tool selected Canu or Flye")
+    parser.add_argument(
+        "--client_fields",
+        help="JSON file containing client_fields")
     return parser
 
 
