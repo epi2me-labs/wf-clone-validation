@@ -54,6 +54,5 @@
 | Nextflow parameter name  | Type | Description | Help | Default |
 |--------------------------|------|-------------|------|---------|
 | threads | integer | Maximum number of CPU threads to use per workflow task. | Several tasks in this workflow benefit from using multiple CPU threads. This option sets the number of CPU threads for all such processes. The total CPU resource used by the workflow is contrained by the executor configuration. | 4 |
-| disable_ping | boolean | Enable to prevent sending a workflow ping. |  | False |
 
 
