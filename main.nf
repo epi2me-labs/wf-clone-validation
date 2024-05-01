@@ -319,7 +319,7 @@ process insert_qc {
          tuple val(sample_id), path("insert_assembly.fasta")
          path "reference_assembly.fasta"
     output:
-         tuple val(sample_id), path("${sample_id}.calls.bcf"), path("${sample_id}.stats"), optional: true, emit: insert_stats
+         tuple val(sample_id), path("${sample_id}.insert.calls.bcf"), path("${sample_id}.insert.stats"), optional: true, emit: insert_stats
          tuple val(sample_id), env(STATUS), emit: status
     script:
     """
@@ -327,12 +327,60 @@ process insert_qc {
     minimap2 -t $task.cpus -y -ax map-ont "reference_assembly.fasta" "insert_assembly.fasta" | samtools sort -o output.bam -
     mapped=\$(samtools view -F 4 -c  output.bam)
     if [ \$mapped != 0 ]; then
-        bcftools mpileup -Ou -f "reference_assembly.fasta" output.bam | bcftools call -mv -Ob -o "${sample_id}.calls.bcf"
-        bcftools stats "${sample_id}.calls.bcf" > ${sample_id}.stats
+        bcftools mpileup -Ou -f "reference_assembly.fasta" output.bam | bcftools call -mv -Ob -o "${sample_id}.insert.calls.bcf"
+        bcftools stats "${sample_id}.insert.calls.bcf" > "${sample_id}.insert.stats"
         STATUS="Completed successfully"
     fi
     """
 }
+
+
+process align_assembly {
+    label "wfplasmid"
+    cpus 3
+    memory "8GB"
+    input:
+        tuple val(sample_id), path("full_assembly.fasta")
+        path "reference_assembly.fasta"
+    output:
+        tuple val(sample_id), path("${sample_id}.bam"), path("${sample_id}.bam.bai"), optional: true, emit: bam
+    script:
+    // Align assembly with the reference, which results in 2 aligned segments a (primary and supplementary alignment)
+    // Create a consensus to get the two sections of the assembled sequence in one Fasta and the same order as the reference
+    // Align this with the reference to get final alignment to output to user
+    """
+    minimap2 -t ${task.cpus - 1} -y -ax asm5 "reference_assembly.fasta" "full_assembly.fasta" | samtools sort -o "initial_alignment.bam" -
+    mapped=\$(samtools view -F 4 -c  "initial_alignment.bam")
+    if [ \$mapped != 0 ]; then
+        samtools consensus --mode simple "initial_alignment.bam" -o "consensus.bam"
+        samtools fasta consensus.bam > consensus.fasta
+        minimap2 -t ${task.cpus - 1} -y -ax asm5 "reference_assembly.fasta" "consensus.fasta" \
+            | samtools sort -@ ${task.cpus} --write-index -o ${sample_id}.bam##idx##${sample_id}.bam.bai -
+    fi
+    """
+}
+
+
+process assembly_comparison {
+    label "wfplasmid"
+    cpus 2
+    memory "2GB"
+    input:
+        tuple val(sample_id), path("${sample_id}.bam"), path("${sample_id}.bam.bai")
+        path "reference_assembly.fasta"
+    output: 
+        path("${sample_id}.bam.stats"), emit: bamstats
+        tuple val(sample_id), path("${sample_id}.full_construct.calls.bcf"), path("${sample_id}.full_construct.stats"), emit: full_assembly_stats
+    script:
+    // use bamstats to get percent identity and reference coverage
+    // Also get variants report
+    """
+    bamstats -t ${task.cpus} -s "${sample_id}" "${sample_id}.bam" > "${sample_id}.bam.stats"
+    bcftools mpileup -Ou -f "reference_assembly.fasta" "${sample_id}.bam" | bcftools call -mv -Ob -o "${sample_id}.full_construct.calls.bcf"
+    bcftools stats "${sample_id}.full_construct.calls.bcf" > ${sample_id}.full_construct.stats
+    """
+}
+
 
 
 process assembly_qc {
@@ -349,8 +397,7 @@ process assembly_qc {
     """
 }
 
-
-
+ 
 // downsampled, per barcode and host filtered stats files are handled earlier in the workflow and need to be named with the sample alias
 process report {
     label "wfplasmid"
@@ -369,6 +416,8 @@ process report {
         path "qc_inserts/*"
         path "assembly_quality/*"
         path "mafs/*"
+        path "full_assembly_variants/*"
+        path "assembly_bamstats/*"
         path client_fields
     output:
         path "wf-clone-validation-*.html", emit: html
@@ -377,8 +426,18 @@ process report {
     script:
         report_name = "wf-clone-validation-report.html"
         String client_fields_args = client_fields.name != "OPTIONAL_FILE" ? "--client_fields ${client_fields}" : ""
-    
+        def expected_full_ref = params.full_reference ? "--full_reference" : ""
     """
+    if [ -f "full_assembly_variants/OPTIONAL_FILE" ]; then
+        full_assembly_variants=""
+    else
+        full_assembly_variants="--full_assembly_variants full_assembly_variants"
+    fi
+    if [ -f "assembly_bamstats/OPTIONAL_FILE" ]; then
+        assembly_bamstats=""
+    else
+        assembly_bamstats="--reference_alignment_bamstats assembly_bamstats/*"
+    fi
     workflow-glue report \
      $report_name \
     --downsampled_stats downsampled_stats/* \
@@ -396,6 +455,9 @@ process report {
     --assembly_quality assembly_quality/* \
     --mafs mafs \
     --assembly_tool ${params.assembly_tool} \
+    \$assembly_bamstats \
+    $expected_full_ref \
+    \$full_assembly_variants \
     $client_fields_args
     """
 }
@@ -407,7 +469,8 @@ workflow pipeline {
         regions_bedfile
         database
         primers
-        align_ref
+        insert_ref
+        full_ref
         min_read_length
         max_read_length
 
@@ -478,14 +541,13 @@ workflow pipeline {
 
         insert = inserts(primer_beds.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
             polished.polished.map { it -> it[1] }.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
-            align_ref)
+            insert_ref)
         
         // assembly QC
         
-        insert_tuple = insert.inserts.flatten().map{ assembly -> tuple(assembly.simpleName, assembly)}
         assembly_quality = assembly_qc(polished.assembly_qc)
         if (params.insert_reference){
-            insert_qc_tuple = insert_qc(insert_tuple, align_ref)
+            insert_qc_tuple = insert_qc(polished.polished, insert_ref)
             qc_insert = insert_qc_tuple.insert_stats.map{sample_id, bcf, stats -> stats}
             bcf_insert = insert_qc_tuple.insert_stats.map{sample_id, bcf, stats -> bcf}
             insert_status = insert_qc_tuple.status
@@ -494,6 +556,19 @@ workflow pipeline {
             qc_insert = Channel.empty()
             bcf_insert = Channel.empty()
             insert_status = Channel.empty()
+        }
+        if (params.full_reference){
+            qc_full = align_assembly(polished.polished, full_ref)
+            assembly_comparison_output = assembly_comparison(qc_full.bam, full_ref)
+            ref_bamstats = assembly_comparison_output.bamstats
+            full_assembly_stats = assembly_comparison_output.full_assembly_stats.map{sample_id, bcf, stats -> stats}
+            bcf = assembly_comparison_output.full_assembly_stats.map{sample_id, bcf, stats -> bcf}
+            bam = qc_full.bam.map{sample_id, bam, bai -> [bam, bai]}
+        }else {
+            full_assembly_stats = Channel.empty()
+            bcf = Channel.empty()
+            bam = Channel.empty()
+            ref_bamstats = Channel.empty()
         }
 
         // Concat statuses and keep the last of each
@@ -523,6 +598,8 @@ workflow pipeline {
             qc_insert.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
             assembly_quality.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
             mafs.map{ meta, maf -> maf}.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
+            full_assembly_stats.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
+            ref_bamstats.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
             client_fields
             )
 
@@ -537,7 +614,11 @@ workflow pipeline {
             workflow_params,
             bcf_insert,
             qc_insert,
-            polished.assembly_qc.map { meta, assembly_qc -> assembly_qc })
+            polished.assembly_qc.map { meta, assembly_qc -> assembly_qc },
+            bam.flatten(),
+            full_assembly_stats,
+            bcf,
+            ref_bamstats)
         
     emit:
         results
@@ -628,9 +709,13 @@ workflow {
     if (params.primers != null){
         primer_file = file(params.primers, type: "file")
     }
-    align_ref = file("$projectDir/data/OPTIONAL_FILE")
-    if (params.insert_reference != null){
-        align_ref = file(params.insert_reference, type: "file")
+    insert_ref = file("$projectDir/data/OPTIONAL_FILE")
+    if (params.insert_reference){
+        insert_ref = file(params.insert_reference, type: "file", checkIfExists: true)
+    }
+    full_ref = file("$projectDir/data/OPTIONAL_FILE")
+    if (params.full_reference){
+        full_ref = file(params.full_reference, type: "file", checkIfExists: true)
     }
     database = file("$projectDir/data/OPTIONAL_FILE")
     if (params.db_directory != null){
@@ -645,7 +730,8 @@ workflow {
         regions_bedfile,
         database,
         primer_file,
-        align_ref,
+        insert_ref,
+        full_ref,
         min_read_length,
         max_read_length)
 

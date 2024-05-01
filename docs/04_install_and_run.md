@@ -25,6 +25,7 @@ The workflow can be run with the demo data using:
 nextflow run epi2me-labs/wf-clone-validation \
 --fastq clone_val_test/fastq --primers clone_val_test/primers.tsv \
 --host_reference clone_val_test/host_reference.fa.gz --regions_bedfile clone_val_test/reference.bed \
+--full_reference clone_val_test/full_reference_snps.fasta \
 --insert_reference clone_val_test/insert_reference.fasta --sample_sheet clone_val_test/sample_sheet.csv \
 -profile standard
 ```

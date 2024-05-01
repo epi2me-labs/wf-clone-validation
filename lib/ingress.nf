@@ -219,10 +219,13 @@ def xam_ingress(Map arguments)
         meta, paths -> 
         boolean is_array = paths instanceof ArrayList
         String xai_fn
+        // Using `.uri` or `.Uri()` leads to S3 paths to be prefixed with `s3:///`
+        // instead of `s3://`, causing the workflow to not find the index file.
+        // `.toUriString()` returns the correct path.
         if (!is_array){
-            boolean has_xai = file(paths + ".bai").exists()
-            if (has_xai){
-                xai_fn = paths + ".bai"
+            def xai = file(paths.toUriString() + ".bai")
+            if (xai.exists()){
+                xai_fn = xai.toUriString()
             }
         }
         [meta + [xai_fn: xai_fn], paths]
@@ -1024,6 +1027,8 @@ process validate_sample_sheet {
 // Generate an index for an input XAM file
 process samtools_index {
     cpus 4
+    label "ingress"
+    label "wf_common"
     memory 4.GB
     input:
         tuple val(meta), path("reads.bam")

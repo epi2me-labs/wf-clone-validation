@@ -68,6 +68,7 @@ The workflow can be run with the demo data using:
 nextflow run epi2me-labs/wf-clone-validation \
 --fastq clone_val_test/fastq --primers clone_val_test/primers.tsv \
 --host_reference clone_val_test/host_reference.fa.gz --regions_bedfile clone_val_test/reference.bed \
+--full_reference clone_val_test/full_reference_snps.fasta \
 --insert_reference clone_val_test/insert_reference.fasta --sample_sheet clone_val_test/sample_sheet.csv \
 -profile standard
 ```
@@ -126,6 +127,7 @@ input_reads.fastq   ─── input_directory  ─── input_directory
 | Nextflow parameter name  | Type | Description | Help | Default |
 |--------------------------|------|-------------|------|---------|
 | insert_reference | string | Optional file containing insert reference sequence which will be used for comparison with consensus insert in the report. | Providing a reference sequence can be useful as a QC on the base-level resolution of the the reconstructed insert sequences. |  |
+| full_reference | string | Optional FASTA file containing the reference sequence of the full plasmid. This will be used for comparison with the assembled construct. | Providing a reference sequence can be useful as a quality check on the base-level resolution of the reconstructed sequence, the reference is not used to generate the assembly. |  |
 | host_reference | string | A host reference genome FASTA file. Read which map to this reference are discarded and not used for the assembly. |  |  |
 | regions_bedfile | string | If a host_reference supplied, add an optional BED file to provide host reference regions that will be masked during filtering. |  |  |
 
@@ -184,6 +186,11 @@ Output files may be aggregated including information for all samples or provided
 | annotations gbk | ./{{ alias }}.annotations.gbk | Plasmid annotations in a GBK file format for onward use | per-sample |
 | Assembly FASTQ | ./{{ alias }}.final.fastq | Sequence and quality score of the final assembly. | per-sample |
 | Insert FASTA | ./{{ alias }}.insert.fasta | Insert sequence found in the final assembly, only relevant if the primers parameter was used. | per-sample |
+| Variant stats report | ./{{ alias }}.full_construct.stats | A BCF stats report with any variants found, only relevant if a full reference was provided. | per-sample |
+| Variants BCF file | ./{{ alias }}.full_construct.calls.bcf | A BCF file with any variants found per sample, only relevant if a full reference was provided. | per-sample |
+| Reference alignment | ./{{ alias }}.bam | Reference aligned with the assembly in BAM format, only relevant if a full reference was provided. | per-sample |
+| Reference alignment index | ./{{ alias }}.bam.bai | The index for the reference aligned with the assembly, only relevant if a full reference was provided. | per-sample |
+| BAM Stats | ./{{ alias }}.bam.stats | Stats report for the reference aligned with the assembly, only relevant if a full reference was provided. | per-sample |
 
 
 
@@ -222,7 +229,7 @@ If there are concatemers in the assembly, these are found using minimap2 and de-
 
 Trycycler is used to reconcile the subsampled assemblies into one final assembly. This is then polished with [Medaka](https://github.com/nanoporetech/medaka). A per-base quality score for the assembly is output by Medaka in a FASTQ file. This is used for creating the mean assembly quality you will find in the report.
 
-### 8. Insert location and QC
+### 9. Insert location and QC
 
 SeqKit is used to locate inserts using the primers supplied to the primers parameter.
 
@@ -230,11 +237,15 @@ A multiple sequence alignment (MSA) will be done using [Pyspoa](https://github.c
 
 If a reference insert FASTA sequence is provided, [BCFtools](https://samtools.github.io/bcftools/bcftools.html) is used to find variants between it and the final insert assembly, and are reported in BCF file per sample.
 
-### 10. Annotate
+### 10. Full assembly comparison with a reference
 
-The assembly is annotated by pLannotate](https://github.com/barricklab/pLannotate) to show any features that are present. The default database is used, which contains entries from [FPbase](https://www.fpbase.org/), [Swiss-Prot](https://www.expasy.org/resources/uniprotkb-swiss-prot), [Rfam](https://rfam.org/) and [SnapGene](https://www.snapgene.com/). Descriptions, percentage match and length of the match are also provided.
+If a full reference FASTA sequence is provided, Minimap2 is used to align the final assembly with the reference. [BCFtools](https://samtools.github.io/bcftools/bcftools.html) is used to report variants between the reference and the final assembly, which are reported in a BCF stats file per sample.
 
-### 11. Self alignment
+### 11. Annotate
+
+The assembly is annotated by [pLannotate](https://github.com/barricklab/pLannotate) to show any features that are present. The default database is used, which contains entries from [FPbase](https://www.fpbase.org/), [Swiss-Prot](https://www.expasy.org/resources/uniprotkb-swiss-prot), [Rfam](https://rfam.org/) and [SnapGene](https://www.snapgene.com/). Descriptions, percentage match and length of the match are also provided.
+
+### 12. Self alignment
 
 For each sample a self alignment will be done using [Last](https://gitlab.com/mcfrith/last) and the output will be presented as a dotplot. This can help identify any repetitive regions in your final assembly.
 

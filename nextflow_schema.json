@@ -127,6 +127,13 @@
                     "description": "Optional file containing insert reference sequence which will be used for comparison with consensus insert in the report.",
                     "help_text": "Providing a reference sequence can be useful as a QC on the base-level resolution of the the reconstructed insert sequences."
                 },
+                "full_reference": {
+                    "type": "string",
+                    "format": "file-path",
+                    "title": "Construct Reference",
+                    "description": "Optional FASTA file containing the reference sequence of the full plasmid. This will be used for comparison with the assembled construct.",
+                    "help_text": "Providing a reference sequence can be useful as a quality check on the base-level resolution of the reconstructed sequence, the reference is not used to generate the assembly."
+                },
                 "host_reference": {
                     "type": "string",
                     "format": "file-path",

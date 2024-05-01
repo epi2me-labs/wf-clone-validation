@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [unreleased]
+### Added
+- `--full_reference` parameter to accept a reference of the full construct. If provided, an additional construct QC section will be output in the report which will include reference coverage and percentage identity per sample.
+- Additional per-sample output files if `--full_reference` is provided:
+    - BAM: Reference aligned with the assembly in an indexed BAM.
+    - Variant stats: BCF stats report with any variants found between reference and assembly.
+    - Variant BCF: BCF file with all variants found between reference and assembly.
+    - BAM stats: Stats report from alignment of provided reference with assembly.
+
 ## [v1.2.0]
 ### Added
 - Reinstate Canu assembler alongside Flye.
