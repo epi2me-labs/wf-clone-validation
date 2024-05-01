@@ -30,7 +30,7 @@ If there are concatemers in the assembly, these are found using minimap2 and de-
 
 Trycycler is used to reconcile the subsampled assemblies into one final assembly. This is then polished with [Medaka](https://github.com/nanoporetech/medaka). A per-base quality score for the assembly is output by Medaka in a FASTQ file. This is used for creating the mean assembly quality you will find in the report.
 
-### 8. Insert location and QC
+### 9. Insert location and QC
 
 SeqKit is used to locate inserts using the primers supplied to the primers parameter.
 
@@ -38,10 +38,14 @@ A multiple sequence alignment (MSA) will be done using [Pyspoa](https://github.c
 
 If a reference insert FASTA sequence is provided, [BCFtools](https://samtools.github.io/bcftools/bcftools.html) is used to find variants between it and the final insert assembly, and are reported in BCF file per sample.
 
-### 10. Annotate
+### 10. Full assembly comparison with a reference
 
-The assembly is annotated by pLannotate](https://github.com/barricklab/pLannotate) to show any features that are present. The default database is used, which contains entries from [FPbase](https://www.fpbase.org/), [Swiss-Prot](https://www.expasy.org/resources/uniprotkb-swiss-prot), [Rfam](https://rfam.org/) and [SnapGene](https://www.snapgene.com/). Descriptions, percentage match and length of the match are also provided.
+If a full reference FASTA sequence is provided, Minimap2 is used to align the final assembly with the reference. [BCFtools](https://samtools.github.io/bcftools/bcftools.html) is used to report variants between the reference and the final assembly, which are reported in a BCF stats file per sample.
 
-### 11. Self alignment
+### 11. Annotate
+
+The assembly is annotated by [pLannotate](https://github.com/barricklab/pLannotate) to show any features that are present. The default database is used, which contains entries from [FPbase](https://www.fpbase.org/), [Swiss-Prot](https://www.expasy.org/resources/uniprotkb-swiss-prot), [Rfam](https://rfam.org/) and [SnapGene](https://www.snapgene.com/). Descriptions, percentage match and length of the match are also provided.
+
+### 12. Self alignment
 
 For each sample a self alignment will be done using [Last](https://gitlab.com/mcfrith/last) and the output will be presented as a dotplot. This can help identify any repetitive regions in your final assembly.

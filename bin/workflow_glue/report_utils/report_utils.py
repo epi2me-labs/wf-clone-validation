@@ -224,3 +224,21 @@ def dotplot_assembly(maf_assembly):
     glyph = Segment(x0='rstart', y0='qstart', x1='rend', y1='qend', line_color="red")
     plot.add_glyph(source, glyph)
     return plot
+
+
+def bamstats_table(input_files, passed_samples):
+    """Use bamstats files to create table with ref and identity."""
+    df = pd.concat(
+        (pd.read_csv(f, sep='\t') for f in input_files), ignore_index=True)
+    df = df[['sample_name', 'ref_coverage', 'coverage', 'acc']]
+    df = df.rename(
+        columns={
+            "sample_name": "Sample name",
+            "ref_coverage": "Reference coverage",
+            "coverage": "Assembly coverage",
+            "acc": "BLAST Identity"}
+    )
+    # Add 0's for any samples which have an assembly but no alignments.
+    df_passed = pd.DataFrame(passed_samples, columns=['Sample name'])
+    df = pd.merge(df_passed, df, on='Sample name', how='outer').fillna(0)
+    return df

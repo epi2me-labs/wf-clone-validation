@@ -213,9 +213,60 @@ the consensus insert and the provided reference
 insert.
 """)
             variants_df = report_utils.variant_counts_table(args.qc_inserts, report)
+            variants_df = variants_df.sort_values(by='id')
             DataTable.from_pandas(variants_df, use_index=False)
             trans_df = report_utils.trans_counts(args.qc_inserts, report)
+            trans_df = trans_df.sort_values(by='id')
             DataTable.from_pandas(trans_df, use_index=False)
+    # Full plasmid QC section
+    # Handling for if no assemblies have aligned to the reference.
+    if passed_samples and args.full_reference:
+        if not args.reference_alignment_bamstats:
+            with report.add_section("Full construct QC", "Construct QC"):
+                p("""
+None of the assemblies found aligned with the provided reference.
+""")
+    if args.reference_alignment_bamstats:
+        with report.add_section("Full construct QC", "Construct QC"):
+            p("""
+This section can be used to ensure the provided reference matches the assembly.
+
+The table belows shows coverage and BLAST identity between
+the provided reference and assembly.
+
+Reference coverage is the percentage of the provided reference sequence covered
+in the alignment with the assembled construct.
+
+Assembly coverage is the percentage of assembled
+contruct sequence covered in the alignment with the provided reference.
+
+BLAST Identity is calculated as: (length - ins - del - sub) / length.
+
+If both coverage and identity are 0, the assembly did not align with the provided
+reference.
+""")
+            # Use bamstats to output table with coeverage and identity per sample
+            df = report_utils.bamstats_table(
+                args.reference_alignment_bamstats,
+                passed_samples)
+            DataTable.from_pandas(df, use_index=False)
+            if args.full_assembly_variants:
+                p("""
+    Additionally, BCFtools was used to report any variants between
+    the provided reference and assembly.
+    """)
+                # Use BCF stats report to output table
+                # with summary of per sample variant counts.
+                variants_df = report_utils.variant_counts_table(
+                    args.full_assembly_variants, report)
+                variants_df = variants_df.sort_values(by='id')
+                DataTable.from_pandas(variants_df, use_index=False)
+                # Also use VCF stats report to output table
+                # with summary of per sample transition and transversion counts.
+                trans_df = report_utils.trans_counts(
+                    args.full_assembly_variants, report)
+                trans_df = trans_df.sort_values(by='id')
+                DataTable.from_pandas(trans_df, use_index=False)
     # dot plots
     if ('OPTIONAL_FILE' not in os.listdir(args.mafs)):
         with report.add_section("Dot plots", "Dot plots"):
@@ -320,8 +371,17 @@ def argparser():
         "--mafs",
         help="mafs")
     parser.add_argument(
+        "--full_assembly_variants",
+        help="Enable BCF stats reports for full-plasmid reference")
+    parser.add_argument(
         "--assembly_tool", choices=['canu', 'flye'],
         help="Assembly tool selected Canu or Flye")
+    parser.add_argument(
+        "--reference_alignment_bamstats", nargs='+',
+        help="bamstats files from reference alignment")
+    parser.add_argument(
+        "--full_reference", action='store_true',
+        help="Construct reference provided")
     parser.add_argument(
         "--client_fields",
         help="JSON file containing client_fields")
