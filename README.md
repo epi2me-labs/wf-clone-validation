@@ -199,7 +199,7 @@ Output files may be aggregated including information for all samples or provided
 
 ### 1. Concatenates input files and generate per read stats.
 
-The [fastcat](https://github.com/epi2me-labs/fastcat) tool is used to concatenate multifile samples to be processed by the workflow. It will also output per read stats including average read lengths and qualities. Reads with lengths between 0.5 X and 1.5 X the approximate size are filtered out unless the `--large_construct` parameter is provided which indicates the assembly is expected to be larger (50,000-300,000 bps).
+The [fastcat](https://github.com/epi2me-labs/fastcat) tool is used to concatenate multifile samples to be processed by the workflow. It will also output per read stats including average read lengths and qualities. Reads with lengths less than 0.5 X and more than 1.5 X the approximate size are filtered out unless the `--large_construct` parameter is provided which indicates the assembly is expected to be larger (50,000-300,000 bps).
 
 ### 2. Filter out host reference reads
 
@@ -248,6 +248,7 @@ The assembly is annotated by [pLannotate](https://github.com/barricklab/pLannota
 ### 12. Self alignment
 
 For each sample a self alignment will be done using [Last](https://gitlab.com/mcfrith/last) and the output will be presented as a dotplot. This can help identify any repetitive regions in your final assembly.
+
 
 
 

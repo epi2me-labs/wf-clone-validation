@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 """Create tables for the report."""
+import json
 
 from bokeh.models import ColumnDataSource, Segment
 from bokeh.plotting import figure
@@ -45,14 +46,16 @@ def tidyup_status_file(status_sheet, annotations):
     return (passed_list, all_sample_names, sample_status_dic)
 
 
-def read_count_barplot(per_barcode_stats, report):
+def read_count_barplot(metadata, report):
     """Plot per sample read count bar chart."""
     # Per barcode read count
     readcounts = {}
-    for summary_fn in per_barcode_stats:
-        df_sample = pd.read_csv(summary_fn, sep="\t")
-        sample_id = df_sample['sample_name'].iloc[0]
-        readcounts[sample_id] = df_sample.shape[0]
+    with open(metadata) as data_file:
+        data = json.load(data_file)
+        for item in data:
+            alias = item['alias']
+            n_seqs = item['n_seqs']
+            readcounts[alias] = n_seqs
     barcode_counts = pd.DataFrame.from_dict(
         readcounts, orient='index', columns=['Count'])
     barcode_counts = barcode_counts.sort_index().reset_index().rename(
