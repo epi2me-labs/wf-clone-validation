@@ -7,7 +7,7 @@ import os
 from dominate.tags import p, pre
 from dominate.util import raw
 from ezcharts.components.ezchart import EZChart
-from ezcharts.components.fastcat import load_stats, SeqSummary
+from ezcharts.components.fastcat import load_histogram, load_stats, SeqSummary
 from ezcharts.components.reports import labs
 from ezcharts.layout.snippets import Stats, Tabs
 from ezcharts.layout.snippets.table import DataTable
@@ -58,7 +58,7 @@ def main(args):
     logger = get_named_logger("Report")
     report = labs.LabsReport(
         "Clone validation report", "wf-clone-validation-new",
-        args.params, args.versions)
+        args.params, args.versions, args.wf_version)
     plannotate_annotations = json.load(open(args.plannotate_json)).keys()
     # Get sample info from status file
     passed_samples, sample_names, sample_status_dic = \
@@ -149,7 +149,7 @@ use the zoom and hover tools to decipher the labels.
                         width='100%', height='100%')
                     DataTable.from_pandas(annotations, use_index=False)
     # Per barcode read count plot
-    report_utils.read_count_barplot(args.per_barcode_stats, report)
+    report_utils.read_count_barplot(args.metadata, report)
     with report.add_section("Read stats", "Read stats"):
         p("""
 For each assembly, read length statistics and plots of quality \
@@ -169,7 +169,10 @@ if a host reference was provided.
                     fastcat_tabs = fastcat_dic[item]
                     for key, value in fastcat_tabs.items():
                         with internal_tabs.add_tab(key):
-                            stats = load_stats(value, format="fastcat")
+                            if key == "Raw":
+                                stats = load_histogram(value)
+                            else:
+                                stats = load_stats(value)
                             depth = len(stats.index)
                             Stats(
                                 columns=2,
@@ -327,6 +330,9 @@ def argparser():
     parser = wf_parser("report")
     parser.add_argument("report", help="Report output file")
     parser.add_argument(
+        "--metadata", default='metadata.json', required=True,
+        help="sample metadata")
+    parser.add_argument(
         "--stats", nargs='*', help="Fastcat per-read stats file(s).")
     parser.add_argument(
         "--versions", required=True,
@@ -385,6 +391,10 @@ def argparser():
     parser.add_argument(
         "--client_fields",
         help="JSON file containing client_fields")
+    parser.add_argument(
+        "--wf_version", default='unknown',
+        help="version of the executed workflow")
+
     return parser
 
 

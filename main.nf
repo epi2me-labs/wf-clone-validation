@@ -18,22 +18,23 @@ process checkIfEnoughReads {
     input:
         tuple val(meta),
             path("input.fastq.gz"),
-            path("per-read-stats.tsv.gz"),
+            path("fastcat_stats"),
             val(approx_size)
         val extra_args
     output:
         tuple val(meta.alias), path("${meta.alias}.fastq.gz"), val(approx_size),
             optional: true, emit: sample
-        path "${meta.alias}.stats.gz", emit: stats
+        path("${meta.alias}.fastcat_stats"), emit: stats
         tuple val(meta.alias), env(STATUS), emit: status
     script:
         def expected_depth = "$params.assm_coverage"
         // a little heuristic to decide if we have enough data
+        
         int value = (expected_depth.toInteger()) * 0.8
         int bgzip_threads = task.cpus == 1 ? 1 : task.cpus - 1
     """
     STATUS="Failed due to insufficient reads"
-    mv per-read-stats.tsv.gz ${meta.alias}.stats.gz
+    mv fastcat_stats "${meta.alias}.fastcat_stats"
     fastcat -s ${meta.alias} -r ${meta.alias}.interim $extra_args input.fastq.gz \
     | bgzip -@ $bgzip_threads > interim.fastq.gz
     if [[ "\$(wc -l < "${meta.alias}.interim")" -ge "$value" ]]; then
@@ -404,9 +405,10 @@ process report {
     cpus 1
     memory "2GB"
     input:
+        val metadata
         path "downsampled_stats/*"
         path final_status
-        path "per_barcode_stats/*"
+        tuple path("per_barcode_stats/*"), val(no_stats)
         path "host_filter_stats/*"
         path "versions/*"
         path "params.json"
@@ -416,18 +418,22 @@ process report {
         path "qc_inserts/*"
         path "assembly_quality/*"
         path "mafs/*"
+        path client_fields
+        val wf_version
         path "full_assembly_variants/*"
         path "assembly_bamstats/*"
-        path client_fields
     output:
         path "wf-clone-validation-*.html", emit: html
         path "sample_status.txt", emit: sample_stat
         path "inserts/*", optional: true, emit: inserts
     script:
         report_name = "wf-clone-validation-report.html"
+        String stats_args = no_stats ? "" : "--per_barcode_stats per_barcode_stats/*"
+        String metadata = new JsonBuilder(metadata).toPrettyString()
         String client_fields_args = client_fields.name != "OPTIONAL_FILE" ? "--client_fields ${client_fields}" : ""
         def expected_full_ref = params.full_reference ? "--full_reference" : ""
     """
+    echo '${metadata}' > metadata.json
     if [ -f "full_assembly_variants/OPTIONAL_FILE" ]; then
         full_assembly_variants=""
     else
@@ -440,11 +446,12 @@ process report {
     fi
     workflow-glue report \
      $report_name \
+    --metadata metadata.json \
     --downsampled_stats downsampled_stats/* \
     --revision $workflow.revision \
     --commit $workflow.commitId \
     --status $final_status \
-    --per_barcode_stats per_barcode_stats/* \
+    $stats_args \
     --host_filter_stats host_filter_stats/* \
     --params params.json \
     --versions versions \
@@ -455,10 +462,11 @@ process report {
     --assembly_quality assembly_quality/* \
     --mafs mafs \
     --assembly_tool ${params.assembly_tool} \
+    $client_fields_args \
+    --wf_version $wf_version \
     \$assembly_bamstats \
     $expected_full_ref \
-    \$full_assembly_variants \
-    $client_fields_args
+    \$full_assembly_variants
     """
 }
 
@@ -476,15 +484,12 @@ workflow pipeline {
 
     main:
         // remove samples that didn't have sequences (i.e. metamap entries without
-        // corresponding barcode sub-directories) and get the per-read stats file from
-        // the fastcat stats dir
-        samples = samples
-        | filter { it[1] }
-        | map { it[2] = it[2].resolve("per-read-stats.tsv.gz"); it }
+        // corresponding barcode sub-directories)
+        samples = samples| filter { it[1] }
 
         // Min/max filter reads
         fastcat_extra_args = "-a $min_read_length -b $max_read_length"
-        
+    
         // drop samples with too low coverage
         sample_fastqs = checkIfEnoughReads(samples, fastcat_extra_args)
 
@@ -544,7 +549,6 @@ workflow pipeline {
             insert_ref)
         
         // assembly QC
-        
         assembly_quality = assembly_qc(polished.assembly_qc)
         if (params.insert_reference){
             insert_qc_tuple = insert_qc(polished.polished, insert_ref)
@@ -584,11 +588,14 @@ workflow pipeline {
         mafs = assemblyMafs(polished.polished)
 
         client_fields = params.client_fields && file(params.client_fields).exists() ? file(params.client_fields) : file("$projectDir/data/OPTIONAL_FILE")
-
+        OPTIONAL_FILE = file("$projectDir/data/OPTIONAL_FILE")
+        stats = sample_fastqs.stats | ifEmpty(OPTIONAL_FILE) | collect | map { [it, it[0] == OPTIONAL_FILE] }
+        meta = samples.map{ meta, path, index, stats -> meta}
         report = report(
+            meta.collect(),
             downsampled_stats.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
             final_status,
-            sample_fastqs.stats.collect(),
+            stats,
             filtered_stats,
             software_versions.collect(),
             workflow_params,
@@ -598,9 +605,10 @@ workflow pipeline {
             qc_insert.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
             assembly_quality.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
             mafs.map{ meta, maf -> maf}.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
+            client_fields,
+            workflow.manifest.version,
             full_assembly_stats.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
-            ref_bamstats.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
-            client_fields
+            ref_bamstats.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE"))
             )
 
         results = polished.polished.map { meta, polished -> polished }.concat(
