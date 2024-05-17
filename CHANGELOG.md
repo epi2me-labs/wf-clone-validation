@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Variant stats: BCF stats report with any variants found between reference and assembly.
     - Variant BCF: BCF file with all variants found between reference and assembly.
     - BAM stats: Stats report from alignment of provided reference with assembly.
+### Fixed
+- Update plannotate version to v1.2.2 which fixes error that occurs when a feature contains a float. 
 
 ## [v1.2.0]
 ### Added

@@ -259,9 +259,10 @@ process assemblyMafs {
     """
 }
 
-
+// this process uses plannotate version v1.2.2 which fixes bugs when finding features from the database
+// bokeh is pinned to version 2
 process runPlannotate {
-    label "wfplasmid"
+    label "plannotate"
     cpus 1
     memory params.large_construct ? "8GB" : "2GB"
     input:
@@ -282,6 +283,7 @@ process runPlannotate {
     else
         assemblies="--sequences assemblies/"
     fi
+    
     workflow-glue run_plannotate \$assemblies --database $database
     """
 }
@@ -400,6 +402,8 @@ process assembly_qc {
 
  
 // downsampled, per barcode and host filtered stats files are handled earlier in the workflow and need to be named with the sample alias
+// uses plannotate version v1.2.0 where bokeh is not pinned and therefore compatible with 
+// bokeh version 3 which is required for ezcharts.
 process report {
     label "wfplasmid"
     cpus 1

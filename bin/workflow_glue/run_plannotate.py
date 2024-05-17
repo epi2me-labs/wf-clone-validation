@@ -1,7 +1,9 @@
 #!/usr/bin/env python
-
+# uses plannotate version v1.2.2 which fixes bugs when finding features
+# but bokeh is pinned to version 2
+# when plannotate used independently of this script in the report we use older v1.2.0
+# which is available with bokeh 3 and works for creating the plannotate plot.
 """Report component for displaying information from wf-clone-validation."""
-import argparse
 import json
 import os
 
@@ -12,6 +14,7 @@ from plannotate.annotate import annotate
 from plannotate.resources import get_gbk
 import pysam
 from workflow_glue.bokeh_plot import get_bokeh
+
 from .util import wf_parser  # noqa: ABS101
 
 
@@ -269,5 +272,5 @@ def argparser():
 
 
 if __name__ == "__main__":
-    args = argparse().parse_args()
+    args = argparser().parse_args()
     main(args)
