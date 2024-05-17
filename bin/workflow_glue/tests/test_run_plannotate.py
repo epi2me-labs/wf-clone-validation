@@ -4,7 +4,7 @@ import filecmp
 import os
 
 import pytest
-from workflow_glue import run_plannotate
+import workflow_glue.run_plannotate as run_plannotate
 
 
 EXPECTED = [
