@@ -24,7 +24,7 @@ docker-run:
                 "clone-val", "check-model", "insert-reference", "insert-wrong-reference",
                 "sample-sheet-with-approx-size", "sample-sheet", "no-assemblies", "filter-host-reads",
                 "repetitive-region-dotplot", "large_construct", "canu", "canu-fast",
-                "full_reference_snp", "full_reference", "wrong_full_reference"]
+                "full_reference_snp", "full_reference", "wrong_full_reference", "bam_input"]
     rules:
         - if: ($CI_COMMIT_BRANCH == null || $CI_COMMIT_BRANCH == "dev-template")
           when: never
@@ -89,4 +89,8 @@ docker-run:
           variables:
               NF_WORKFLOW_OPTS: "--fastq test_data/test --approx_size 3000 --assembly_tool canu --canu_fast"
               NF_IGNORE_PROCESSES: "sampleStatus,insert_qc,assembleCore,align_assembly,assembly_comparison,assembly_qc,downsampledStats,findPrimers,medakaPolishAssembly,filterHostReads,flyeVersion"
+        - if: $MATRIX_NAME == "bam_input"
+          variables:
+              NF_WORKFLOW_OPTS: "--bam test_data/plasmid.bam"
+              NF_IGNORE_PROCESSES: "sampleStatus,canuVersion,insert_qc,assembleCore,align_assembly,assembly_comparison,assembly_qc,downsampledStats,findPrimers,medakaPolishAssembly,filterHostReads,flyeVersion"
          

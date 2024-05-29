@@ -3,7 +3,7 @@
 import groovy.json.JsonBuilder
 nextflow.enable.dsl = 2
 
-include { fastq_ingress } from './lib/ingress'
+include { fastq_ingress; xam_ingress } from './lib/ingress'
 if (params.assembly_tool == 'canu'){
     include {assembleCore_canu as assembleCore} from "./modules/local/canu_assembly.nf"
 } else {
@@ -695,13 +695,23 @@ workflow {
         min_read_length = 200
     }
     max_read_length *= 1.5
+     Map ingress_args = [
+        "sample": params.sample,
+        "sample_sheet": params.sample_sheet,
+        "analyse_unclassified": params.analyse_unclassified,
+        "stats": true,
+    ]
 
-    samples = fastq_ingress([
-        "input":params.fastq,
-        "sample":params.sample,
-        "sample_sheet":params.sample_sheet,
-        "stats": true
-        ])
+
+    // get input data
+    if (params.fastq) {
+        samples = fastq_ingress(ingress_args + ["input": params.fastq])
+    } else {
+        samples = xam_ingress(
+            ingress_args + ["input": params.bam, "keep_unaligned": true, "return_fastq": true]
+        )
+    }
+
 
     // add the size estimates to the channel with the samples
     // by joining the samples on the alias key with approx size
