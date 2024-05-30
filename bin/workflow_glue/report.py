@@ -320,7 +320,14 @@ last</a>
                 DataTable.from_pandas(df)
             else:
                 p(error)
-
+    if args.cutsite_csv:
+        with report.add_section("Linearisation efficiency", "Linearisation"):
+            raw("""This table gives the percentage of reads which did not align
+                across the cutsite provided in the sample sheet and therefore
+                assumed to be linearized correctly.
+                """)
+            cutsite_table = report_utils.get_cutsite_table(args.cutsite_csv)
+            DataTable.from_pandas(cutsite_table, use_index=False)
     report.write(args.report)
     logger.info(f"Report written to {args.report}.")
 
@@ -376,6 +383,9 @@ def argparser():
     parser.add_argument(
         "--mafs",
         help="mafs")
+    parser.add_argument(
+        "--cutsite_csv",
+        help="cutsite csv file")
     parser.add_argument(
         "--full_assembly_variants",
         help="Enable BCF stats reports for full-plasmid reference")

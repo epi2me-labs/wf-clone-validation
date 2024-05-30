@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Variant stats: BCF stats report with any variants found between reference and assembly.
     - Variant BCF: BCF file with all variants found between reference and assembly.
     - BAM stats: Stats report from alignment of provided reference with assembly.
+- Optional linearisation efficiency section in the report, added when the `cut_site` column is supplied in the sample sheet.
 - Workflow now additionally accept BAM as input by using the `--bam` parameter.
 ### Fixed
 - Update plannotate version to v1.2.2 which fixes error that occurs when a feature contains a float. 
