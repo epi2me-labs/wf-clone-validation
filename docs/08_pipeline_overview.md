@@ -49,3 +49,7 @@ The assembly is annotated by [pLannotate](https://github.com/barricklab/pLannota
 ### 12. Self alignment
 
 For each sample a self alignment will be done using [Last](https://gitlab.com/mcfrith/last) and the output will be presented as a dotplot. This can help identify any repetitive regions in your final assembly.
+
+### 13. Linearisation efficiency
+
+If a user provides a `cut_site` column in the sample sheet (per sample short sequences) these will be used to predict linearisation efficiency by calculating how many reads don't span the cut site vs total reads and provided as a percentage.

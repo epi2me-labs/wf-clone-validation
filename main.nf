@@ -400,7 +400,47 @@ process assembly_qc {
     """
 }
 
- 
+
+// to predict linearisation efficiency
+// find cut site location in reference
+// align reads with provided reference
+// find intersection of alignments and cutsite
+// if reads overlap cut site -> circular, not linearized
+// linearisation efficiency = total reads - intersection (Calculated in report)
+process cutsite_qc {
+    label "wfplasmid"
+    cpus 1
+    memory "2GB"
+    input:
+        tuple val(meta), path("reads.fastq.gz")
+        path ref
+    output:
+        tuple val(meta.alias), val(meta.n_seqs), env(CUT_COUNT), emit: cut_counts
+    script:
+    """
+    cat $ref | seqkit locate -p ${meta.cut_site} -m 1 --bed  --circular > locate.bed
+    if [[ \$(<locate.bed wc -l) -ne 1 ]]; then
+        echo "Found unexpected number of cut sites in reference. Check there is only one cut site within the reference."
+        exit 1
+    fi
+    minimap2 -y -ax map-ont $ref "reads.fastq.gz" | samtools view -F 2304  -Sb - | samtools sort -O bam - | bedtools bamtobed -i - > aligned.bed
+    bedtools intersect -a aligned.bed -b locate.bed > intersection.txt
+    CUT_COUNT=\$(<intersection.txt wc -l)
+    """
+}
+
+process check_sample_sheet_cutsite {
+    label "wfplasmid"
+    cpus 1
+    memory "2GB"
+    input:
+        path("sample_sheet.csv")
+    script:
+    """
+    workflow-glue check_sample_sheet_cutsite "sample_sheet.csv"
+    """
+}
+
 // downsampled, per barcode and host filtered stats files are handled earlier in the workflow and need to be named with the sample alias
 // uses plannotate version v1.2.0 where bokeh is not pinned and therefore compatible with 
 // bokeh version 3 which is required for ezcharts.
@@ -426,6 +466,7 @@ process report {
         val wf_version
         path "full_assembly_variants/*"
         path "assembly_bamstats/*"
+        path cutsite_csv, stageAs: "cutsite_csv/*"
     output:
         path "wf-clone-validation-*.html", emit: html
         path "sample_status.txt", emit: sample_stat
@@ -435,6 +476,7 @@ process report {
         String stats_args = no_stats ? "" : "--per_barcode_stats per_barcode_stats/*"
         String metadata = new JsonBuilder(metadata).toPrettyString()
         String client_fields_args = client_fields.name != "OPTIONAL_FILE" ? "--client_fields ${client_fields}" : ""
+        String cutsite = cutsite_csv.fileName.name == "OPTIONAL_FILE" ? "" : "--cutsite_csv cutsite_csv/*"
         def expected_full_ref = params.full_reference ? "--full_reference" : ""
     """
     echo '${metadata}' > metadata.json
@@ -470,7 +512,8 @@ process report {
     --wf_version $wf_version \
     \$assembly_bamstats \
     $expected_full_ref \
-    \$full_assembly_variants
+    \$full_assembly_variants \
+    $cutsite
     """
 }
 
@@ -485,12 +528,9 @@ workflow pipeline {
         full_ref
         min_read_length
         max_read_length
+        cutsite_csv // alias, read_counts, cutsite_count
 
     main:
-        // remove samples that didn't have sequences (i.e. metamap entries without
-        // corresponding barcode sub-directories)
-        samples = samples| filter { it[1] }
-
         // Min/max filter reads
         fastcat_extra_args = "-a $min_read_length -b $max_read_length"
     
@@ -612,7 +652,8 @@ workflow pipeline {
             client_fields,
             workflow.manifest.version,
             full_assembly_stats.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
-            ref_bamstats.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE"))
+            ref_bamstats.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
+            cutsite_csv
             )
 
         results = polished.polished.map { meta, polished -> polished }.concat(
@@ -712,6 +753,15 @@ workflow {
         )
     }
 
+    if (params.sample_sheet && sample_sheet_csv[0].containsKey("cut_site")) {
+        cut_sites = sample_sheet_csv["cut_site"]
+        if (cut_sites.contains(null)) {
+            throw new Exception("One or more cut_sites from the sample sheet were missing. Add one cut site per sample.")
+        }
+        if (!params.full_reference){
+            throw new Exception("As cut site was supplied in sample sheet the full reference parameter must be provided.")
+        }
+    }
 
     // add the size estimates to the channel with the samples
     // by joining the samples on the alias key with approx size
@@ -745,6 +795,22 @@ workflow {
 
     }
 
+    // remove samples that didn't have sequences (i.e. metamap entries without
+    // corresponding barcode sub-directories)
+    samples = samples| filter { it[1] }
+
+    // If cut site in sample sheet
+    // Create cutsite csv from read count in meta and cut site alignment counts
+    if (params.sample_sheet && sample_sheet_csv[0].containsKey("cut_site")) {
+        check_sample_sheet_cutsite(file(params.sample_sheet))
+        cut = cutsite_qc(samples.map{ meta, reads, stats, approx_size -> tuple(meta, reads)}, full_ref)
+        cutsite_csv = cut.cut_counts.groupTuple().map { 
+            alias, read_count, cut_site_count -> alias.toString() + ',' + read_count[-1].toString() + ',' + cut_site_count[-1].toString() }
+            .collectFile(name: "cut_sites.csv", newLine: true)
+    } else {
+        cutsite_csv = file("$projectDir/data/OPTIONAL_FILE")
+    }
+
     // Run pipeline
     results = pipeline(
         samples,
@@ -755,7 +821,8 @@ workflow {
         insert_ref,
         full_ref,
         min_read_length,
-        max_read_length)
+        max_read_length,
+        cutsite_csv)
 
     output(results[0])
    
