@@ -1,24 +1,24 @@
 #!/usr/bin/env nextflow
 
 import groovy.json.JsonBuilder
+
 nextflow.enable.dsl = 2
 
 include { fastq_ingress } from './lib/ingress'
-if (params.assembly_tool == 'canu'){
-    include {assembleCore_canu as assembleCore} from "./modules/local/canu_assembly.nf"
+if (params.assembly_tool == 'canu') {
+    include { assembleCore_canu as assembleCore } from './modules/local/canu_assembly.nf'
 } else {
-    include {assembleCore_flye as assembleCore} from "./modules/local/flye_assembly.nf"
+    include { assembleCore_flye as assembleCore } from './modules/local/flye_assembly.nf'
 }
 
-
 process checkIfEnoughReads {
-    label "wfplasmid"
+    label 'wfplasmid'
     cpus params.threads
-    memory "2GB"
+    memory '2GB'
     input:
         tuple val(meta),
-            path("input.fastq.gz"),
-            path("per-read-stats.tsv.gz"),
+            path('input.fastq.gz'),
+            path('per-read-stats.tsv.gz'),
             val(approx_size)
         val extra_args
     output:
@@ -43,20 +43,18 @@ process checkIfEnoughReads {
     """
 }
 
-
-
 process filterHostReads {
     errorStrategy 'ignore'
-    label "wfplasmid"
+    label 'wfplasmid'
     cpus params.threads
-    memory "4GB"
+    memory '4GB'
     input:
         tuple val(sample_id), path(fastq), val(approx_size)
         path reference
         path regions_bedfile
     output:
-        tuple val(sample_id), path("*.filtered.fastq"), val(approx_size), optional: true, emit: unmapped
-        path "*.stats", optional: true, emit: host_filter_stats
+        tuple val(sample_id), path('*.filtered.fastq'), val(approx_size), optional: true, emit: unmapped
+        path '*.stats', optional: true, emit: host_filter_stats
         tuple val(sample_id), env(STATUS), emit: status
     script:
         def name = sample_id
@@ -65,7 +63,7 @@ process filterHostReads {
     STATUS="Failed due to filtered host reads"
     (minimap2 -t $task.cpus -y -ax map-ont $reference $fastq \
         | samtools sort -o ${name}.sorted.aligned.bam -
-    samtools index ${name}.sorted.aligned.bam 
+    samtools index ${name}.sorted.aligned.bam
     samtools view -b -f 4  ${name}.sorted.aligned.bam > unmapped.bam
     samtools view -b -F 4  ${name}.sorted.aligned.bam > mapped.bam
     samtools fastq unmapped.bam > ${name}.filtered.fastq
@@ -81,13 +79,12 @@ process filterHostReads {
     """
 }
 
-
 process lookup_medaka_model {
-    label "wfplasmid"
+    label 'wfplasmid'
     cpus 1
-    memory "1GB"
+    memory '1GB'
     input:
-        path("lookup_table")
+        path('lookup_table')
         val basecall_model
     output:
         stdout
@@ -98,20 +95,19 @@ process lookup_medaka_model {
     '''
 }
 
-
 process medakaPolishAssembly {
-    label "medaka"
+    label 'medaka'
     cpus params.threads
-    memory "4GB"
+    memory '4GB'
     input:
         tuple val(sample_id), path(draft), path(fastq), val(medaka_model)
     output:
-        tuple val(sample_id), path("*.final.fasta"), emit: polished
+        tuple val(sample_id), path('*.final.fasta'), emit: polished
         tuple val(sample_id), env(STATUS), emit: status
         tuple val(sample_id), path("${sample_id}.final.fastq"), emit: assembly_qc
     script:
         def model = medaka_model
-    
+
     """
     STATUS="Failed to polish assembly with Medaka"
     medaka_consensus -i "${fastq}" -d "${draft}" -m "${model}" -o . -t $task.cpus -f -q
@@ -122,15 +118,14 @@ process medakaPolishAssembly {
     """
 }
 
-
 process downsampledStats {
-    label "wfplasmid"
+    label 'wfplasmid'
     cpus 1
-    memory "2GB"
+    memory '2GB'
     input:
         tuple val(sample_id), path(sample)
     output:
-        path "*.stats", optional: true
+        path '*.stats', optional: true
     """
     fastcat -s ${sample_id} -r ${sample_id}.downsampled $sample > /dev/null
     if [[ "\$(wc -l <"${sample_id}.downsampled")" -ge "2" ]];  then
@@ -139,17 +134,16 @@ process downsampledStats {
     """
 }
 
-
 process findPrimers {
     errorStrategy 'ignore'
-    label "wfplasmid"
+    label 'wfplasmid'
     cpus 1
-    memory "2GB"
+    memory '2GB'
     input:
         path primers
         tuple val(sample_id), path(sequence)
     output:
-        path "*.bed", optional: true
+        path '*.bed', optional: true
     shell:
     '''
     cat !{sequence} | seqkit amplicon -p !{primers} -m 3 -j !{task.cpus} --bed >> !{sample_id}.interim
@@ -160,24 +154,24 @@ process findPrimers {
 }
 
 process medakaVersion {
-    label "medaka"
-    cpus 1 
-    memory "2GB"
+    label 'medaka'
+    cpus 1
+    memory '2GB'
     output:
-        path "medaka_version.txt"
+        path 'medaka_version.txt'
     """
     medaka --version | sed 's/ /,/' >> "medaka_version.txt"
     """
 }
 
 process flyeVersion {
-    label "wfplasmid"
-    cpus 1 
-    memory "2GB"
+    label 'wfplasmid'
+    cpus 1
+    memory '2GB'
     input:
-        path "versions.txt"
+        path 'versions.txt'
     output:
-        path "assembly_version.txt"
+        path 'assembly_version.txt'
     """
     cat "versions.txt" >> "assembly_version.txt"
     flye --version |  sed 's/^/flye,/' >> "assembly_version.txt"
@@ -185,13 +179,13 @@ process flyeVersion {
 }
 
 process canuVersion {
-    label "canu"
-    cpus 1 
-    memory "2GB"
+    label 'canu'
+    cpus 1
+    memory '2GB'
     input:
-        path "versions.txt"
+        path 'versions.txt'
     output:
-        path "assembly_version.txt"
+        path 'assembly_version.txt'
     """
     cat "versions.txt" >> "assembly_version.txt"
     canu -version | sed 's/ /,/' >>"assembly_version.txt"
@@ -199,13 +193,13 @@ process canuVersion {
 }
 
 process getVersions {
-    label "wfplasmid"
+    label 'wfplasmid'
     cpus 1
-    memory "2GB"
+    memory '2GB'
     input:
-        path "input_versions.txt"
+        path 'input_versions.txt'
     output:
-        path "versions.txt"
+        path 'versions.txt'
     script:
     """
     cat "input_versions.txt" >> "versions.txt"
@@ -223,13 +217,12 @@ process getVersions {
     """
 }
 
-
 process getParams {
-    label "wfplasmid"
+    label 'wfplasmid'
     cpus 1
-    memory "2GB"
+    memory '2GB'
     output:
-        path "params.json"
+        path 'params.json'
     script:
         def paramsJSON = new JsonBuilder(params).toPrettyString()
     """
@@ -238,43 +231,41 @@ process getParams {
     """
 }
 
-
 process assemblyMafs {
-    label "wfplasmid"
+    label 'wfplasmid'
     cpus 1
-    memory "2GB"
+    memory '2GB'
     input:
-        tuple val(sample_id), path("assembly.fasta")
+        tuple val(sample_id), path('assembly.fasta')
     output:
         tuple val(sample_id), path("${sample_id}.assembly.maf"), emit: assembly_maf
     // set -m(multiplicity) to 10000 to increase sensitivity from default of 10
     // for assemblies this small computational cost is low
-    // reduce offset distance for suppressing repeats inside exact matches -w 
+    // reduce offset distance for suppressing repeats inside exact matches -w
     // from default of 1000 to 10.
     """
     lastdb db.lastdb "assembly.fasta"
     lastal -m 10000 -w 10 db.lastdb "assembly.fasta" > "${sample_id}.assembly.maf"
-  
+
     """
 }
 
-
 process runPlannotate {
-    label "wfplasmid"
+    label 'wfplasmid'
     cpus 1
-    memory params.large_construct ? "8GB" : "2GB"
+    memory params.large_construct ? '8GB' : '2GB'
     input:
         path annotation_database
-        path "assemblies/*"
+        path 'assemblies/*'
         path final_status
     output:
-        path "feature_table.txt", emit: feature_table
-        path "plannotate.json", emit: json
-        path "*annotations.bed", optional: true, emit: annotations
-        path "plannotate_report.json", emit: report
-        path "*annotations.gbk", optional: true, emit: gbk
+        path 'feature_table.txt', emit: feature_table
+        path 'plannotate.json', emit: json
+        path '*annotations.bed', optional: true, emit: annotations
+        path 'plannotate_report.json', emit: report
+        path '*annotations.gbk', optional: true, emit: gbk
     script:
-        def database =  annotation_database.name.startsWith('OPTIONAL_FILE') ? "Default" : "${annotation_database}"
+        def database =  annotation_database.name.startsWith('OPTIONAL_FILE') ? 'Default' : "${annotation_database}"
     """
     if [ -e "assemblies/OPTIONAL_FILE" ]; then
         assemblies=""
@@ -285,21 +276,20 @@ process runPlannotate {
     """
 }
 
-
 process inserts {
-    label "wfplasmid"
+    label 'wfplasmid'
     cpus 1
-    memory "1GB"
+    memory '1GB'
     input:
-         path "primer_beds/*"
-         path "assemblies/*"
-         path align_ref
+    path 'primer_beds/*'
+    path 'assemblies/*'
+    path align_ref
     output:
-        path "inserts/*", optional: true, emit: inserts
-        path "*.json", emit: json
+        path 'inserts/*', optional: true, emit: inserts
+        path '*.json', emit: json
     script:
         def ref =  align_ref.name.startsWith('OPTIONAL_FILE') ? '' : "--reference ${align_ref}"
-        def large_construct = params.large_construct ? "--large_construct" : ""
+        def large_construct = params.large_construct ? '--large_construct' : ''
     """
     if [ -e "primer_beds/OPTIONAL_FILE" ]; then
         inserts=""
@@ -310,17 +300,16 @@ process inserts {
     """
 }
 
-
 process insert_qc {
-    label "wfplasmid"
+    label 'wfplasmid'
     cpus 1
-    memory "2GB"
+    memory '2GB'
     input:
-         tuple val(sample_id), path("insert_assembly.fasta")
-         path "reference_assembly.fasta"
+    tuple val(sample_id), path('insert_assembly.fasta')
+    path 'reference_assembly.fasta'
     output:
-         tuple val(sample_id), path("${sample_id}.calls.bcf"), path("${sample_id}.stats"), optional: true, emit: insert_stats
-         tuple val(sample_id), env(STATUS), emit: status
+    tuple val(sample_id), path("${sample_id}.calls.bcf"), path("${sample_id}.stats"), optional: true, emit: insert_stats
+    tuple val(sample_id), env(STATUS), emit: status
     script:
     """
     STATUS="Insert found but does not align with provided reference"
@@ -334,13 +323,12 @@ process insert_qc {
     """
 }
 
-
 process assembly_qc {
-    label "wfplasmid"
+    label 'wfplasmid'
     cpus 1
-    memory "2GB"
+    memory '2GB'
     input:
-        tuple val(sample_id), path("assembly.fastq")
+        tuple val(sample_id), path('assembly.fastq')
     output:
         path "${sample_id}.assembly_stats.tsv"
     script:
@@ -349,35 +337,33 @@ process assembly_qc {
     """
 }
 
-
-
 // downsampled, per barcode and host filtered stats files are handled earlier in the workflow and need to be named with the sample alias
 process report {
-    label "wfplasmid"
+    label 'wfplasmid'
     cpus 1
-    memory "2GB"
+    memory '2GB'
     input:
-        path "downsampled_stats/*"
+        path 'downsampled_stats/*'
         path final_status
-        path "per_barcode_stats/*"
-        path "host_filter_stats/*"
-        path "versions/*"
-        path "params.json"
+        path 'per_barcode_stats/*'
+        path 'host_filter_stats/*'
+        path 'versions/*'
+        path 'params.json'
         path plannotate_json
         path inserts_json
         path lengths
-        path "qc_inserts/*"
-        path "assembly_quality/*"
-        path "mafs/*"
+        path 'qc_inserts/*'
+        path 'assembly_quality/*'
+        path 'mafs/*'
         path client_fields
     output:
-        path "wf-clone-validation-*.html", emit: html
-        path "sample_status.txt", emit: sample_stat
-        path "inserts/*", optional: true, emit: inserts
+        path 'wf-clone-validation-*.html', emit: html
+        path 'sample_status.txt', emit: sample_stat
+        path 'inserts/*', optional: true, emit: inserts
     script:
-        report_name = "wf-clone-validation-report.html"
-        String client_fields_args = client_fields.name != "OPTIONAL_FILE" ? "--client_fields ${client_fields}" : ""
-    
+        report_name = 'wf-clone-validation-report.html'
+        String client_fields_args = client_fields.name != 'OPTIONAL_FILE' ? "--client_fields ${client_fields}" : ''
+
     """
     workflow-glue report \
      $report_name \
@@ -417,17 +403,17 @@ workflow pipeline {
         // the fastcat stats dir
         samples = samples
         | filter { it[1] }
-        | map { it[2] = it[2].resolve("per-read-stats.tsv.gz"); it }
+        | map { it[2] = it[2].resolve('per-read-stats.tsv.gz'); it }
 
         // Min/max filter reads
         fastcat_extra_args = "-a $min_read_length -b $max_read_length"
-        
+
         // drop samples with too low coverage
         sample_fastqs = checkIfEnoughReads(samples, fastcat_extra_args)
 
         // Optionally filter the data, removing reads mapping to
         // the host or background genome
-        if (host_reference.name != "NO_HOST_REF") {
+        if (host_reference.name != 'NO_HOST_REF') {
             filtered = filterHostReads(
                     sample_fastqs.sample, host_reference, regions_bedfile)
             samples_filtered = filtered.unmapped
@@ -440,16 +426,16 @@ workflow pipeline {
             updated_status = sample_fastqs.status
             filtered_stats = file("$projectDir/data/OPTIONAL_FILE")
         }
-       
+
         // Core assembly and reconciliation
         assemblies = assembleCore(samples_filtered)
         named_drafts = assemblies.assembly.groupTuple()
         named_samples = assemblies.downsampled.groupTuple()
         named_drafts_samples = named_drafts
         .join(named_samples, failOnMismatch: false, remainder: true)
-        .filter{alias, assembly, fastq -> (assembly != null)}
+        .filter { alias, assembly, fastq -> (assembly != null) }
 
-        if(params.medaka_model) {
+        if (params.medaka_model) {
             log.warn "Overriding Medaka model with ${params.medaka_model}."
             medaka_model = Channel.fromList([params.medaka_model])
         }
@@ -460,34 +446,31 @@ workflow pipeline {
         }
         // Polish draft assembly
         polished = medakaPolishAssembly(named_drafts_samples.combine(medaka_model))
-       
-    
+
         downsampled_stats = downsampledStats(assemblies.downsampled)
 
         primer_beds = findPrimers(primers, polished.polished)
         medaka_version = medakaVersion()
-        if (params.assembly_tool == "flye"){
+        if (params.assembly_tool == 'flye') {
             assembly_version = flyeVersion(medaka_version)
-        }else{
+        }else {
             assembly_version = canuVersion(medaka_version)
         }
         software_versions = getVersions(assembly_version)
         workflow_params = getParams()
 
-        
-
         insert = inserts(primer_beds.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
             polished.polished.map { it -> it[1] }.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
             align_ref)
-        
+
         // assembly QC
-        
-        insert_tuple = insert.inserts.flatten().map{ assembly -> tuple(assembly.simpleName, assembly)}
+
+        insert_tuple = insert.inserts.flatten().map { assembly -> tuple(assembly.simpleName, assembly) }
         assembly_quality = assembly_qc(polished.assembly_qc)
-        if (params.insert_reference){
+        if (params.insert_reference) {
             insert_qc_tuple = insert_qc(insert_tuple, align_ref)
-            qc_insert = insert_qc_tuple.insert_stats.map{sample_id, bcf, stats -> stats}
-            bcf_insert = insert_qc_tuple.insert_stats.map{sample_id, bcf, stats -> bcf}
+            qc_insert = insert_qc_tuple.insert_stats.map { sample_id, bcf, stats -> stats }
+            bcf_insert = insert_qc_tuple.insert_stats.map { sample_id, bcf, stats -> bcf }
             insert_status = insert_qc_tuple.status
         }
         else {
@@ -522,7 +505,7 @@ workflow pipeline {
             annotation.json,
             qc_insert.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
             assembly_quality.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
-            mafs.map{ meta, maf -> maf}.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
+            mafs.map { meta, maf -> maf }.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
             client_fields
             )
 
@@ -538,51 +521,49 @@ workflow pipeline {
             bcf_insert,
             qc_insert,
             polished.assembly_qc.map { meta, assembly_qc -> assembly_qc })
-        
+
     emit:
         results
         telemetry = workflow_params
 }
 
-
 // See https://github.com/nextflow-io/nextflow/issues/1636
 // This is the only way to publish files from a workflow whilst
 // decoupling the publish from the process steps.
-process output {
+process publish {
     // publish inputs to output directory
-    label "wfplasmid"
-    publishDir "${params.out_dir}", mode: 'copy', pattern: "*", saveAs: {
+    label 'wfplasmid'
+    publishDir "${params.out_dir}", mode: 'copy', pattern: '*', saveAs: {
         f -> params.prefix ? "${params.prefix}-${f}" : "${f}" }
     input:
         file fname
     output:
         file fname
-    """
+    '''
     echo "Writing output files"
-    """
+    '''
 }
-
 
 // entrypoint workflow
 WorkflowMain.initialise(workflow, params, log)
 workflow {
     Pinguscript.ping_start(nextflow, workflow, params)
 
-    if (params.containsKey("reference")) {
-        throw new Exception("--reference is deprecated, use --insert_reference instead.")
+    if (params.containsKey('reference')) {
+        throw new Exception('--reference is deprecated, use --insert_reference instead.')
     }
 
     // calculate min and max read length for filtering with `fastcat`
     int min_read_length, max_read_length
-    if(params.sample_sheet) {
+    if (params.sample_sheet) {
         sample_sheet_csv = file(params.sample_sheet).splitCsv(header:true)
     }
-    if (params.sample_sheet && sample_sheet_csv[0].containsKey("approx_size")) {
-        approx_sizes = sample_sheet_csv["approx_size"]
+    if (params.sample_sheet && sample_sheet_csv[0].containsKey('approx_size')) {
+        approx_sizes = sample_sheet_csv['approx_size']
         if (approx_sizes.contains(null)) {
-            throw new Exception("Either use the `--approx_size` parameter or include an `approx_size` column in the sample sheet for all samples.")
+            throw new Exception('Either use the `--approx_size` parameter or include an `approx_size` column in the sample sheet for all samples.')
         }
-        log.warn "Overriding the approx size parameter with per sample approx sizes provided by the sample_sheet."
+        log.warn 'Overriding the approx size parameter with per sample approx sizes provided by the sample_sheet.'
         // the file provided with `--sample_sheet` contains a size estimate for
         // each sample, but we will filter all samples with the same parameters)
         min_read_length = approx_sizes.collect { it.toInteger() }.min()
@@ -594,28 +575,28 @@ workflow {
     // +/- 50% margins for read length thresholds
     min_read_length *= 0.5
     // if canu is requested, log a warning
-    if (params.assembly_tool == 'canu'){
-        log.warn "Assembly tool Canu. This may result in suboptimal performance on ARM devices."
+    if (params.assembly_tool == 'canu') {
+        log.warn 'Assembly tool Canu. This may result in suboptimal performance on ARM devices.'
     }
     // if large construct don't filter out shorter reads as approx size no longer equal to read length
-    if (params.large_construct){
+    if (params.large_construct) {
         min_read_length = 200
     }
     max_read_length *= 1.5
 
     samples = fastq_ingress([
-        "input":params.fastq,
-        "sample":params.sample,
-        "sample_sheet":params.sample_sheet,
-        "stats": true
+        'input':params.fastq,
+        'sample':params.sample,
+        'sample_sheet':params.sample_sheet,
+        'stats': true
         ])
 
     // add the size estimates to the channel with the samples
     // by joining the samples on the alias key with approx size
-    if (params.sample_sheet && sample_sheet_csv[0].containsKey("approx_size")) {
-        sample_alias = samples.map { [it[0]["alias"], *it] }
-        approx_size_alias = Channel.of(*sample_sheet_csv).map{[it["alias"], it["approx_size"]]}
-        samples = sample_alias.join(approx_size_alias).map{  it[1..-1]  }
+    if (params.sample_sheet && sample_sheet_csv[0].containsKey('approx_size')) {
+        sample_alias = samples.map { [it[0]['alias'], *it] }
+        approx_size_alias = Channel.of(*sample_sheet_csv).map { [it['alias'], it['approx_size']] }
+        samples = sample_alias.join(approx_size_alias).map {  it[1..-1]  }
     } else {
         samples = samples.map { [*it, params.approx_size] }
     }
@@ -625,17 +606,16 @@ workflow {
     regions_bedfile = params.regions_bedfile ?: 'NO_REG_BED'
     regions_bedfile = file(regions_bedfile, checkIfExists: regions_bedfile == 'NO_REG_BED' ? false : true)
     primer_file = file("$projectDir/data/OPTIONAL_FILE")
-    if (params.primers != null){
-        primer_file = file(params.primers, type: "file")
+    if (params.primers != null) {
+        primer_file = file(params.primers, type: 'file')
     }
     align_ref = file("$projectDir/data/OPTIONAL_FILE")
-    if (params.insert_reference != null){
-        align_ref = file(params.insert_reference, type: "file")
+    if (params.insert_reference != null) {
+        align_ref = file(params.insert_reference, type: 'file')
     }
     database = file("$projectDir/data/OPTIONAL_FILE")
-    if (params.db_directory != null){
-         database = file(params.db_directory, type: "dir")
-
+    if (params.db_directory != null) {
+        database = file(params.db_directory, type: 'dir')
     }
 
     // Run pipeline
@@ -649,8 +629,7 @@ workflow {
         min_read_length,
         max_read_length)
 
-    output(results[0])
-   
+    publish(results[0])
 }
 
 workflow.onComplete {
