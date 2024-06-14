@@ -45,7 +45,6 @@ process checkIfEnoughReads {
 }
 
 
-
 process filterHostReads {
     errorStrategy 'ignore'
     label "wfplasmid"
@@ -83,39 +82,21 @@ process filterHostReads {
 }
 
 
-process lookup_medaka_model {
-    label "wfplasmid"
-    cpus 1
-    memory "1GB"
-    input:
-        path("lookup_table")
-        val basecall_model
-    output:
-        stdout
-    shell:
-    '''
-    medaka_model=$(workflow-glue resolve_medaka_model lookup_table '!{basecall_model}')
-    echo $medaka_model
-    '''
-}
-
-
 process medakaPolishAssembly {
     label "medaka"
     cpus params.threads
     memory "4GB"
     input:
-        tuple val(meta), path(draft), path(fastq), val(medaka_model)
+        tuple val(meta), path(draft), path(fastq)
     output:
         tuple val(meta), path("*.final.fasta"), emit: polished
         tuple val(meta.alias), env(STATUS), emit: status
         tuple val(meta), path("${meta.alias}.final.fastq"), emit: assembly_qc
     script:
-        def model = medaka_model
-    
+    String model_args = params.basecaller_cfg ? "-m ${params.basecaller_cfg}:consensus": ""
     """
     STATUS="Failed to polish assembly with Medaka"
-    medaka_consensus -i "${fastq}" -d "${draft}" -m "${model}" -o . -t $task.cpus -f -q
+    medaka_consensus -i "${fastq}" -d "${draft}" ${model_args} -o . -t $task.cpus -f -q
     echo ">${meta.alias}" >> "${meta.alias}.final.fasta"
     sed "2q;d" consensus.fastq >> "${meta.alias}.final.fasta"
     mv consensus.fastq "${meta.alias}.final.fastq"
@@ -543,18 +524,8 @@ workflow pipeline {
         .join(named_samples, failOnMismatch: false, remainder: true)
         .filter{alias, assembly, fastq -> (assembly != null)}
 
-        if(params.medaka_model) {
-            log.warn "Overriding Medaka model with ${params.medaka_model}."
-            medaka_model = Channel.fromList([params.medaka_model])
-        }
-        else {
-            // map basecalling model to medaka model
-            lookup_table = Channel.fromPath("${projectDir}/data/medaka_models.tsv", checkIfExists: true)
-            medaka_model = lookup_medaka_model(lookup_table, params.basecaller_cfg)
-        }
         // Polish draft assembly
-        polished = medakaPolishAssembly(named_drafts_samples.combine(medaka_model))
-       
+        polished = medakaPolishAssembly(named_drafts_samples)
     
         downsampled_stats = downsampledStats(assemblies.downsampled)
 
@@ -834,8 +805,8 @@ workflow {
         cutsite_csv
         )
 
-    output(results[0])
-   
+    results[0]
+    | output
 }
 
 workflow.onComplete {
