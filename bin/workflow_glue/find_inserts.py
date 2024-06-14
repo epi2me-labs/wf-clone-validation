@@ -80,43 +80,55 @@ def make_msa(inserts_dic, reference=None):
 
 def main(args):
     """Entry point to create a wf-clone-validation report."""
-    f = open('insert_data.json', 'w')
-    if args.primer_beds:
-        # find inserts and put in dir
-        current_directory = os.getcwd()
-        make_directory = os.path.join(current_directory, r'inserts')
-        if not os.path.exists(make_directory):
-            os.makedirs(make_directory)
-        inserts = ''
-        read_seqkit(args.primer_beds)
-        seqkit = read_seqkit(args.primer_beds)
-        for k, v in seqkit[1].items():
-            inserts += str(k) + ' ' + str(v) + '</br>'
-            insert_fn = os.path.join('inserts/', str(k) + '.insert.fasta')
-            with open(insert_fn, "a") as fp:
-                fp.write('>' + str(k) + '\n' + str(v) + '\n')
-        # If assembly will be large, skip MSA creation
-        if args.large_construct:
-            inserts_json = {
-                'bed_df': seqkit[0].to_json(),
-                'bed_dic': seqkit[1]}
-        else:
-            # If reference is available, it will be included to perform the
-            # Multiple sequence alignment.
-            # Otherwise MSA will be done using the inserts available
-            if args.reference:
-                msa = make_msa(seqkit[1], args.reference)
+    with open(args.output, 'w') as f:
+        ref = "No reference"
+        if args.reference:
+            insert_ref = FastaFile(args.reference).references
+            if len(insert_ref) > 1:
+                raise ValueError(
+                    f"""Insert reference can only contain one fasta record;
+                     {len(insert_ref)} found.""")
+            ref = insert_ref[0]
+        if args.primer_beds:
+            # find inserts and put in dir
+            current_directory = os.getcwd()
+            make_directory = os.path.join(current_directory, r'inserts')
+            if not os.path.exists(make_directory):
+                os.makedirs(make_directory)
+            seqkit = read_seqkit(args.primer_beds)
+            for k, v in seqkit[1].items():
+                insert_fn = os.path.join(args.insert_dir, f'{str(k)}.insert.fasta')
+                with open(insert_fn, "a") as fp:
+                    fp.write('>' + str(k) + '\n' + str(v) + '\n')
+            # If assembly will be large, skip MSA creation
+            if args.large_construct:
+                inserts_json = {
+                    'bed_df': seqkit[0].to_json(),
+                    'bed_dic': seqkit[1],
+                    'reference': ref}
             else:
-                msa = make_msa(seqkit[1])
-            inserts_json = {
-                'bed_df': seqkit[0].to_json(),
-                'bed_dic': seqkit[1], 'msa': msa}
-        json.dump(inserts_json, f)
+                # If reference is available, it will be included to perform the
+                # Multiple sequence alignment.
+                # Otherwise MSA will be done using the inserts available
+                if args.reference:
+                    msa = make_msa(seqkit[1], args.reference)
+                else:
+                    msa = make_msa(seqkit[1])
+                inserts_json = {
+                    'bed_df': seqkit[0].to_json(),
+                    'bed_dic': seqkit[1], 'msa': msa,
+                    'reference': ref}
+            json.dump(inserts_json, f)
 
 
 def argparser():
     """Argument parser for entrypoint."""
     parser = wf_parser("find_inserts")
+    parser.add_argument(
+        "--output",
+        help="output json name",
+        required=True
+    )
     parser.add_argument(
         "--primer_beds", nargs='+',
         help="bed files of extracted sequences",
@@ -128,6 +140,10 @@ def argparser():
     parser.add_argument(
         "--reference",
         help="reference", required=False)
+    parser.add_argument(
+        "--insert_dir", default="inserts",
+        help="output directory for insert fastas"
+    )
     return parser
 
 

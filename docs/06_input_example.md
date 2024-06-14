@@ -16,3 +16,12 @@ input_reads.fastq   ─── input_directory  ─── input_directory
                                              └── barcode03
                                               └── reads0.fastq
 ```
+
+When using a sample sheet the workflow allows the use of additional columns `approx_size`, `full_reference` and `insert_reference` which replace parameters `--approx_size`, `--full_reference` and `--insert_reference` respectively. This allows per-sample variables to be applied rather than global settings. An example sample sheet is shown below.
+
+```
+alias,barcode,type,approx_size,full_reference,insert_reference
+sample1,barcode01,test_sample,4000,/path/to/full_reference.fasta,/path/to/insert_reference.fasta
+sample2,barcode02,test_sample,4000,/path/to/full_reference.fasta,/path/to/insert_reference.fasta
+sample3,barcode03,test_sample,7000,/path/to/full_reference_alt.fasta,/path/to/insert_reference_alt.fasta
+```
