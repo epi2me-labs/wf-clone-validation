@@ -180,41 +180,56 @@ if a host reference was provided.
                                     (depth, 'Read count'),
                                 ])
                             SeqSummary(value)
-        # Insert info table
-    if os.stat(args.inserts_json).st_size != 0:
-        inserts = json.load(open(args.inserts_json))
+    # Insert info table
+    json_combined = {}
+    for inserts_json in args.inserts_json:
+        # the inserts JSON files are empty if the wf was run without primers
+        if os.stat(inserts_json).st_size != 0:
+            inserts_data = json.load(open(inserts_json))
+            json_combined[inserts_data["reference"]] = inserts_data
+    if json_combined:
         with report.add_section("Insert sequences", "Inserts"):
-            seq_segment = pd.read_json(inserts['bed_df'])
-            insert_df = seq_segment.merge(stats_df, how='left')
-            insert_df['Insert length'] = list(
-                map(
-                    report_utils.insert_len,
-                    insert_df['start'],
-                    insert_df['end'],
-                    insert_df['Length']))
-            insert_df = insert_df.drop(columns='Length')
-            p("""
-This table shows which primers were found in the consensus sequence
-of each sample and where the inserts were found.
-""")
-            DataTable.from_pandas(insert_df, use_index=False)
+            tabs = Tabs()
+            with tabs.add_dropdown_menu():
+                for ref, inserts in json_combined.items():
+                    with tabs.add_dropdown_tab(ref):
+                        seq_segment = pd.read_json(inserts['bed_df'])
+                        insert_df = seq_segment.merge(stats_df, how='left')
+                        insert_df['Insert length'] = list(
+                            map(
+                                report_utils.insert_len,
+                                insert_df['start'],
+                                insert_df['end'],
+                                insert_df['Length']))
+                        insert_df = insert_df.drop(columns='Length')
+                        p("""
+            This table shows which primers were found in the consensus sequence
+            of each sample and where the inserts were found.
+            """)
+                        DataTable.from_pandas(insert_df, use_index=False)
         # MSA section if available
-        if "msa" in inserts:
+        msa_jsons = {r: i for r, i in json_combined.items() if "msa" in i}
+        if msa_jsons:
             with report.add_section("Multiple Sequence Alignment", "MSA"):
                 p("""
-This section shows the inserts aligned with each other or a reference
-sequence if provided.
-    """)
-                formatted_msa = format_msa(inserts)
-                pre(os.linesep.join(formatted_msa))
+                This section shows the inserts aligned with each other or a reference
+                sequence if provided.
+                """)
+                tabs = Tabs()
+                with tabs.add_dropdown_menu():
+                    for ref, inserts in msa_jsons.items():
+                        with tabs.add_dropdown_tab(ref):
+                            formatted_msa = format_msa(inserts)
+                            pre(os.linesep.join(formatted_msa))
+
     if ('OPTIONAL_FILE' not in os.listdir(args.qc_inserts)):
         with report.add_section("Insert variants", "Insert variants"):
             p("""
-The following tables and figures are output from bcftools from
-finding any variants between
-the consensus insert and the provided reference
-insert.
-""")
+        The following tables and figures are output from bcftools from
+        finding any variants between
+        the consensus insert and the provided reference
+        insert.
+            """)
             variants_df = report_utils.variant_counts_table(args.qc_inserts, report)
             variants_df = variants_df.sort_values(by='id')
             DataTable.from_pandas(variants_df, use_index=False)
@@ -223,7 +238,14 @@ insert.
             DataTable.from_pandas(trans_df, use_index=False)
     # Full plasmid QC section
     # Handling for if no assemblies have aligned to the reference.
-    if passed_samples and args.full_reference:
+    full_ref_analysis = False
+    with open(args.metadata) as data_file:
+        data = json.load(data_file)
+        for item in data:
+            if "full_reference" in item:
+                full_ref_analysis = True
+                break
+    if passed_samples and full_ref_analysis:
         if not args.reference_alignment_bamstats:
             with report.add_section("Full construct QC", "Construct QC"):
                 p("""
@@ -363,7 +385,7 @@ def argparser():
         "--plannotate_json",
         help="Plannotate Json.")
     parser.add_argument(
-        "--inserts_json",
+        "--inserts_json", nargs='+',
         help="inserts Json.")
     parser.add_argument(
         "--lengths",
@@ -395,9 +417,6 @@ def argparser():
     parser.add_argument(
         "--reference_alignment_bamstats", nargs='+',
         help="bamstats files from reference alignment")
-    parser.add_argument(
-        "--full_reference", action='store_true',
-        help="Construct reference provided")
     parser.add_argument(
         "--client_fields",
         help="JSON file containing client_fields")

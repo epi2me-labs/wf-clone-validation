@@ -106,6 +106,15 @@ input_reads.fastq   ─── input_directory  ─── input_directory
                                               └── reads0.fastq
 ```
 
+When using a sample sheet the workflow allows the use of additional columns `approx_size`, `full_reference` and `insert_reference` which replace parameters `--approx_size`, `--full_reference` and `--insert_reference` respectively. This allows per-sample variables to be applied rather than global settings. An example sample sheet is shown below.
+
+```
+alias,barcode,type,approx_size,full_reference,insert_reference
+sample1,barcode01,test_sample,4000,/path/to/full_reference.fasta,/path/to/insert_reference.fasta
+sample2,barcode02,test_sample,4000,/path/to/full_reference.fasta,/path/to/insert_reference.fasta
+sample3,barcode03,test_sample,7000,/path/to/full_reference_alt.fasta,/path/to/insert_reference_alt.fasta
+```
+
 
 
 ## Input parameters
@@ -127,8 +136,8 @@ input_reads.fastq   ─── input_directory  ─── input_directory
 
 | Nextflow parameter name  | Type | Description | Help | Default |
 |--------------------------|------|-------------|------|---------|
-| insert_reference | string | Optional file containing insert reference sequence which will be used for comparison with consensus insert in the report. | Providing a reference sequence can be useful as a QC on the base-level resolution of the the reconstructed insert sequences. |  |
-| full_reference | string | Optional FASTA file containing the reference sequence of the full plasmid. This will be used for comparison with the assembled construct. | Providing a reference sequence can be useful as a quality check on the base-level resolution of the reconstructed sequence, the reference is not used to generate the assembly. |  |
+| insert_reference | string | Optional file containing insert reference sequence which will be used for comparison with consensus insert in the report. | Providing a reference sequence can be useful as a QC on the base-level resolution of the the reconstructed insert sequences. Users can specify different insert references for individual samples using the sample sheet and including an `insert_reference` column. This cannot be used in conjunction with `--insert_reference`. |  |
+| full_reference | string | Optional FASTA file containing the reference sequence of the full plasmid. This will be used for comparison with the assembled construct. | Providing a reference sequence can be useful as a quality check on the base-level resolution of the reconstructed sequence, the reference is not used to generate the assembly. Users can specify different full references for individual samples using the sample sheet and including a `full_reference` column. This cannot be used in conjunction with `--full_reference`. |  |
 | host_reference | string | A host reference genome FASTA file. Read which map to this reference are discarded and not used for the assembly. |  |  |
 | regions_bedfile | string | If a host_reference supplied, add an optional BED file to provide host reference regions that will be masked during filtering. |  |  |
 
@@ -137,7 +146,7 @@ input_reads.fastq   ─── input_directory  ─── input_directory
 
 | Nextflow parameter name  | Type | Description | Help | Default |
 |--------------------------|------|-------------|------|---------|
-| sample_sheet | string | A CSV file used to map barcodes to sample aliases. The sample sheet can be provided when the input data is a directory containing sub-directories with FASTQ files. An optional column `approx_size` can be added to provide size estimates for each sample. When not provided, the `--approx_size` parameter will be used for all samples. | The sample sheet is a CSV file with, minimally, columns named `barcode` and `alias`. Extra columns are allowed. A `type` column is required for certain workflows and should have the following values; `test_sample`, `positive_control`, `negative_control`, `no_template_control`. An optional column `cut_site` can be added to provide a cut site as a sequence which will be used to provide a linearisation efficiency section in the report. |  |
+| sample_sheet | string | A CSV file used to map barcodes to sample aliases. The sample sheet can be provided when the input data is a directory containing sub-directories with FASTQ files. An optional column `approx_size` can be added to provide size estimates for each sample. When not provided, the `--approx_size` parameter will be used for all samples. | The sample sheet is a CSV file with, minimally, columns named `barcode` and `alias`. Extra columns are allowed. A `type` column is required for certain workflows and should have the following values; `test_sample`, `positive_control`, `negative_control`, `no_template_control`. The workflow can use a number of optional columns: `approx_size` provides optional size estimates for each sample, `cut_site` can be added to provide a cut site as a sequence which will be used to provide a linearisation efficiency section in the report, `full_reference` and `insert_reference` allow the use of per-sample references when providing full/relative paths (with respect to the workflow launch directory) to the respective reference files. |  |
 | sample | string | A single sample name for non-multiplexed data. Permissible if passing a single .fastq(.gz) file or directory of .fastq(.gz) files. |  |  |
 
 
