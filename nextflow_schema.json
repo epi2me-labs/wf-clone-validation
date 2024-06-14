@@ -61,10 +61,13 @@
                 "basecaller_cfg": {
                     "type": "string",
                     "title": "Basecaller model configuration",
-                    "description": "Name of the model that was used to basecall signal data, used to select an appropriate Medaka model.",
-                    "help_text": "The basecaller configuration is used to automatically select the appropriate Medaka model. The automatic selection can be overridden with the 'medaka_model' parameter. The model list only shows models that are compatible with this workflow.",
-                    "default": "dna_r10.4.1_e8.2_400bps_sup@v4.2.0",
+                    "description": "Name of the model that was used to basecall the signal data; used to select an appropriate Medaka model.",
+                    "help_text": "This is only used if the basecaller model could not be determined from the input sequencing data.",
                     "enum": [
+                        "dna_r10.4.1_e8.2_400bps_sup@v5.0.0",
+                        "dna_r10.4.1_e8.2_400bps_hac@v5.0.0",
+                        "dna_r10.4.1_e8.2_400bps_sup@v4.3.0",
+                        "dna_r10.4.1_e8.2_400bps_hac@v4.3.0",
                         "dna_r10.4.1_e8.2_400bps_sup@v4.2.0",
                         "dna_r10.4.1_e8.2_400bps_hac@v4.2.0",
                         "dna_r10.4.1_e8.2_260bps_hac@v4.1.0",
@@ -100,32 +103,15 @@
                     "hidden": true
                 }
             },
-            "allOf": [
+            "oneOf": [
                 {
-                    "oneOf": [
-                        {
-                            "required": [
-                                "fastq"
-                            ]
-                        },
-                        {
-                            "required": [
-                                "bam"
-                            ]
-                        }
-                    ]},
+                    "required": [
+                        "fastq"
+                    ]
+                },
                 {
-                    "oneOf": [
-                        {
-                            "required": [
-                                "basecaller_cfg"
-                            ]
-                        },
-                        {
-                            "required": [
-                                "medaka_model"
-                            ]
-                        }
+                    "required": [
+                        "bam"
                     ]
                 }
             ]
@@ -216,11 +202,6 @@
                     "type": "integer",
                     "default": 150,
                     "description": "Number of base pairs to trim from both ends of each read."
-                },
-                "medaka_model": {
-                    "type": "string",
-                    "description": "The name of a Medaka model to use. By default the workflow will select an appropriate Medaka model from the basecaller configuration provided. Entering a name here will override the automated selection and use the Medaka model named here.",
-                    "help_text": "The workflow will attempt to map the basecalling model used to a suitable Medaka model. You can override this by providing a model with this option instead."
                 },
                 "flye_quality": {
                     "type": "string",

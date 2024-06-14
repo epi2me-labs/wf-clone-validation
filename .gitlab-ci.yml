@@ -8,10 +8,11 @@ variables:
     # The workflow should define `--out_dir`, the CI template sets this.
     # Only common file inputs and option values need to be given here
     # (not things such as -profile)
-    NF_BEFORE_SCRIPT: "mkdir -p ${CI_PROJECT_NAME}/data/ && wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/clone_val_test.tar.gz -O ${CI_PROJECT_NAME}/data/clone_val_test.tar.gz && tar -xzvf ${CI_PROJECT_NAME}/data/clone_val_test.tar.gz -C ${CI_PROJECT_NAME}/data/" 
+    NF_BEFORE_SCRIPT: "mkdir -p ${CI_PROJECT_NAME}/data/ && wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/clone_val_test.tar.gz -O ${CI_PROJECT_NAME}/data/clone_val_test.tar.gz && tar -xzvf ${CI_PROJECT_NAME}/data/clone_val_test.tar.gz -C ${CI_PROJECT_NAME}/data/"
     NF_WORKFLOW_OPTS: "--fastq ${CI_PROJECT_NAME}/data/clone_val_test/fastq --primers ${CI_PROJECT_NAME}/data/clone_val_test/primers.tsv \
     --host_reference ${CI_PROJECT_NAME}/data/clone_val_test/host_reference.fa.gz --regions_bedfile ${CI_PROJECT_NAME}/data/clone_val_test/reference.bed \
-    --insert_reference ${CI_PROJECT_NAME}/data/clone_val_test/insert_reference.fasta --sample_sheet ${CI_PROJECT_NAME}/data/clone_val_test/sample_sheet.csv"
+    --insert_reference ${CI_PROJECT_NAME}/data/clone_val_test/insert_reference.fasta --sample_sheet ${CI_PROJECT_NAME}/data/clone_val_test/sample_sheet.csv \
+    --basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v4.2.0"
     NF_IGNORE_PROCESSES: "filterHostReads,sampleStatus"
     CI_FLAVOUR: "new"
 
@@ -21,11 +22,11 @@ docker-run:
     parallel:
         matrix:
             - MATRIX_NAME: [
-                "clone-val", "check-model", "insert-reference", "insert-wrong-reference",
+                "clone-val", "insert-reference", "insert-wrong-reference",
                 "sample-sheet-with-approx-size", "sample-sheet", "no-assemblies", "filter-host-reads",
                 "repetitive-region-dotplot", "large_construct", "canu", "canu-fast",
                 "full_reference_snp", "full_reference", "wrong_full_reference",
-                "cutsite", "bam_input", "insert_reference_sample_sheet"]
+                "cutsite", "bam_input", "insert_reference_sample_sheet", "no-basecall-model", "no-basecall-model-basecaller-cfg"]
     rules:
         - if: ($CI_COMMIT_BRANCH == null || $CI_COMMIT_BRANCH == "dev-template")
           when: never
@@ -33,18 +34,13 @@ docker-run:
           variables:
               NF_BEFORE_SCRIPT: "mkdir -p ${CI_PROJECT_NAME}/data/ && wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/clone_val_test.tar.gz -O ${CI_PROJECT_NAME}/data/clone_val_test.tar.gz && tar -xzvf ${CI_PROJECT_NAME}/data/clone_val_test.tar.gz -C ${CI_PROJECT_NAME}/data/"
               NF_WORKFLOW_OPTS: "--fastq ${CI_PROJECT_NAME}/data/clone_val_test/fastq --primers ${CI_PROJECT_NAME}/data/clone_val_test/primers.tsv --host_reference ${CI_PROJECT_NAME}/data/clone_val_test/host_reference.fa.gz \
-              --regions_bedfile ${CI_PROJECT_NAME}/data/clone_val_test/reference.bed --insert_reference ${CI_PROJECT_NAME}/data/clone_val_test/insert_reference.fasta --sample_sheet ${CI_PROJECT_NAME}/data/clone_val_test/sample_sheet.csv"
+              --regions_bedfile ${CI_PROJECT_NAME}/data/clone_val_test/reference.bed --insert_reference ${CI_PROJECT_NAME}/data/clone_val_test/insert_reference.fasta --sample_sheet ${CI_PROJECT_NAME}/data/clone_val_test/sample_sheet.csv \
+              --basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v4.2.0"
               NF_IGNORE_PROCESSES: "canuVersion,cutsite_qc,align_assembly,assembly_comparison"
-        - if: $MATRIX_NAME == "check-model"
-          variables:
-              NF_BEFORE_SCRIPT: "mkdir -p ${CI_PROJECT_NAME}/data/ && wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/wf-clone-validation-db.tar.gz -O ${CI_PROJECT_NAME}/data/wf-clone-validation-db.tar.gz && tar -xzvf ${CI_PROJECT_NAME}/data/wf-clone-validation-db.tar.gz -C ${CI_PROJECT_NAME}/data/" 
-              NF_WORKFLOW_OPTS: "--fastq test_data/test --db_directory ${CI_PROJECT_NAME}/data/wf-clone-validation-db \
-              --threads 4 --basecaller_cfg dna_r9.4.1_450bps_hac --assm_coverage 25 --primers data/primers.tsv --non_uniform_coverage"
-              NF_IGNORE_PROCESSES: "filterHostReads,cutsite_qc,align_assembly,assembly_comparison,sampleStatus,insert_qc,canuVersion,full_assembly_qc"
         - if: $MATRIX_NAME == "insert-wrong-reference"
           variables:
               NF_WORKFLOW_OPTS: "--fastq test_data/test --insert_reference test_data/other_reference.fasta \
-              --threads 4 --basecaller_cfg dna_r9.4.1_450bps_hac --assm_coverage 25 --primers data/primers.tsv"
+              --threads 4 --assm_coverage 25 --primers data/primers.tsv"
               NF_IGNORE_PROCESSES: "filterHostReads,cutsite_qc,sampleStatus,canuVersion,full_assembly_qc,align_assembly,assembly_comparison"
         - if: $MATRIX_NAME == "sample-sheet"
           variables:
@@ -58,50 +54,79 @@ docker-run:
         - if: $MATRIX_NAME == "repetitive-region-dotplot"
           variables:
               NF_BEFORE_SCRIPT: "mkdir -p ${CI_PROJECT_NAME}/data/ && wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/clone_validation_repetitive_region.tar.gz -O ${CI_PROJECT_NAME}/data/clone_validation_repetitive_region.tar.gz && tar -xzvf ${CI_PROJECT_NAME}/data/clone_validation_repetitive_region.tar.gz  -C ${CI_PROJECT_NAME}/data/" 
-              NF_WORKFLOW_OPTS: "--fastq ${CI_PROJECT_NAME}/data/clone_validation_repetitive_region/test.fastq --approx_size 3000"
-              NF_IGNORE_PROCESSES: "sampleStatus,cutsite_qc,insert_qc,assembleCore,assembly_qc,downsampledStats,findPrimers,medakaPolishAssembly,filterHostReads,canuVersion,full_assembly_qc,align_assembly,assembly_comparison"
+              NF_WORKFLOW_OPTS: "--fastq ${CI_PROJECT_NAME}/data/clone_validation_repetitive_region/test.fastq --approx_size 3000 --basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v4.2.0"
+              NF_IGNORE_PROCESSES: "sampleStatus,cutsite_qc,insert_qc,assembleCore,assembly_qc,downsampledStats,findPrimers,filterHostReads,canuVersion,full_assembly_qc,align_assembly,assembly_comparison"
         - if: $MATRIX_NAME == "large_construct"
           variables:
               NF_BEFORE_SCRIPT: "mkdir -p ${CI_PROJECT_NAME}/data/ && wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/clone_validation_bacs.tar.gz -O ${CI_PROJECT_NAME}/data/clone_validation_bacs.tar.gz && tar -xzvf ${CI_PROJECT_NAME}/data/clone_validation_bacs.tar.gz -C ${CI_PROJECT_NAME}/data/"
               NF_WORKFLOW_OPTS: "-executor.\\$$local.memory 16GB --fastq ${CI_PROJECT_NAME}/data/clone_validation_bacs/bacs_reads.fastq \
-              --large_construct --approx_size 200000 --insert_reference ${CI_PROJECT_NAME}/data/clone_validation_bacs/bacs_insert.fasta --primers data/primers.tsv --assm_coverage 100"
+              --large_construct --approx_size 200000 --insert_reference ${CI_PROJECT_NAME}/data/clone_validation_bacs/bacs_insert.fasta \
+              --primers data/primers.tsv --assm_coverage 100 --basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v4.2.0"
               NF_IGNORE_PROCESSES: "full_assembly_qc,cutsite_qc,filterHostReads,align_assembly,assembly_comparison,canuVersion"
         - if: $MATRIX_NAME == "full_reference"
           variables:
               NF_BEFORE_SCRIPT: "mkdir -p ${CI_PROJECT_NAME}/data/ && wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/clone_val_test.tar.gz -O ${CI_PROJECT_NAME}/data/clone_val_test.tar.gz && tar -xzvf ${CI_PROJECT_NAME}/data/clone_val_test.tar.gz -C ${CI_PROJECT_NAME}/data"
-              NF_WORKFLOW_OPTS: "--fastq ${CI_PROJECT_NAME}/data/clone_val_test/fastq_full_ref_test --full_reference ${CI_PROJECT_NAME}/data/clone_val_test/full_reference.fasta --assm_coverage 25 --approx_size 7000"
+              NF_WORKFLOW_OPTS: "--fastq ${CI_PROJECT_NAME}/data/clone_val_test/fastq_full_ref_test --full_reference ${CI_PROJECT_NAME}/data/clone_val_test/full_reference.fasta --assm_coverage 25 --approx_size 7000 --basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v4.2.0"
               NF_IGNORE_PROCESSES: "insert_qc,cutsite_qc,canuVersion,filterHostReads"
         - if: $MATRIX_NAME == "full_reference_snp"
           variables:
               NF_BEFORE_SCRIPT: "mkdir -p ${CI_PROJECT_NAME}/data/ && wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/clone_val_test.tar.gz -O ${CI_PROJECT_NAME}/data/clone_val_test.tar.gz && tar -xzvf ${CI_PROJECT_NAME}/data/clone_val_test.tar.gz -C ${CI_PROJECT_NAME}/data/"
-              NF_WORKFLOW_OPTS: "--fastq ${CI_PROJECT_NAME}/data/clone_val_test/fastq/barcode12 --full_reference ${CI_PROJECT_NAME}/data/clone_val_test/full_reference_snps.fasta --assm_coverage 120 --approx_size 3100"
+              NF_WORKFLOW_OPTS: "--fastq ${CI_PROJECT_NAME}/data/clone_val_test/fastq/barcode12 --full_reference ${CI_PROJECT_NAME}/data/clone_val_test/full_reference_snps.fasta --assm_coverage 120 --approx_size 3100 --basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v4.2.0"
               NF_IGNORE_PROCESSES: "insert_qc,cutsite_qc,canuVersion,filterHostReads"
         - if: $MATRIX_NAME == "wrong_full_reference"
           variables:
               NF_BEFORE_SCRIPT: "mkdir -p ${CI_PROJECT_NAME}/data/ && wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/clone_val_test.tar.gz -O ${CI_PROJECT_NAME}/data/clone_val_test.tar.gz && tar -xzvf ${CI_PROJECT_NAME}/data/clone_val_test.tar.gz -C ${CI_PROJECT_NAME}/data/"
-              NF_WORKFLOW_OPTS: "--fastq ${CI_PROJECT_NAME}/data/clone_val_test/fastq/barcode12 --full_reference ${CI_PROJECT_NAME}/data/clone_val_test/wrong_reference.fasta --assm_coverage 120 --approx_size 3100"
+              NF_WORKFLOW_OPTS: "--fastq ${CI_PROJECT_NAME}/data/clone_val_test/fastq/barcode12 --full_reference ${CI_PROJECT_NAME}/data/clone_val_test/wrong_reference.fasta --assm_coverage 120 --approx_size 3100 --basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v4.2.0"
               NF_IGNORE_PROCESSES: "insert_qc,cutsite_qc,canuVersion,filterHostReads,assembly_comparison"
               NF_AFTER_SCRIPT: "grep 'None of the assemblies found aligned with the provided reference' '${CI_PROJECT_NAME}/output/wf-clone-validation-report.html'"
         - if: $MATRIX_NAME == "canu"
           variables:
               NF_WORKFLOW_OPTS: "--fastq test_data/test --approx_size 3000 --assembly_tool canu"
-              NF_IGNORE_PROCESSES: "sampleStatus,cutsite_qc,insert_qc,assembleCore,align_assembly,assembly_comparison,assembly_qc,downsampledStats,findPrimers,medakaPolishAssembly,filterHostReads,flyeVersion"
+              NF_IGNORE_PROCESSES: "sampleStatus,cutsite_qc,insert_qc,assembleCore,align_assembly,assembly_comparison,assembly_qc,downsampledStats,findPrimers,filterHostReads,flyeVersion"
         - if: $MATRIX_NAME == "canu-fast"
           variables:
               NF_WORKFLOW_OPTS: "--fastq test_data/test --approx_size 3000 --assembly_tool canu --canu_fast"
-              NF_IGNORE_PROCESSES: "sampleStatus,cutsite_qc,insert_qc,assembleCore,align_assembly,assembly_comparison,assembly_qc,downsampledStats,findPrimers,medakaPolishAssembly,filterHostReads,flyeVersion"
+              NF_IGNORE_PROCESSES: "sampleStatus,cutsite_qc,insert_qc,assembleCore,align_assembly,assembly_comparison,assembly_qc,downsampledStats,findPrimers,filterHostReads,flyeVersion"
         - if: $MATRIX_NAME == "cutsite"
           variables:
               NF_WORKFLOW_OPTS: "--fastq test_data/test --approx_size 3000 --assm_coverage 25 --sample_sheet test_data/sample_sheet_cutsite.csv --full_reference test_data/cutsite_test.fasta"
-              NF_IGNORE_PROCESSES: "sampleStatus,canuVersion,insert_qc,assembleCore,align_assembly,assembly_comparison,assembly_qc,downsampledStats,findPrimers,medakaPolishAssembly,filterHostReads,flyeVersion"
+              NF_IGNORE_PROCESSES: "sampleStatus,canuVersion,insert_qc,assembleCore,align_assembly,assembly_comparison,assembly_qc,downsampledStats,findPrimers,filterHostReads,flyeVersion"
         - if: $MATRIX_NAME == "bam_input"
           variables:
               NF_WORKFLOW_OPTS: "--bam test_data/plasmid.bam"
-              NF_IGNORE_PROCESSES: "sampleStatus,canuVersion,cutsite_qc,insert_qc,assembleCore,align_assembly,assembly_comparison,assembly_qc,downsampledStats,findPrimers,medakaPolishAssembly,filterHostReads,flyeVersion"
+              NF_IGNORE_PROCESSES: "sampleStatus,canuVersion,cutsite_qc,insert_qc,assembleCore,align_assembly,assembly_comparison,assembly_qc,downsampledStats,findPrimers,filterHostReads,flyeVersion"
+        - if: $MATRIX_NAME == "no-basecall-model"
+          variables:
+              NF_BEFORE_SCRIPT: "mkdir -p ${CI_PROJECT_NAME}/data/ && wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/wf-clone-validation-db.tar.gz -O ${CI_PROJECT_NAME}/data/wf-clone-validation-db.tar.gz && tar -xzvf ${CI_PROJECT_NAME}/data/wf-clone-validation-db.tar.gz -C ${CI_PROJECT_NAME}/data/"
+              NF_WORKFLOW_OPTS: "--fastq test_data/fastq-no-basecall-model --db_directory ${CI_PROJECT_NAME}/data/wf-clone-validation-db \
+              --threads 4 --assm_coverage 25 --primers data/primers.tsv --non_uniform_coverage"
+              NF_IGNORE_PROCESSES: "filterHostReads,cutsite_qc,align_assembly,assembly_comparison,sampleStatus,insert_qc,canuVersion,full_assembly_qc"
+        - if: $MATRIX_NAME == "no-basecall-model-basecaller-cfg"
+          variables:
+              NF_BEFORE_SCRIPT: "mkdir -p ${CI_PROJECT_NAME}/data/ && wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/wf-clone-validation-db.tar.gz -O ${CI_PROJECT_NAME}/data/wf-clone-validation-db.tar.gz && tar -xzvf ${CI_PROJECT_NAME}/data/wf-clone-validation-db.tar.gz -C ${CI_PROJECT_NAME}/data/"
+              NF_WORKFLOW_OPTS: "--fastq test_data/fastq-no-basecall-model --db_directory ${CI_PROJECT_NAME}/data/wf-clone-validation-db \
+              --threads 4 --assm_coverage 25 --primers data/primers.tsv --non_uniform_coverage --basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v4.2.0"
+              NF_IGNORE_PROCESSES: "filterHostReads,cutsite_qc,align_assembly,assembly_comparison,sampleStatus,insert_qc,canuVersion,full_assembly_qc"
         - if: $MATRIX_NAME == "insert_reference_sample_sheet"
           variables:
               NF_BEFORE_SCRIPT: "mkdir -p ${CI_PROJECT_NAME}/data/ && wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/clone_val_double_ref.tar.gz -O ${CI_PROJECT_NAME}/data/clone_val_double_ref.tar.gz && tar -xzvf ${CI_PROJECT_NAME}/data/clone_val_double_ref.tar.gz -C ${CI_PROJECT_NAME}/data/"
-              NF_WORKFLOW_OPTS: "--fastq ${CI_PROJECT_NAME}/data/clone_val_double_ref/fastq --primers ${CI_PROJECT_NAME}/data/clone_val_double_ref/primers.tsv --sample_sheet ${CI_PROJECT_NAME}/data/clone_val_double_ref/sample_sheet.csv"
+              NF_WORKFLOW_OPTS: "--fastq ${CI_PROJECT_NAME}/data/clone_val_double_ref/fastq --basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v4.2.0 --primers ${CI_PROJECT_NAME}/data/clone_val_double_ref/primers.tsv --sample_sheet ${CI_PROJECT_NAME}/data/clone_val_double_ref/sample_sheet.csv"
               NF_IGNORE_PROCESSES: "filterHostReads,canuVersion,cutsite_qc,align_assembly,assembly_comparison"
 
-         
+
+aws-run:
+    parallel:
+        matrix:
+            - MATRIX_NAME: [
+              "standard",
+              "canu",
+            ]
+    rules:
+        - if: ($CI_COMMIT_BRANCH == null || $CI_COMMIT_BRANCH == "dev-template")
+          when: never
+        - if: $MATRIX_NAME == "standard"
+          # use default workflow opts etc as defined above
+        - if: $MATRIX_NAME == "canu"
+          variables:
+              NF_WORKFLOW_OPTS: "--fastq test_data/test --approx_size 3000 --assembly_tool canu"
+              NF_IGNORE_PROCESSES: "sampleStatus,cutsite_qc,insert_qc,assembleCore,align_assembly,assembly_comparison,assembly_qc,downsampledStats,findPrimers,filterHostReads,flyeVersion"

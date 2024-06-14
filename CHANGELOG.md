@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [unreleased]
+### Changed
+- Updated Medaka to v1.12.0.
+
+### Removed
+- The `--medaka_model` parameter (since the appropriate Medaka model is now automatically determined from the input data). If the input data are lacking information on the model that was used to basecall them, the basecall model must be provided with `--basecaller_cfg`. Otherwise the workflow will fail.
+
 ## [v1.3.0]
 ### Added
 - `--full_reference` parameter to accept a reference of the full construct. If provided, an additional construct QC section will be output in the report which will include reference coverage and percentage identity per sample.
