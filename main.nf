@@ -685,11 +685,6 @@ workflow {
         )
     }
 
-    samples | view
-
-
-
-
     samples = samples
     | map{ meta, read, stats -> 
         // Check sample_sheet data in metamap
