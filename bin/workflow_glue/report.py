@@ -171,13 +171,14 @@ if a host reference was provided.
                         with internal_tabs.add_tab(key):
                             if key == "Raw":
                                 stats = load_histogram(value)
+                                depth = stats["count"].sum()
                             else:
                                 stats = load_stats(value)
-                            depth = len(stats.index)
+                                depth = len(stats.index)
                             Stats(
                                 columns=2,
                                 items=[
-                                    (depth, 'Read count'),
+                                    (f"{depth:,d}", 'Read count'),
                                 ])
                             SeqSummary(value)
     # Insert info table
