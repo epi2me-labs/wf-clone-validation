@@ -25,7 +25,7 @@ docker-run:
                 "clone-val", "insert-reference", "insert-wrong-reference",
                 "sample-sheet-with-approx-size", "sample-sheet", "no-assemblies", "filter-host-reads",
                 "repetitive-region-dotplot", "large_construct", "canu", "canu-fast",
-                "full_reference_snp", "full_reference", "wrong_full_reference",
+                "full_reference_snp_indels", "full_reference", "wrong_full_reference",
                 "cutsite", "bam_input", "insert_reference_sample_sheet", "no-basecall-model", "no-basecall-model-basecaller-cfg"]
     rules:
         - if: ($CI_COMMIT_BRANCH == null || $CI_COMMIT_BRANCH == "dev-template")
@@ -68,11 +68,12 @@ docker-run:
               NF_BEFORE_SCRIPT: "mkdir -p ${CI_PROJECT_NAME}/data/ && wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/clone_val_test.tar.gz -O ${CI_PROJECT_NAME}/data/clone_val_test.tar.gz && tar -xzvf ${CI_PROJECT_NAME}/data/clone_val_test.tar.gz -C ${CI_PROJECT_NAME}/data"
               NF_WORKFLOW_OPTS: "--fastq ${CI_PROJECT_NAME}/data/clone_val_test/fastq_full_ref_test --full_reference ${CI_PROJECT_NAME}/data/clone_val_test/full_reference.fasta --assm_coverage 25 --approx_size 7000 --basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v4.2.0"
               NF_IGNORE_PROCESSES: "insert_qc,cutsite_qc,canuVersion,filterHostReads"
-        - if: $MATRIX_NAME == "full_reference_snp"
+        - if: $MATRIX_NAME == "full_reference_snp_indels"
           variables:
               NF_BEFORE_SCRIPT: "mkdir -p ${CI_PROJECT_NAME}/data/ && wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/clone_val_test.tar.gz -O ${CI_PROJECT_NAME}/data/clone_val_test.tar.gz && tar -xzvf ${CI_PROJECT_NAME}/data/clone_val_test.tar.gz -C ${CI_PROJECT_NAME}/data/"
               NF_WORKFLOW_OPTS: "--fastq ${CI_PROJECT_NAME}/data/clone_val_test/fastq/barcode12 --full_reference ${CI_PROJECT_NAME}/data/clone_val_test/full_reference_snps.fasta --assm_coverage 120 --approx_size 3100 --basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v4.2.0"
               NF_IGNORE_PROCESSES: "insert_qc,cutsite_qc,canuVersion,filterHostReads"
+              AFTER_NEXTFLOW_CMD: "grep 'number of indels:\\s3' '${CI_PROJECT_NAME}/barcode12.full_construct.stats'"
         - if: $MATRIX_NAME == "wrong_full_reference"
           variables:
               NF_BEFORE_SCRIPT: "mkdir -p ${CI_PROJECT_NAME}/data/ && wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/clone_val_test.tar.gz -O ${CI_PROJECT_NAME}/data/clone_val_test.tar.gz && tar -xzvf ${CI_PROJECT_NAME}/data/clone_val_test.tar.gz -C ${CI_PROJECT_NAME}/data/"
