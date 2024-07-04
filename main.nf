@@ -311,7 +311,8 @@ process insert_qc {
     minimap2 -t $task.cpus -y -ax map-ont insert_ref.fasta "insert_assembly.fasta" | samtools sort -o output.bam -
     mapped=\$(samtools view -F 4 -c  output.bam)
     if [ \$mapped != 0 ]; then
-        bcftools mpileup -Ou -f insert_ref.fasta output.bam | bcftools call -mv -Ob -o "${meta.alias}.insert.calls.bcf"
+        # -m1 reduces evidence for indels to 1 read instead of the default 2
+        bcftools mpileup -m1 -Ou -f insert_ref.fasta output.bam | bcftools call -mv -Ob -o "${meta.alias}.insert.calls.bcf"
         bcftools stats "${meta.alias}.insert.calls.bcf" > "${meta.alias}.insert.stats"
         STATUS="Completed successfully"
     fi
@@ -358,7 +359,8 @@ process assembly_comparison {
     // Also get variants report
     """
     bamstats -t ${task.cpus} -s "${meta.alias}" "${meta.alias}.bam" > "${meta.alias}.bam.stats"
-    bcftools mpileup -Ou -f full_reference.fasta "${meta.alias}.bam" | bcftools call -mv -Ob -o "${meta.alias}.full_construct.calls.bcf"
+    # -m1 reduces evidence for indels to 1 read instead of the default 2
+    bcftools mpileup -m1 -Ou -f full_reference.fasta "${meta.alias}.bam" | bcftools call -mv -Ob -o "${meta.alias}.full_construct.calls.bcf"
     bcftools stats "${meta.alias}.full_construct.calls.bcf" > ${meta.alias}.full_construct.stats
     """
 }
