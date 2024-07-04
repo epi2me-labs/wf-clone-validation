@@ -244,6 +244,12 @@
                     "title": "Run Canu in fast mode",
                     "description": "Fast option can make the assembly step significantly faster. It can be used on any genome size but may produce less continuous assemblies on genomes larger than 1 Gbp.",
                     "help_text": "This option is only relevant if Canu is set as the assembly_tool parameter"
+                },
+                "cutsite_mismatch": {
+                    "type": "integer",
+                    "default": 1,
+                    "title": "Maximum allowed mismatches in cutsite",
+                    "description": "Maximum number of mismatches allowed when searching for the cutsite in the reference fasta provided. Set to 0 for perfect matches only. Increasing allowed mismatches when increase risk of multiple matches, which will fail the workflow."
                 }
             }
         },

@@ -398,7 +398,7 @@ process cutsite_qc {
         tuple val(meta.alias), val(meta.n_seqs), env(CUT_COUNT), emit: cut_counts
     script:
     """
-    cat full_reference.fasta | seqkit locate -p ${meta.cut_site} -m 1 --bed  --circular > locate.bed
+    cat full_reference.fasta | seqkit locate -p ${meta.cut_site} -m ${params.cutsite_mismatch} --bed  --circular > locate.bed
     if [[ \$(<locate.bed wc -l) -ne 1 ]]; then
         echo "Found unexpected number of cut sites in reference. Check there is only one cut site within the reference."
         exit 1
