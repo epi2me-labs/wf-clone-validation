@@ -18,14 +18,14 @@ process checkIfEnoughReads {
     memory "2GB"
     input:
         tuple val(meta), path("input.fastq.gz"), path("fastcat_stats")
-        val min_read_length
-        val max_read_length
     output:
         tuple val(meta), path("${meta.alias}.fastq.gz"),
             optional: true, emit: sample
         path("${meta.alias}.fastcat_stats"), emit: stats
         tuple val(meta.alias), env(STATUS), emit: status
     script:
+        int min_read_length = params.large_construct ? 200 : meta.approx_size * 0.5
+        int max_read_length = meta.approx_size * 1.5
         def extra_args = "-a $min_read_length -b $max_read_length"
         def expected_depth = "$params.assm_coverage"
         // a little heuristic to decide if we have enough data
@@ -491,8 +491,6 @@ workflow pipeline {
         regions_bedfile
         database
         primers
-        min_read_length
-        max_read_length
         cutsite_csv // alias, read_counts, cutsite_count
 
     main:
@@ -500,7 +498,7 @@ workflow pipeline {
         
     
         // drop samples with too low coverage
-        sample_fastqs = checkIfEnoughReads(samples, min_read_length, max_read_length)
+        sample_fastqs = checkIfEnoughReads(samples)
 
         // Optionally filter the data, removing reads mapping to
         // the host or background genome
@@ -742,21 +740,6 @@ workflow {
         return [ meta + new_keys, read, stats ]
     }
 
-    // if large construct don't filter out shorter reads as approx size no longer equal to read length
-    if (params.large_construct){
-        min_read_length = 200
-    } else {
-        min_read_length = samples
-        | map{ it[0].approx_size }
-        | min()
-        | map{ it * 0.5 }
-
-    }
-    max_read_length = samples
-        | map{ it -> it[0].approx_size }
-        | max
-        | map{ it * 1.5}
-    
 
     host_reference = params.host_reference ?: 'NO_HOST_REF'
     host_reference = file(host_reference, checkIfExists: host_reference == 'NO_HOST_REF' ? false : true)
@@ -797,8 +780,6 @@ workflow {
         regions_bedfile,
         database,
         primer_file,
-        min_read_length,
-        max_read_length,
         cutsite_csv
         )
 
