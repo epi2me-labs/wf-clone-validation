@@ -150,7 +150,6 @@ sample3,barcode03,test_sample,7000,/path/to/full_reference_alt.fasta,/path/to/in
 | assm_coverage | integer | Fold coverage for use per assembly | This is the coverage that will be used to subsample reads to use for the assembly. | 60 |
 | primers | string | TSV File containing primers used to find inserts. If left empty then inserts will not be searched for. | Specify one or more primer sets which will be used to find the sequence inserted in the construct. This file should be in .tsv format containing columns [primer_name,  5' primer, 3' primer] with no header. An example `primers.tsv` for pRham/T7 is available in the demo data for the workflow. |  |
 | analyse_unclassified | boolean | Analyse unclassified reads from input directory. By default the workflow will not process reads in the unclassified directory. | If selected and if the input is a multiplex directory the workflow will also process the unclassified directory. | False |
-| basecaller_cfg | string | Name of the model that was used to basecall the signal data; used to select an appropriate Medaka model. | This is only used if the basecaller model could not be determined from the input sequencing data. |  |
 
 
 ### Reference Genome Options
@@ -183,6 +182,7 @@ sample3,barcode03,test_sample,7000,/path/to/full_reference_alt.fasta,/path/to/in
 
 | Nextflow parameter name  | Type | Description | Help | Default |
 |--------------------------|------|-------------|------|---------|
+| override_basecaller_cfg | string | Override auto-detected basecaller model that processed the signal data; used to select an appropriate Medaka model. | Per default, the workflow tries to determine the basecall model from the input data. This parameter can be used to override the detected value (or to provide a model name if none was found in the inputs). However, users should only do this if they know for certain which model was used as selecting the wrong option might give sub-optimal results. A list of recent models can be found here: https://github.com/nanoporetech/dorado#DNA-models. |  |
 | large_construct | boolean | Enable assembly of larger constructs including Bacterial Artificial Chromosomes (50,000-300,000 base pairs). | Selecting this will skip approximate size filtering steps allowing the assembly of larger genomes. Multiple sequence alignment of inserts will be skipped in this mode. | False |
 | trim_length | integer | Number of base pairs to trim from both ends of each read. |  | 150 |
 | flye_quality | string | The Flye parameter for quality of input reads, default `nano-hq`: high-quality reads, Guppy5+ SUP or Q20 (<5% error). | Other options include `nano-corr`: reads that were corrected with other methods (<3% error), `nano-raw`: pre-Guppy5 (<20% error). | nano-hq |
