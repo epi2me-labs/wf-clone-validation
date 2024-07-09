@@ -93,10 +93,20 @@ process medakaPolishAssembly {
         tuple val(meta.alias), env(STATUS), emit: status
         tuple val(meta), path("${meta.alias}.final.fastq"), emit: assembly_qc
     script:
-    String model_args = params.basecaller_cfg ? "-m ${params.basecaller_cfg}:consensus": ""
+    // we use `params.override_basecaller_cfg` if present; otherwise use
+    // `meta.basecall_models[0]` (there should only be one value in the list because
+    // we're running ingress with `allow_multiple_basecall_models: false`; note that
+    // `[0]` on an empty list returns `null`)
+    String basecall_model = params.override_basecaller_cfg ?: meta.basecall_models[0]
+    if (!basecall_model) {
+        error "Found no basecall model information in the input data for " + \
+            "sample '$meta.alias'. Please provide it with the " + \
+            "`--override_basecaller_cfg` parameter."
+    }
     """
     STATUS="Failed to polish assembly with Medaka"
-    medaka_consensus -i "${fastq}" -d "${draft}" ${model_args} -o . -t $task.cpus -f -q
+    medaka_consensus -i "${fastq}" -d "${draft}" -m "${basecall_model}:consensus" \
+        -o . -t $task.cpus -f -q
     echo ">${meta.alias}" >> "${meta.alias}.final.fasta"
     sed "2q;d" consensus.fastq >> "${meta.alias}.final.fasta"
     mv consensus.fastq "${meta.alias}.final.fastq"
@@ -494,9 +504,6 @@ workflow pipeline {
         cutsite_csv // alias, read_counts, cutsite_count
 
     main:
-        // Min/max filter reads
-        
-    
         // drop samples with too low coverage
         sample_fastqs = checkIfEnoughReads(samples)
 
@@ -663,16 +670,22 @@ workflow {
         throw new Exception("--reference is deprecated, use --insert_reference instead.")
     }
 
-   
+    // warn the user if overriding the basecall models found in the inputs
+    if (params.override_basecaller_cfg) {
+        log.warn \
+            "Overriding basecall model with '${params.override_basecaller_cfg}'."
+    }
+
     if (params.assembly_tool == 'canu'){
         log.warn "Assembly tool Canu. This may result in suboptimal performance on ARM devices."
     }
 
-     Map ingress_args = [
+    Map ingress_args = [
         "sample": params.sample,
         "sample_sheet": params.sample_sheet,
         "analyse_unclassified": params.analyse_unclassified,
         "stats": true,
+        "allow_multiple_basecall_models": false,
     ]
 
 

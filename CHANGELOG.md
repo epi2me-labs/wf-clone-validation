@@ -5,6 +5,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- `--override_basecaller_cfg` parameter for cases where automatic basecall model detection fails or users wish to override the automatic choice.
+### Removed
+- The now redundant `--basecaller_cfg` parameter as its value is now automatically detected from the input data on a per-sample basis.
 ### Changed
 - Min and max read length determined per sample based on `approx_size`
 
