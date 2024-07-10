@@ -635,7 +635,8 @@ workflow pipeline {
             bam.flatten(),
             full_assembly_stats,
             bcf,
-            ref_bamstats)
+            ref_bamstats,
+            assembly_quality.collect().ifEmpty(OPTIONAL_FILE))
         
     emit:
         results

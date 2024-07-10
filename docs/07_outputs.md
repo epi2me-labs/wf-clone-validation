@@ -8,6 +8,7 @@ Output files may be aggregated including information for all samples or provided
 | annotations bed | ./{{ alias }}.annotations.bed | Plasmid annotations in a BED file format for onward use | per-sample |
 | annotations gbk | ./{{ alias }}.annotations.gbk | Plasmid annotations in a GBK file format for onward use | per-sample |
 | Assembly FASTQ | ./{{ alias }}.final.fastq | Sequence and quality score of the final assembly. | per-sample |
+| Assembly statistics | ./{{ alias }}.assembly_stats.tsv | Assembly statistics from fastcat. | per-sample |
 | Insert FASTA | ./{{ alias }}.insert.fasta | Insert sequence found in the final assembly, only relevant if the primers parameter was used. | per-sample |
 | Variant stats report | ./{{ alias }}.full_construct.stats | A BCF stats report with any variants found, only relevant if a full reference was provided. | per-sample |
 | Variants BCF file | ./{{ alias }}.full_construct.calls.bcf | A BCF file with any variants found per sample, only relevant if a full reference was provided. | per-sample |

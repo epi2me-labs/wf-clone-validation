@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The now redundant `--basecaller_cfg` parameter as its value is now automatically detected from the input data on a per-sample basis.
 ### Changed
 - Min and max read length determined per sample based on `approx_size`
+- Emit assembly quality stats as part of final workflow outputs
 
 ## [v1.3.1]
 ### Added
