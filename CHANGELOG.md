@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Changed
 - Min and max read length determined per sample based on `approx_size`
+- Emit assembly quality stats as part of final workflow outputs
 
 ## [v1.3.1]
 ### Added

@@ -48,6 +48,14 @@
       "optional": false,
       "type": "per-sample"
     },
+    "assembly_stats": {
+      "filepath": "./{{ alias }}.assembly_stats.tsv",
+      "title": "Assembly statistics",
+      "description": "Assembly statistics from fastcat.",
+      "mime-type": "text/tab-separated-values",
+      "optional": true,
+      "type": "per-sample"
+    },
     "insert_fasta" : {
       "filepath": "./{{ alias }}.insert.fasta",
       "title": "Insert FASTA",
