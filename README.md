@@ -79,6 +79,7 @@ the following command:
 ```
 nextflow pull epi2me-labs/wf-clone-validation
 ```
+
 A demo dataset is provided for testing of the workflow.
 It can be downloaded and unpacked using the following commands:
 ```
@@ -92,6 +93,7 @@ nextflow run epi2me-labs/wf-clone-validation \
 	--primers 'wf-clone-validation-demo/primers.tsv' \
 	-profile standard
 ```
+
 For further information about running a workflow on
 the command line see https://labs.epi2me.io/wfquickstart/
 
