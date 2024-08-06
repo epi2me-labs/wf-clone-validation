@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Added
 - `--override_basecaller_cfg` parameter for cases where automatic basecall model detection fails or users wish to override the automatic choice.
+- `--medaka_model_path` parameter to provide a custom medaka model. This is intended for users testing experimental Medaka models and will not be needed for general use. 
 ### Removed
 - The now redundant `--basecaller_cfg` parameter as its value is now automatically detected from the input data on a per-sample basis.
 ### Changed
