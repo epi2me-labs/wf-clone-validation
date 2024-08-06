@@ -191,6 +191,14 @@
                         "dna_r9.4.1_e8.1_hac_prom"
                     ]
                 },
+                "medaka_model_path": {
+                    "type": "string",
+                    "format": "file-path",
+                    "title": "Medaka model path",
+                    "pattern": "^\\S+\\.(tar\\.gz|hdf)$",
+                    "description": "A custom model file (.tar.gz or .hdf) to be used instead of the automatic model selection and take precedence over the optional `--override_basecaller_cfg` parameter.",
+                    "help_text": "Allows for users to test experimental Medaka models. Users should not provide a model with this parameter for general analysis."
+                },
                 "large_construct": {
                     "type": "boolean",
                     "title": "Enable large contruct mode (e.g. Bacterial Artificial Chromosomes)",

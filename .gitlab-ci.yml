@@ -26,7 +26,8 @@ docker-run:
                 "sample-sheet-with-approx-size", "sample-sheet", "no-assemblies", "filter-host-reads",
                 "repetitive-region-dotplot", "large_construct", "canu", "canu-fast",
                 "full_reference_snp_indels", "full_reference", "wrong_full_reference",
-                "cutsite", "bam_input", "insert_reference_sample_sheet", "no-basecall-model", "no-basecall-model-basecaller-cfg"]
+                "cutsite", "bam_input", "insert_reference_sample_sheet", "no-basecall-model", "no-basecall-model-basecaller-cfg",
+                "medaka-model-path"]
     rules:
         - if: ($CI_COMMIT_BRANCH == null || $CI_COMMIT_BRANCH == "dev-template")
           when: never
@@ -114,6 +115,11 @@ docker-run:
               NF_BEFORE_SCRIPT: "mkdir -p ${CI_PROJECT_NAME}/data/ && wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/clone_val_double_ref.tar.gz -O ${CI_PROJECT_NAME}/data/clone_val_double_ref.tar.gz && tar -xzvf ${CI_PROJECT_NAME}/data/clone_val_double_ref.tar.gz -C ${CI_PROJECT_NAME}/data/"
               NF_WORKFLOW_OPTS: "--fastq ${CI_PROJECT_NAME}/data/clone_val_double_ref/fastq --override_basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v4.2.0 --primers ${CI_PROJECT_NAME}/data/clone_val_double_ref/primers.tsv --sample_sheet ${CI_PROJECT_NAME}/data/clone_val_double_ref/sample_sheet.csv"
               NF_IGNORE_PROCESSES: "filterHostReads,canuVersion,cutsite_qc,align_assembly,assembly_comparison"
+        - if: $MATRIX_NAME == "medaka-model-path"
+          variables:
+              NF_WORKFLOW_OPTS: "--fastq test_data/test --medaka_model_path test_data/r1041_e82_400bps_hac_v4.2.0_model.tar.gz"
+              NF_IGNORE_PROCESSES: "sampleStatus,canuVersion,cutsite_qc,insert_qc,assembleCore,align_assembly,assembly_comparison,assembly_qc,downsampledStats,findPrimers,filterHostReads"
+       
 
 
 aws-run:

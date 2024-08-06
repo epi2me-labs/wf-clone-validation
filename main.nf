@@ -87,7 +87,7 @@ process medakaPolishAssembly {
     cpus params.threads
     memory "4GB"
     input:
-        tuple val(meta), path(draft), path(fastq)
+        tuple val(meta), path(draft), path(fastq), path(medaka_model)
     output:
         tuple val(meta), path("*.final.fasta"), emit: polished
         tuple val(meta.alias), env(STATUS), emit: status
@@ -98,14 +98,18 @@ process medakaPolishAssembly {
     // we're running ingress with `allow_multiple_basecall_models: false`; note that
     // `[0]` on an empty list returns `null`)
     String basecall_model = params.override_basecaller_cfg ?: meta.basecall_models[0]
-    if (!basecall_model) {
+    if (!basecall_model && !params.medaka_model_path) {
         error "Found no basecall model information in the input data for " + \
             "sample '$meta.alias'. Please provide it with the " + \
-            "`--override_basecaller_cfg` parameter."
+            "`--override_basecaller_cfg` parameter"
+    }
+    String model_input =  "${basecall_model}:consensus"
+    if (params.medaka_model_path){
+        model_input = "${medaka_model}"
     }
     """
     STATUS="Failed to polish assembly with Medaka"
-    medaka_consensus -i "${fastq}" -d "${draft}" -m "${basecall_model}:consensus" \
+    medaka_consensus -i "${fastq}" -d "${draft}" -m "${model_input}" \
         -o . -t $task.cpus -f -q
     echo ">${meta.alias}" >> "${meta.alias}.final.fasta"
     sed "2q;d" consensus.fastq >> "${meta.alias}.final.fasta"
@@ -502,6 +506,7 @@ workflow pipeline {
         database
         primers
         cutsite_csv // alias, read_counts, cutsite_count
+        user_medaka_model
 
     main:
         // drop samples with too low coverage
@@ -530,6 +535,7 @@ workflow pipeline {
         named_drafts_samples = named_drafts
         .join(named_samples, failOnMismatch: false, remainder: true)
         .filter{alias, assembly, fastq -> (assembly != null)}
+        .combine(user_medaka_model)
 
         // Polish draft assembly
         polished = medakaPolishAssembly(named_drafts_samples)
@@ -677,6 +683,15 @@ workflow {
             "Overriding basecall model with '${params.override_basecaller_cfg}'."
     }
 
+    // warn the user if overriding the medaka model
+    // which will also override the override_basecaller_cfg param
+    if (params.medaka_model_path) {
+            log.warn "Overriding the automatically selected medaka model with '${params.medaka_model_path}'."
+            user_medaka_model = Channel.fromPath(params.medaka_model_path, type: "file", checkIfExists: true)
+    } else {
+        user_medaka_model = Channel.fromPath(OPTIONAL_FILE)
+    }
+
     if (params.assembly_tool == 'canu'){
         log.warn "Assembly tool Canu. This may result in suboptimal performance on ARM devices."
     }
@@ -794,7 +809,8 @@ workflow {
         regions_bedfile,
         database,
         primer_file,
-        cutsite_csv
+        cutsite_csv,
+        user_medaka_model
         )
 
     results[0]
