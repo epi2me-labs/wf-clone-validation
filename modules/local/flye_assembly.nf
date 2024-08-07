@@ -35,9 +35,15 @@ process assembleCore_flye {
     # Trimming
     ############################################################
     STATUS="Failed to trim reads"
-    (seqkit subseq -j $seqkit_threads -r $params.trim_length:-$params.trim_length $fastq | \
-        seqkit subseq -j $seqkit_threads -r 1:$max_len | \
-        seqkit seq -j $seqkit_threads -m $min_len -Q $min_q -g > "${meta.alias}.trimmed.fastq") && 
+    (
+        if [[ $params.trim_length -gt 0 ]]; then
+            seqkit subseq -j $seqkit_threads -r $params.trim_length:-$params.trim_length $fastq
+        else
+            cat $fastq
+        fi \
+        | seqkit subseq -j $seqkit_threads -r 1:$max_len \
+        | seqkit seq -j $seqkit_threads -m $min_len -Q $min_q -g > "${meta.alias}.trimmed.fastq"
+    ) &&
         
 
     ############################################################
