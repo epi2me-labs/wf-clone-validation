@@ -563,14 +563,21 @@ workflow pipeline {
         | ifEmpty([OPTIONAL_FILE, OPTIONAL_FILE, OPTIONAL_FILE]) // to match cardinatlity expected by process insert()
 
 
-        insert = inserts(ref_groups)
-        
-        // assembly QC
-        // Insert
+        // Assembly QC
         assembly_quality = assembly_qc(polished.assembly_qc)
-        insert_qc_tuple = insert_qc(polished.polished
-        | filter { meta, assembly -> meta.insert_reference}
-        | map{meta, assembly -> [meta, assembly, meta.insert_reference]})
+        
+        // Find inserts
+        insert = inserts(ref_groups)
+        // Inserts are processed together (to create MSA) so flatten and add key 
+        insert_tuple = insert.inserts.flatten().map{ assembly -> tuple(assembly.simpleName, assembly)}
+        // Keep assemblies that have an insert_reference and an insert assembly for insert_qc
+        insert_meta = polished.polished.map{ 
+            meta, polished -> [meta.alias, meta]}
+            .join(insert_tuple, failOnMismatch: false, remainder: true)
+            .filter{ key, meta, insert -> (insert != null) && meta.insert_reference}
+            .map{ key, meta, insert -> [meta, insert, meta.insert_reference]} 
+        // Insert QC
+        insert_qc_tuple = insert_qc(insert_meta)
 
         qc_insert = insert_qc_tuple.insert_stats.map{meta, bcf, stats -> stats}
         bcf_insert = insert_qc_tuple.insert_stats.map{meta, bcf, stats -> bcf}

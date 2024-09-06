@@ -27,7 +27,7 @@ docker-run:
                 "repetitive-region-dotplot", "large_construct", "canu", "canu-fast",
                 "full_reference_snp_indels", "full_reference", "wrong_full_reference",
                 "cutsite", "bam_input", "insert_reference_sample_sheet", "no-basecall-model", "no-basecall-model-basecaller-cfg",
-                "trim_length_zero", "medaka-model-path"]
+                "trim_length_zero", "medaka-model-path", "no-insert"]
     rules:
         - if: ($CI_COMMIT_BRANCH == null || $CI_COMMIT_BRANCH == "dev-template")
           when: never
@@ -125,8 +125,12 @@ docker-run:
           variables:
               NF_WORKFLOW_OPTS: "--fastq test_data/test --medaka_model_path test_data/r1041_e82_400bps_hac_v4.2.0_model.tar.gz"
               NF_IGNORE_PROCESSES: "sampleStatus,canuVersion,cutsite_qc,insert_qc,assembleCore,align_assembly,assembly_comparison,assembly_qc,downsampledStats,findPrimers,filterHostReads"
-       
-
+        - if: $MATRIX_NAME == "no-insert"
+          variables:
+              NF_WORKFLOW_OPTS: "--fastq test_data/test --approx_size 3000 --primers test_data/test_primers.tsv --insert_reference test_data/insert_reference.fasta"
+              NF_IGNORE_PROCESSES: "canuVersion,sampleStatus,cutsite_qc,insert_qc,align_assembly,assembly_comparison,assembly_qc,downsampledStats,findPrimers,filterHostReads"
+              AFTER_NEXTFLOW_CMD: "[[ ! -f  '${CI_PROJECT_NAME}/barcode01.insert.stats' ]] || ( echo 'Insert stats file unexpectedly found' && exit 1 )"
+  
 
 aws-run:
     parallel:
