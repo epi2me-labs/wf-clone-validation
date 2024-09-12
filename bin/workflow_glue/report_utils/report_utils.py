@@ -1,13 +1,10 @@
 #!/usr/bin/env python
 """Create tables for the report."""
-import json
 
 from bokeh.models import ColumnDataSource, Segment
 from bokeh.plotting import figure
 from dominate.tags import p
-import ezcharts as ezc
-from ezcharts.components import bcfstats, ezchart
-from ezcharts.plots.util import Colors
+from ezcharts.components import bcfstats
 import pandas as pd
 
 
@@ -44,39 +41,6 @@ def tidyup_status_file(status_sheet, annotations):
     all_sample_names = unique_samples.tolist()
     all_sample_names.sort()
     return (passed_list, all_sample_names, sample_status_dic)
-
-
-def read_count_barplot(metadata, report):
-    """Plot per sample read count bar chart."""
-    # Per barcode read count
-    readcounts = {}
-    with open(metadata) as data_file:
-        data = json.load(data_file)
-        for item in data:
-            alias = item['alias']
-            n_seqs = item['n_seqs']
-            readcounts[alias] = n_seqs
-    barcode_counts = pd.DataFrame.from_dict(
-        readcounts, orient='index', columns=['Count'])
-    barcode_counts = barcode_counts.sort_index().reset_index().rename(
-        columns={'index': 'Sample'})
-    with report.add_section("Read Counts", "Read Counts"):
-        p(
-            """Number of reads per sample."""
-        )
-        order = barcode_counts["Sample"].values.tolist()
-        plt = ezc.barplot(
-            data=barcode_counts, x='Sample', y='Count', order=order,
-            fill_color=Colors.cerulean, line_color=Colors.cerulean)
-        plt.xAxis = dict(
-            name="Sample",
-            type='category',
-            axisLabel=dict(interval=0, rotate=45),
-            axisTick=dict(alignWithLabel=True))
-        plt.yAxis = dict(name="Count", type='value')
-        ezchart.EZChart(
-            plt,
-            theme='epi2melabs')
 
 
 def insert_len(start, end, length):
