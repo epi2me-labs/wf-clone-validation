@@ -8,6 +8,7 @@ from dominate.tags import p, pre
 from dominate.util import raw
 from ezcharts.components.ezchart import EZChart
 from ezcharts.components.fastcat import load_histogram, load_stats, SeqSummary
+from ezcharts.components.plotmetadata import read_count_barplot
 from ezcharts.components.reports import labs
 from ezcharts.layout.snippets import Stats, Tabs
 from ezcharts.layout.snippets.table import DataTable
@@ -149,7 +150,11 @@ use the zoom and hover tools to decipher the labels.
                         width='100%', height='100%')
                     DataTable.from_pandas(annotations, use_index=False)
     # Per barcode read count plot
-    report_utils.read_count_barplot(args.metadata, report)
+    with report.add_section("Read Counts", "Read Counts"):
+        p(
+            """Number of reads per sample."""
+        )
+        read_count_barplot(args.metadata)
     with report.add_section("Read stats", "Read stats"):
         p("""
 For each assembly, read length statistics and plots of quality \
