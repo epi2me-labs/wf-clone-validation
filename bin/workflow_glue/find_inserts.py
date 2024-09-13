@@ -20,13 +20,13 @@ def reverse_complement(seq):
     return seq.translate(comp_trans)[::-1]
 
 
-def read_seqkit(bed_files, sep='\t'):
-    """Read seqkit bed files and join to single dataframe."""
+def read_seqkit(bed_files, assemblies_dir):
+    """Read beds and return single data frame and dict of the insert seqs."""
     dfs = list()
     bed_dic = {}
     for fname in sorted(bed_files):
         df = pd.read_csv(
-                fname, sep=sep,
+                fname, sep='\t',
                 header=None, names=(
                     [
                         'Sample', 'start',
@@ -36,13 +36,12 @@ def read_seqkit(bed_files, sep='\t'):
         # need to find the sequence if seq spans origin
         if seq == 'nan':
             file_name = os.path.join(
-                'assemblies/', df['Sample'][0] + '.final.fasta')
+                assemblies_dir, df['Sample'][0] + '.final.fasta')
             with open(file_name, "r") as fp:
                 whole_seq = fp.readlines()[1][:-1:]
-            rev_comp = reverse_complement(whole_seq)
-            strand_seq = {'-': rev_comp, '+': whole_seq}
-            parse_seq = strand_seq[str(df['strand'][0])]
-            final_seq = parse_seq[df['start'][0]::] + parse_seq[:df['end'][0]:]
+            final_seq = whole_seq[df['start'][0]::] + whole_seq[:df['end'][0]:]
+            if df['strand'][0] == '-':
+                final_seq = reverse_complement(final_seq)
             df['sequence'][0] = final_seq
         else:
             pass
@@ -93,30 +92,32 @@ def main(args):
             # find inserts and put in dir
             current_directory = os.getcwd()
             make_directory = os.path.join(current_directory, r'inserts')
+            # only create inserts directory if there are primer_beds
+            # as optional output in nextflow
             if not os.path.exists(make_directory):
                 os.makedirs(make_directory)
-            seqkit = read_seqkit(args.primer_beds)
-            for k, v in seqkit[1].items():
+            sk_df, sk_dict = read_seqkit(args.primer_beds, args.assemblies)
+            for k, v in sk_dict.items():
                 insert_fn = os.path.join(args.insert_dir, f'{str(k)}.insert.fasta')
                 with open(insert_fn, "a") as fp:
                     fp.write('>' + str(k) + '\n' + str(v) + '\n')
             # If assembly will be large, skip MSA creation
             if args.large_construct:
                 inserts_json = {
-                    'bed_df': seqkit[0].to_json(),
-                    'bed_dic': seqkit[1],
+                    'bed_df': sk_df.to_json(),
+                    'bed_dic': sk_dict,
                     'reference': ref}
             else:
                 # If reference is available, it will be included to perform the
                 # Multiple sequence alignment.
                 # Otherwise MSA will be done using the inserts available
                 if args.reference:
-                    msa = make_msa(seqkit[1], args.reference)
+                    msa = make_msa(sk_dict, args.reference)
                 else:
-                    msa = make_msa(seqkit[1])
+                    msa = make_msa(sk_dict)
                 inserts_json = {
-                    'bed_df': seqkit[0].to_json(),
-                    'bed_dic': seqkit[1], 'msa': msa,
+                    'bed_df': sk_df.to_json(),
+                    'bed_dic': sk_dict, 'msa': msa,
                     'reference': ref}
             json.dump(inserts_json, f)
 
@@ -143,6 +144,10 @@ def argparser():
     parser.add_argument(
         "--insert_dir", default="inserts",
         help="output directory for insert fastas"
+    )
+    parser.add_argument(
+        "--assemblies", default="assemblies",
+        help="Full assemblies directory for finding insert"
     )
     return parser
 

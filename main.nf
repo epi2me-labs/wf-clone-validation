@@ -148,7 +148,7 @@ process findPrimers {
         tuple val(meta), path(sequence), path("*.bed"), optional: true
     shell:
     '''
-    cat !{sequence} | seqkit amplicon -p !{primers} -m 3 -j !{task.cpus} --bed >> !{meta.alias}.interim
+    cat !{sequence} | seqkit amplicon -p !{primers} -m !{params.primer_mismatch} -j !{task.cpus} --bed >> !{meta.alias}.interim
     if [[ "$(wc -l <"!{meta.alias}.interim")" -ge "1" ]];  then
         mv !{meta.alias}.interim !{meta.alias}.bed
     fi
@@ -305,7 +305,7 @@ process inserts {
     else
         inserts="--primer_beds primer_beds/*.bed"
     fi
-    workflow-glue find_inserts --output $output \$inserts $ref $large_construct
+    workflow-glue find_inserts --output $output --assemblies "assemblies" \$inserts $ref $large_construct
     """
 }
 

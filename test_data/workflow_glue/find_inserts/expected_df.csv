@@ -1,0 +1,5 @@
+Sample,start,end,primer,strand
+barcode01,436,2925,internal_reverse,-
+barcode02,436,2925,internal_forward,+
+barcode03,1777,1038,split_reverse,-
+barcode04,1777,1038,split_forward,+

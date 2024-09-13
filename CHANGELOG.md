@@ -6,8 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 ### Fixed
+- Parsing of an insert that is split between the start and end of the assembly and is a reverse complement.
 - Swap read count plot axis so Sample aliases are readable.
 - Incorrectly running Insert QC and outputting Insert statistics when an insert was not present in the assembly.
+### Changed
+- The default maximum allowed mismatches in the insert primers has changed from 3 to 2.
 
 ## [v1.4.0]
 ### Added
