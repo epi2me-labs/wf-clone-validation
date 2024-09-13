@@ -156,7 +156,7 @@ docker-run:
               AFTER_NEXTFLOW_CMD: "[[ $(sed -n 2p ${CI_PROJECT_NAME}/clone_val_trim_length_test.final.fasta | wc -c) == 3098 ]] || ( echo 'Assembly length not 3098 as expected' && exit 1 )"
         - if: $MATRIX_NAME == "medaka-model-path"
           variables:
-              NF_WORKFLOW_OPTS: "--fastq test_data/test --medaka_model_path test_data/r1041_e82_400bps_hac_v4.2.0_model.tar.gz"
+              NF_WORKFLOW_OPTS: "--fastq test_data/test --medaka_model_path test_data/test_medaka_model.tar.gz"
               NF_IGNORE_PROCESSES: "sampleStatus,canuVersion,cutsite_qc,insert_qc,assembleCore,align_assembly,assembly_comparison,assembly_qc,downsampledStats,findPrimers,filterHostReads"
         - if: $MATRIX_NAME == "no-insert"
           variables:
