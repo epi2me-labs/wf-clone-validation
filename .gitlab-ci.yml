@@ -27,6 +27,7 @@ docker-run:
                 "repetitive-region-dotplot", "large_construct", "canu", "canu-fast",
                 "full_reference_snp_indels", "full_reference", "wrong_full_reference",
                 "cutsite", "bam_input", "insert_reference_sample_sheet", "no-basecall-model", "no-basecall-model-basecaller-cfg",
+                "insert_case01", "insert_case02", "insert_case03", "insert_case04",
                 "trim_length_zero", "medaka-model-path", "no-insert"]
     rules:
         - if: ($CI_COMMIT_BRANCH == null || $CI_COMMIT_BRANCH == "dev-template")
@@ -115,6 +116,38 @@ docker-run:
               NF_BEFORE_SCRIPT: "mkdir -p ${CI_PROJECT_NAME}/data/ && wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/clone_val_double_ref.tar.gz -O ${CI_PROJECT_NAME}/data/clone_val_double_ref.tar.gz && tar -xzvf ${CI_PROJECT_NAME}/data/clone_val_double_ref.tar.gz -C ${CI_PROJECT_NAME}/data/"
               NF_WORKFLOW_OPTS: "--fastq ${CI_PROJECT_NAME}/data/clone_val_double_ref/fastq --override_basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v4.2.0 --primers ${CI_PROJECT_NAME}/data/clone_val_double_ref/primers.tsv --sample_sheet ${CI_PROJECT_NAME}/data/clone_val_double_ref/sample_sheet.csv"
               NF_IGNORE_PROCESSES: "filterHostReads,canuVersion,cutsite_qc,align_assembly,assembly_comparison"
+        - if: $MATRIX_NAME == "insert_case01"
+          variables:
+              NF_BEFORE_SCRIPT: "mkdir -p ${CI_PROJECT_NAME}/data/ && wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/clone_val_test_insert.tar.gz -O ${CI_PROJECT_NAME}/data/clone_val_test.tar.gz && tar -xzvf ${CI_PROJECT_NAME}/data/clone_val_test.tar.gz -C ${CI_PROJECT_NAME}/data/"
+              NF_WORKFLOW_OPTS: "--fastq ${CI_PROJECT_NAME}/data/clone_val_test_insert/fastq/barcode01 --assm_coverage 120 --approx_size 3000 --override_basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v4.2.0 --primers test_data/workflow_glue/find_inserts/primers/internal_reverse.tsv  --trim_length 0"
+              NF_IGNORE_PROCESSES: "insert_qc,canuVersion,filterHostReads,cutsite_qc,align_assembly,assembly_comparison,sampleStatus,insert_qc,canuVersion,full_assembly_qc"
+              AFTER_NEXTFLOW_CMD: "
+                if ! diff -q '${CI_PROJECT_NAME}/barcode01.insert.fasta' 'test_data/workflow_glue/find_inserts/expected_insert/barcode01.insert.fasta'; then echo 'Insert found is not as expected' && exit 1; fi
+                "
+        - if: $MATRIX_NAME == "insert_case02"
+          variables:
+              NF_BEFORE_SCRIPT: "mkdir -p ${CI_PROJECT_NAME}/data/ && wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/clone_val_test_insert.tar.gz -O ${CI_PROJECT_NAME}/data/clone_val_test.tar.gz && tar -xzvf ${CI_PROJECT_NAME}/data/clone_val_test.tar.gz -C ${CI_PROJECT_NAME}/data/"
+              NF_WORKFLOW_OPTS: "--fastq ${CI_PROJECT_NAME}/data/clone_val_test_insert/fastq/barcode02 --assm_coverage 120 --approx_size 3000 --override_basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v4.2.0 --primers test_data/workflow_glue/find_inserts/primers/internal_forward.tsv  --trim_length 0"
+              NF_IGNORE_PROCESSES: "insert_qc,canuVersion,filterHostReads,cutsite_qc,align_assembly,assembly_comparison,sampleStatus,insert_qc,canuVersion,full_assembly_qc"
+              AFTER_NEXTFLOW_CMD: "
+                if ! diff -q '${CI_PROJECT_NAME}/barcode02.insert.fasta' 'test_data/workflow_glue/find_inserts/expected_insert/barcode02.insert.fasta'; then echo 'Insert found is not as expected' && exit 1; fi
+                "
+        - if: $MATRIX_NAME == "insert_case03"
+          variables:
+              NF_BEFORE_SCRIPT: "mkdir -p ${CI_PROJECT_NAME}/data/ && wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/clone_val_test_insert.tar.gz -O ${CI_PROJECT_NAME}/data/clone_val_test.tar.gz && tar -xzvf ${CI_PROJECT_NAME}/data/clone_val_test.tar.gz -C ${CI_PROJECT_NAME}/data/"
+              NF_WORKFLOW_OPTS: "--fastq ${CI_PROJECT_NAME}/data/clone_val_test_insert/fastq/barcode03 --assm_coverage 120 --approx_size 3000 --override_basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v4.2.0 --primers test_data/workflow_glue/find_inserts/primers/split_reverse.tsv  --trim_length 0"
+              NF_IGNORE_PROCESSES: "insert_qc,canuVersion,filterHostReads,cutsite_qc,align_assembly,assembly_comparison,sampleStatus,insert_qc,canuVersion,full_assembly_qc"
+              AFTER_NEXTFLOW_CMD: "
+                if ! diff -q '${CI_PROJECT_NAME}/barcode03.insert.fasta' 'test_data/workflow_glue/find_inserts/expected_insert/barcode03.insert.fasta'; then echo 'Insert found is not as expected' && exit 1; fi
+                "
+        - if: $MATRIX_NAME == "insert_case04"
+          variables:
+              NF_BEFORE_SCRIPT: "mkdir -p ${CI_PROJECT_NAME}/data/ && wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/clone_val_test_insert.tar.gz -O ${CI_PROJECT_NAME}/data/clone_val_test.tar.gz && tar -xzvf ${CI_PROJECT_NAME}/data/clone_val_test.tar.gz -C ${CI_PROJECT_NAME}/data/"
+              NF_WORKFLOW_OPTS: "--fastq ${CI_PROJECT_NAME}/data/clone_val_test_insert/fastq/barcode04 --assm_coverage 120 --approx_size 3000 --override_basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v4.2.0 --primers test_data/workflow_glue/find_inserts/primers/split_forward.tsv  --trim_length 0"
+              NF_IGNORE_PROCESSES: "insert_qc,canuVersion,filterHostReads,cutsite_qc,align_assembly,assembly_comparison,sampleStatus,insert_qc,canuVersion,full_assembly_qc"
+              AFTER_NEXTFLOW_CMD: "
+                if ! diff -q '${CI_PROJECT_NAME}/barcode04.insert.fasta' 'test_data/workflow_glue/find_inserts/expected_insert/barcode04.insert.fasta'; then echo 'Insert found is not as expected' && exit 1; fi
+                "
         - if: $MATRIX_NAME == "trim_length_zero"
           variables:
               NF_BEFORE_SCRIPT: "mkdir -p ${CI_PROJECT_NAME}/data/ && wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/clone_val_trim_length_test.tar.gz -O ${CI_PROJECT_NAME}/data/clone_val_trim_length_test.tar.gz && tar -xzvf ${CI_PROJECT_NAME}/data/clone_val_trim_length_test.tar.gz -C ${CI_PROJECT_NAME}/data/"

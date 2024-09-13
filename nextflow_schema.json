@@ -258,6 +258,13 @@
                     "default": 1,
                     "title": "Maximum allowed mismatches in cutsite",
                     "description": "Maximum number of mismatches allowed when searching for the cutsite in the reference fasta provided. Set to 0 for perfect matches only. Increasing allowed mismatches when increase risk of multiple matches, which will fail the workflow."
+                },
+                "primer_mismatch": {
+                    "type": "integer",
+                    "default": 2,
+                    "hidden": true,
+                    "title": "Maximum allowed mismatches in the insert primers",
+                    "description": "Maximum number of mismatches allowed when searching for the primers in the assembly."
                 }
             }
         },
