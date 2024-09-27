@@ -89,9 +89,8 @@ process medakaPolishAssembly {
     input:
         tuple val(meta), path(draft), path(fastq), path(medaka_model)
     output:
-        tuple val(meta), path("*.final.fasta"), emit: polished
         tuple val(meta.alias), env(STATUS), emit: status
-        tuple val(meta), path("${meta.alias}.final.fastq"), emit: assembly_qc
+        tuple val(meta), path("${meta.alias}.final.fastq"), emit: fastq
     script:
     // we use `params.override_basecaller_cfg` if present; otherwise use
     // `meta.basecall_models[0]` (there should only be one value in the list because
@@ -115,6 +114,92 @@ process medakaPolishAssembly {
     sed "2q;d" consensus.fastq >> "${meta.alias}.final.fasta"
     mv consensus.fastq "${meta.alias}.final.fastq"
     STATUS="Completed successfully"
+    """
+}
+
+
+process reorientateFastqAndGetFasta {
+    label "wfplasmid"
+    cpus 1
+    memory "2GB"
+    input:
+        tuple val(meta), path("assembly.fastq"), path(full_reference)
+    output:
+        tuple val(meta), path(reoriented_fasta), emit: fasta
+        tuple val(meta), path(reoriented_fastq), emit: fastq
+    script:
+        reoriented_fastq = "${meta.alias}.final.fastq"
+        reoriented_fasta = "${meta.alias}.final.fasta"
+    """
+    (
+        set -euo pipefail
+        if [ -e "OPTIONAL_FILE" ]; then
+            # there is no full ref for this sample
+            echo "No full reference; skipping reorientation"
+            exit 0
+        fi
+
+        # duplicate the assembly to avoid potential issues with soft-clipping, repeats etc
+        seqkit concat assembly.fastq assembly.fastq -w0 > double-assembly.fastq
+
+        # align ref against the duplicated assembly and get alignment stats
+        minimap2 -ax asm5 double-assembly.fastq $full_reference | bamstats - > bamstats.tsv
+
+        # bamstats ignores non-primary alignments; so there is either one alignment (i.e.
+        # two lines) or none (one line) ine the file
+        if [[ \$(wc -l < bamstats.tsv) == 1 ]]; then
+            echo "Reference didn't map against the assembly; skipping reorientation."
+            exit 0
+        fi
+
+        # get the length of the assembly
+        assembly_length=\$(awk 'NR == 2 {print length}' assembly.fastq)
+
+        ref_length=\$(awk 'NR == 2 {print length}' $full_reference)
+
+        # get the strand ('+' or '-') and offset to rotate the assembly
+        read -r strand offset <<< "\$(awk -F '\\t' -v assembly_length="\$assembly_length" -v ref_length="\$ref_length" '
+            NR == 1 { for (i=1; i<=NF; i++) { indices[\$i] = i } }
+            NR == 2 {
+                strand = \$indices["direction"]
+                rstart = \$indices["rstart"]
+            }
+            END {
+                # bamstats start coordinates are 0-based; add 1 when comparing against
+                # ref length
+                # Add 1 as bamstats is 0-based and seqkit restart is 1-based
+                rstart += 1
+                if (strand == "-") {
+                    # For negative strand, move to the end of the reference
+                    rstart = rstart + ref_length
+                    if (rstart + 1 > assembly_length) rstart -= assembly_length
+                }
+                if (rstart + 1 > assembly_length) rstart -= assembly_length
+                print strand, rstart
+            }
+        ' bamstats.tsv)"
+
+        # reorient the assembly
+        if [[ \$strand == "+" ]]; then
+            seqkit restart -w0 -i \$offset assembly.fastq > $reoriented_fastq
+        elif [[ \$strand == "-" ]]; then
+            # the reference aligned against the negative strand of the assembly; so
+            # first rotate the sequence and then reverse complement it
+            seqkit restart -w0 -i \$offset assembly.fastq |
+                seqkit seq -rpvt dna - > $reoriented_fastq
+        else
+            echo "Found unexpected strand '\$strand'; skipping reorientation"
+            exit 0
+        fi
+    )
+
+    if [[ ! -f $reoriented_fastq ]]; then
+        echo "Reorientation failed"
+        mv assembly.fastq $reoriented_fastq
+    fi
+    # rename sequence to sample alias
+    sed -i '1s/^.*\$/@$meta.alias/' $reoriented_fastq
+    seqkit fq2fa $reoriented_fastq > $reoriented_fasta
     """
 }
 
@@ -343,17 +428,12 @@ process align_assembly {
     output:
         tuple val(meta), path("${meta.alias}.bam"), path("${meta.alias}.bam.bai"), path("full_reference.fasta"), optional: true
     script:
-    // Align assembly with the reference, which results in 2 aligned segments a (primary and supplementary alignment)
-    // Create a consensus to get the two sections of the assembled sequence in one Fasta and the same order as the reference
-    // Align this with the reference to get final alignment to output to user
+    // Align assembly with the reference. The assembly has previously been attempted to be reorientated to match with the reference.
     """
-    minimap2 -t ${task.cpus - 1} -y -ax asm5 full_reference.fasta "full_assembly.fasta" | samtools sort -o "initial_alignment.bam" -
-    mapped=\$(samtools view -F 4 -c  "initial_alignment.bam")
+    minimap2 -t ${task.cpus - 1} -y -ax asm5 full_reference.fasta "full_assembly.fasta" > ${meta.alias}_unsorted.bam
+    mapped=\$(samtools view -F 4 -c ${meta.alias}_unsorted.bam)
     if [ \$mapped != 0 ]; then
-        samtools consensus --mode simple "initial_alignment.bam" -o "consensus.bam"
-        samtools fasta consensus.bam > consensus.fasta
-        minimap2 -t ${task.cpus - 1} -y -ax asm5 full_reference.fasta "consensus.fasta" \
-            | samtools sort -@ ${task.cpus} --write-index -o ${meta.alias}.bam##idx##${meta.alias}.bam.bai -
+        samtools sort -@ ${task.cpus} --write-index -o ${meta.alias}.bam##idx##${meta.alias}.bam.bai ${meta.alias}_unsorted.bam
     fi
     """
 }
@@ -539,10 +619,15 @@ workflow pipeline {
 
         // Polish draft assembly
         polished = medakaPolishAssembly(named_drafts_samples)
-    
+        reorientated = reorientateFastqAndGetFasta(
+            polished.fastq | map { meta, assembly ->
+                [meta, assembly, meta.full_reference ?: OPTIONAL_FILE]
+            }
+        )
+
         downsampled_stats = downsampledStats(assemblies.downsampled)
 
-        primer_beds = findPrimers(primers, polished.polished)
+        primer_beds = findPrimers(primers, reorientated.fasta)
         medaka_version = medakaVersion()
         if (params.assembly_tool == "flye"){
             assembly_version = flyeVersion(medaka_version)
@@ -564,14 +649,15 @@ workflow pipeline {
 
 
         // Assembly QC
-        assembly_quality = assembly_qc(polished.assembly_qc)
+        assembly_quality = assembly_qc(reorientated.fastq)
         
         // Find inserts
         insert = inserts(ref_groups)
         // Inserts are processed together (to create MSA) so flatten and add key 
+
         insert_tuple = insert.inserts.flatten().map{ assembly -> tuple(assembly.simpleName, assembly)}
         // Keep assemblies that have an insert_reference and an insert assembly for insert_qc
-        insert_meta = polished.polished.map{ 
+        insert_meta = reorientated.fasta.map{ 
             meta, polished -> [meta.alias, meta]}
             .join(insert_tuple, failOnMismatch: false, remainder: true)
             .filter{ key, meta, insert -> (insert != null) && meta.insert_reference}
@@ -584,7 +670,7 @@ workflow pipeline {
         insert_status = insert_qc_tuple.status
         
         // Full reference
-        qc_full = align_assembly( polished.polished
+        qc_full = align_assembly( reorientated.fasta
         | filter {meta, assembly -> meta.full_reference}
         | map {meta, assembly -> [meta, assembly, meta.full_reference ]})
         assembly_comparison_output = assembly_comparison( qc_full )
@@ -601,10 +687,10 @@ workflow pipeline {
         final_status = final_status.collectFile(name: 'final_status.csv', newLine: true)
 
         annotation = runPlannotate(
-            database, polished.polished.map { it -> it[1] }.collect().ifEmpty(OPTIONAL_FILE),
+            database, reorientated.fasta.map { it -> it[1] }.collect().ifEmpty(OPTIONAL_FILE),
             final_status)
 
-        mafs = assemblyMafs(polished.polished)
+        mafs = assemblyMafs(reorientated.fasta)
 
         client_fields = params.client_fields && file(params.client_fields).exists() ? file(params.client_fields) : OPTIONAL_FILE
         stats = sample_fastqs.stats | ifEmpty(OPTIONAL_FILE) | collect | map { [it, it[0] == OPTIONAL_FILE] }
@@ -633,7 +719,7 @@ workflow pipeline {
             cutsite_csv
             )
 
-        results = polished.polished.map { meta, polished -> polished }.concat(
+        results = reorientated.fasta.map { meta, polished -> polished }.concat(
             report.html,
             report.sample_stat,
             annotation.feature_table,
@@ -644,7 +730,7 @@ workflow pipeline {
             workflow_params,
             bcf_insert,
             qc_insert,
-            polished.assembly_qc.map { meta, assembly_qc -> assembly_qc },
+            reorientated.fastq.map { meta, fastq -> fastq },
             bam.flatten(),
             full_assembly_stats,
             bcf,
