@@ -52,7 +52,7 @@ docker-run:
         - if: $MATRIX_NAME == "no-assemblies"
           variables:
               NF_WORKFLOW_OPTS: "--fastq test_data/test --assm_coverage 250"
-              NF_IGNORE_PROCESSES: "filterHostReads,cutsite_qc,sampleStatus,insert_qc,assembleCore,assembly_qc,downsampledStats,findPrimers,medakaPolishAssembly,assemblyMafs,canuVersion,full_assembly_qc,align_assembly,assembly_comparison"
+              NF_IGNORE_PROCESSES: "filterHostReads,cutsite_qc,sampleStatus,insert_qc,assembleCore,assembly_qc,downsampledStats,findPrimers,medakaPolishAssembly,assemblyMafs,canuVersion,full_assembly_qc,align_assembly,assembly_comparison,reorientateFastqAndGetFasta"
         - if: $MATRIX_NAME == "repetitive-region-dotplot"
           variables:
               NF_BEFORE_SCRIPT: "mkdir -p ${CI_PROJECT_NAME}/data/ && wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/clone_validation_repetitive_region.tar.gz -O ${CI_PROJECT_NAME}/data/clone_validation_repetitive_region.tar.gz && tar -xzvf ${CI_PROJECT_NAME}/data/clone_validation_repetitive_region.tar.gz  -C ${CI_PROJECT_NAME}/data/" 
