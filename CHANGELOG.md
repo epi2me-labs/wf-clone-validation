@@ -4,9 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [unreleased]
+### Added
+- Expected reference and insert columns added to the sample status table with a tick or cross indicating if the assembly is as expected based on the provided reference.
+- `--expected_identity` parameter to define the minimum expected identity percentage between provided references and the assembly (default: 99).
+- `--expected_coverage` parameters for define the minimum expected coverage percentage between a provided reference and the assembly (default: 95).
+- Insert QC section with coverage and BLAST Identities for Insert if an insert reference is provided.
 ### Changed
-- Assembly reorientation attempted so that it starts at full_reference start position and matches the direction, when --full_reference is provided
+- Assembly reorientation attempted so that it starts at full_reference start position and matches the direction, when --full_reference is provided.
+- Demo has been updated to include 12 samples.
 
 ## [v1.5.0]
 ### Fixed

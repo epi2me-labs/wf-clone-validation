@@ -50,6 +50,8 @@
 | assembly_tool | string | Select the assembly tool to use, either Canu or Flye. | Flye is the default assembler tool which will work in most cases. Alternatively select Canu but it will not work with ARM processors. | flye |
 | canu_fast | boolean | Fast option can make the assembly step significantly faster. It can be used on any genome size but may produce less continuous assemblies on genomes larger than 1 Gbp. | This option is only relevant if Canu is set as the assembly_tool parameter | False |
 | cutsite_mismatch | integer | Maximum number of mismatches allowed when searching for the cutsite in the reference fasta provided. Set to 0 for perfect matches only. Increasing allowed mismatches when increase risk of multiple matches, which will fail the workflow. |  | 1 |
+| expected_coverage | number | The minimum coverage expected (as a percentage %) between the aligned assemblies and references if provided. This applies to both reference and assembly coverage. Applies to both the full plasmid and/or the insert. | This is used with the `--expected_identity` parameter to indicate if the construct is as expected, which is shown by a tick or cross symbol in the sample status table of the report. | 95 |
+| expected_identity | number | The minimum identity expected (as a percentage %) between the aligned assemblies and references if provided. Applies to both the full plasmid and/or the insert. | This is used with the `--expected_coverage` parameter to indicate if the construct is as expected, which is shown by a tick or cross symbol in the sample status table of the report. | 99 |
 
 
 ### Miscellaneous Options

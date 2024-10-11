@@ -15,6 +15,7 @@ from ezcharts.layout.snippets.table import DataTable
 from ezcharts.plots import BokehPlot
 from ezcharts.plots.util import read_files
 from ezcharts.util import get_named_logger  # noqa: ABS101
+import numpy as np
 import pandas as pd
 from workflow_glue.bokeh_plot import get_bokeh
 from workflow_glue.report_utils import report_utils
@@ -54,24 +55,54 @@ def button_format(reason):
         return """<span class="badge bg-danger">""" + reason + """</span>"""
 
 
+def format_tick_cross(is_expected):
+    """Return a formatted tick or cross."""
+    return raw("&#9989;") if is_expected else raw("&#10060;")
+
+
+def add_expected_column(
+        bam_stats_df, sample_status_df, column_name,
+        expected_coverage, expected_identity):
+    """Add expected column to the sample status using BAM stats."""
+    bam_stats_df = bam_stats_df.copy()
+    bam_stats_df["expected"] = np.where(
+        (bam_stats_df['Reference coverage'] >= expected_coverage) &
+        (bam_stats_df['Assembly coverage'] >= expected_coverage) &
+        (bam_stats_df['BLAST Identity'] >= expected_identity),
+        True, False)
+    merged = pd.merge(sample_status_df, bam_stats_df[
+                ['Sample name', 'expected']],
+                how="outer", left_on='Sample', right_on='Sample name')
+    merged[column_name] = merged.apply(
+            lambda x: format_tick_cross(x['expected']),
+            axis=1)
+    merged = merged.drop('Sample name', axis=1)
+    merged = merged.drop('expected', axis=1)
+    return merged
+
+
 def main(args):
     """Run the entry point."""
     logger = get_named_logger("Report")
     report = labs.LabsReport(
         "Clone validation report", "wf-clone-validation-new",
         args.params, args.versions, args.wf_version)
+    # Define criteria for expected assembly tick in status table
+    expected_coverage = args.expected_coverage
+    expected_identity = args.expected_identity
     plannotate_annotations = json.load(open(args.plannotate_json)).keys()
     # Get sample info from status file
     passed_samples, sample_names, sample_status_dic = \
         report_utils.tidyup_status_file(
             args.status, plannotate_annotations)
-    # Sample status table
-    with report.add_section("Sample status", "Sample status"):
+    # Sample status table place holder
+    sample_status_table = report.add_section("Sample status", "Sample status")
+    with sample_status_table:
         p("""
 This table gives the status of each sample, either completed \
-successfully or the reason the workflow failed. \
+successfully or the reason the assembly failed. \
 If applicable the mean quality for the whole \
-plasmid assembly has been provided, derived by Medaka \
+construct has been provided, derived by Medaka \
 from aligning the reads to the consensus.
 """)
         if args.assembly_tool == "flye":
@@ -94,23 +125,26 @@ The assembly was generated using <a href="https://github.com/marbl/canu">Canu</a
         stats_df = pd.DataFrame(
             sample_stats, columns=["Sample", "Length"])
         status_df = pd.DataFrame(
-            sample_status_dic.items(), columns=['Sample', 'pass/failed reason'])
+            sample_status_dic.items(),
+            columns=['Sample', 'Assembly completed / failed reason'])
         sort_df = status_df['Sample'].astype(str).argsort()
         status_df = status_df.iloc[sort_df]
-        merged = pd.merge(status_df, stats_df)
-        merged.to_csv('sample_status.txt', index=False)
+        merged_status_df = pd.merge(status_df, stats_df)
+        merged_status_df.to_csv('sample_status.txt', index=False)
         if ('assembly_quality/OPTIONAL_FILE' not in args.assembly_quality):
             qc_df = read_files(args.assembly_quality)[
                 ['sample_name', 'mean_quality']]
             qc_df = qc_df.rename(columns={
                 'sample_name': 'Sample', 'mean_quality': 'Mean Quality'})
             qc_df = qc_df.reset_index(drop=True)
-            merged = pd.merge(merged, qc_df, how="outer")
-            merged.fillna('N/A', inplace=True)
-            merged['pass/failed reason'] = merged.apply(
-                lambda merged: button_format(merged['pass/failed reason']),
-                axis=1)
-        DataTable.from_pandas(merged, use_index=False)
+            merged_status_df = pd.merge(merged_status_df, qc_df, how="outer")
+            # N/A for samples which failed assembly
+            merged_status_df.fillna('N/A', inplace=True)
+            merged_status_df['Assembly completed / failed reason'] = \
+                merged_status_df.apply(
+                    lambda x: button_format(
+                        x['Assembly completed / failed reason']),
+                    axis=1)
     with report.add_section("Plannotate", "Plannotate"):
         raw("""The Plasmid annotation plot and feature table are produced using \
 <a href="http://plannotate.barricklab.org/">pLannotate</a>""")
@@ -229,6 +263,36 @@ if a host reference was provided.
                             pre(os.linesep.join(formatted_msa))
 
     if ('OPTIONAL_FILE' not in os.listdir(args.qc_inserts)):
+        if args.insert_alignment_bamstats:
+            df = report_utils.bamstats_table(
+                args.insert_alignment_bamstats,
+                passed_samples)
+            merged_status_df = add_expected_column(
+                df, merged_status_df,
+                "Expected insert",
+                expected_coverage, expected_identity)
+            with report.add_section("Insert QC", "Insert QC"):
+                p("""
+This section can be used to ensure the provided insert reference
+matches the insert found in the assembly.
+
+The table belows shows coverage and BLAST identity between
+the two.
+
+Reference coverage is the percentage of the provided insert reference
+sequence covered in the alignment with the assembled construct.
+
+Assembly coverage is the percentage of the assembled insert
+sequence covered in the alignment with the provided insert reference.
+
+BLAST identity is calculated as: (length - ins - del - sub) / length.
+
+If both coverage and identity are 0,
+the assembled insert did not align with the provided insert
+reference.
+""")
+                DataTable.from_pandas(df, use_index=False)
+
         with report.add_section("Insert variants", "Insert variants"):
             p("""
         The following tables and figures are output from bcftools from
@@ -258,6 +322,14 @@ if a host reference was provided.
 None of the assemblies found aligned with the provided reference.
 """)
     if args.reference_alignment_bamstats:
+        # Use bamstats to output table with coverage and identity per sample
+        df = report_utils.bamstats_table(
+            args.reference_alignment_bamstats,
+            passed_samples)
+        merged_status_df = add_expected_column(
+            df, merged_status_df,
+            "Expected Assembly",
+            expected_coverage, expected_identity)
         with report.add_section("Full construct QC", "Construct QC"):
             p("""
 This section can be used to ensure the provided reference matches the assembly.
@@ -276,10 +348,6 @@ BLAST Identity is calculated as: (length - ins - del - sub) / length.
 If both coverage and identity are 0, the assembly did not align with the provided
 reference.
 """)
-            # Use bamstats to output table with coeverage and identity per sample
-            df = report_utils.bamstats_table(
-                args.reference_alignment_bamstats,
-                passed_samples)
             DataTable.from_pandas(df, use_index=False)
             if args.full_assembly_variants:
                 p("""
@@ -298,6 +366,19 @@ reference.
                     args.full_assembly_variants, report)
                 trans_df = trans_df.sort_values(by='id')
                 DataTable.from_pandas(trans_df, use_index=False)
+    if args.reference_alignment_bamstats or args.insert_alignment_bamstats:
+        # If references provided add explanation of the expected_assembly
+        # and expected insert columns to the report.
+        with sample_status_table:
+            raw("""
+The assemblies and/or inserts were aligned with provided references and
+marked as expected if they meet both the acceptance
+criteria defined by the expected_coverage and expected_identity
+parameters which have been set to {}% and {}% respectively.
+""".format(expected_coverage, expected_identity))
+    # Add the final merged status table to the sample status section
+    with sample_status_table:
+        DataTable.from_pandas(merged_status_df, use_index=False)
     # dot plots
     if ('OPTIONAL_FILE' not in os.listdir(args.mafs)):
         with report.add_section("Dot plots", "Dot plots"):
@@ -424,11 +505,22 @@ def argparser():
         "--reference_alignment_bamstats", nargs='+',
         help="bamstats files from reference alignment")
     parser.add_argument(
+        "--insert_alignment_bamstats", nargs='+',
+        help="bamstats files from insert alignment")
+    parser.add_argument(
         "--client_fields",
         help="JSON file containing client_fields")
     parser.add_argument(
         "--wf_version", default='unknown',
         help="version of the executed workflow")
+    parser.add_argument(
+        "--expected_coverage", required=True,
+        type=float,
+        help="Expected coverage as a percentage")
+    parser.add_argument(
+        "--expected_identity", required=True,
+        type=float,
+        help="Expected identity as a percentage")
 
     return parser
 

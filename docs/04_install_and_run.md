@@ -46,8 +46,9 @@ tar -xzvf wf-clone-validation-demo.tar.gz
 The workflow can then be run with the downloaded demo data using:
 ```
 nextflow run epi2me-labs/wf-clone-validation \
-	--fastq 'wf-clone-validation-demo/test' \
+	--fastq 'wf-clone-validation-demo/fastq' \
 	--primers 'wf-clone-validation-demo/primers.tsv' \
+	--sample_sheet 'wf-clone-validation-demo/sample_sheet.csv' \
 	-profile standard
 ```
 
