@@ -265,6 +265,22 @@
                     "hidden": true,
                     "title": "Maximum allowed mismatches in the insert primers",
                     "description": "Maximum number of mismatches allowed when searching for the primers in the assembly."
+                },
+                "expected_coverage": {
+                    "type": "number",
+                    "default": 95,
+                    "minimum": 0,
+                    "maximum": 100,
+                    "description": "The minimum coverage expected (as a percentage %) between the aligned assemblies and references if provided. This applies to both reference and assembly coverage. Applies to both the full plasmid and/or the insert.",
+                    "help_text": "This is used with the `--expected_identity` parameter to indicate if the construct is as expected, which is shown by a tick or cross symbol in the sample status table of the report."
+                },
+                "expected_identity": {
+                    "type": "number",
+                    "default": 99,
+                    "minimum": 0,
+                    "maximum": 100,
+                    "description": "The minimum identity expected (as a percentage %) between the aligned assemblies and references if provided. Applies to both the full plasmid and/or the insert.",
+                    "help_text": "This is used with the `--expected_coverage` parameter to indicate if the construct is as expected, which is shown by a tick or cross symbol in the sample status table of the report."
                 }
             }
         },

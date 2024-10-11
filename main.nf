@@ -404,10 +404,12 @@ process insert_qc {
     output:
          tuple val(meta), path("${meta.alias}.insert.calls.bcf"), path("${meta.alias}.insert.stats"), optional: true, emit: insert_stats
          tuple val(meta.alias), env(STATUS), emit: status
+         path("${meta.alias}.insert.bam.stats"), emit: insert_align_stats
     script:
     """
     STATUS="Insert found but does not align with provided reference"
     minimap2 -t $task.cpus -y -ax map-ont insert_ref.fasta "insert_assembly.fasta" | samtools sort -o output.bam -
+    bamstats -t ${task.cpus} -s "${meta.alias}" "output.bam" > "${meta.alias}.insert.bam.stats"
     mapped=\$(samtools view -F 4 -c  output.bam)
     if [ \$mapped != 0 ]; then
         # -m1 reduces evidence for indels to 1 read instead of the default 2
@@ -426,12 +428,14 @@ process align_assembly {
     input:
         tuple val(meta), path("full_assembly.fasta"), path("full_reference.fasta")
     output:
-        tuple val(meta), path("${meta.alias}.bam"), path("${meta.alias}.bam.bai"), path("full_reference.fasta"), optional: true
+        path("${meta.alias}.bam.stats"), emit: bamstats
+        tuple val(meta), path("${meta.alias}.bam"), path("${meta.alias}.bam.bai"), path("full_reference.fasta"), emit: ref_aligned, optional: true
     script:
     // Align assembly with the reference. The assembly has previously been attempted to be reorientated to match with the reference.
     """
     minimap2 -t ${task.cpus - 1} -y -ax asm5 full_reference.fasta "full_assembly.fasta" > ${meta.alias}_unsorted.bam
     mapped=\$(samtools view -F 4 -c ${meta.alias}_unsorted.bam)
+    bamstats -t ${task.cpus} -s "${meta.alias}" "${meta.alias}_unsorted.bam" > "${meta.alias}.bam.stats"
     if [ \$mapped != 0 ]; then
         samtools sort -@ ${task.cpus} --write-index -o ${meta.alias}.bam##idx##${meta.alias}.bam.bai ${meta.alias}_unsorted.bam
     fi
@@ -446,13 +450,10 @@ process assembly_comparison {
     input:
         tuple val(meta), path("${meta.alias}.bam"), path("${meta.alias}.bam.bai"), path("full_reference.fasta")
     output: 
-        path("${meta.alias}.bam.stats"), emit: bamstats
         tuple val(meta), path("${meta.alias}.full_construct.calls.bcf"), path("${meta.alias}.full_construct.stats"), emit: full_assembly_stats
     script:
-    // use bamstats to get percent identity and reference coverage
     // Also get variants report
     """
-    bamstats -t ${task.cpus} -s "${meta.alias}" "${meta.alias}.bam" > "${meta.alias}.bam.stats"
     # -m1 reduces evidence for indels to 1 read instead of the default 2
     bcftools mpileup -m1 -Ou -f full_reference.fasta "${meta.alias}.bam" | bcftools call -mv -Ob -o "${meta.alias}.full_construct.calls.bcf"
     bcftools stats "${meta.alias}.full_construct.calls.bcf" > ${meta.alias}.full_construct.stats
@@ -526,9 +527,10 @@ process report {
         path "mafs/*"
         path client_fields
         val wf_version
-        path "full_assembly_variants/*"
-        path "assembly_bamstats/*"
+        path full_assembly_variants, stageAs: "full_assembly_variants/*"
+        path assembly_bamstats, stageAs: "assembly_bamstats/*"
         path cutsite_csv, stageAs: "cutsite_csv/*"
+        path insert_bamstats, stageAs: "insert_bamstats/*"
     output:
         path "wf-clone-validation-*.html", emit: html
         path "sample_status.txt", emit: sample_stat
@@ -540,18 +542,14 @@ process report {
         String metadata = metadata_obj.toPrettyString()
         String client_fields_args = client_fields.name != "OPTIONAL_FILE" ? "--client_fields ${client_fields}" : ""
         String cutsite = cutsite_csv.fileName.name == "OPTIONAL_FILE" ? "" : "--cutsite_csv cutsite_csv/*"
+        String insert_bamstats = insert_bamstats.fileName.name == "OPTIONAL_FILE" ? "" : "--insert_alignment_bamstats insert_bamstats/*"
+        String assembly_bamstats = assembly_bamstats.fileName.name == "OPTIONAL_FILE" ? "" : "--reference_alignment_bamstats assembly_bamstats/*"
+        String full_assembly_variants = full_assembly_variants.fileName.name == "OPTIONAL_FILE" ? "" : "--full_assembly_variants full_assembly_variants"
     """
     echo '${metadata}' > metadata.json
-    if [ -f "full_assembly_variants/OPTIONAL_FILE" ]; then
-        full_assembly_variants=""
-    else
-        full_assembly_variants="--full_assembly_variants full_assembly_variants"
-    fi
-    if [ -f "assembly_bamstats/OPTIONAL_FILE" ]; then
-        assembly_bamstats=""
-    else
-        assembly_bamstats="--reference_alignment_bamstats assembly_bamstats/*"
-    fi
+  
+
+   
     workflow-glue report \
      $report_name \
     --metadata metadata.json \
@@ -572,9 +570,12 @@ process report {
     --assembly_tool ${params.assembly_tool} \
     $client_fields_args \
     --wf_version $wf_version \
-    \$assembly_bamstats \
-    \$full_assembly_variants \
-    $cutsite
+    $assembly_bamstats \
+    $full_assembly_variants \
+    $cutsite \
+    $insert_bamstats \
+    --expected_coverage ${params.expected_coverage} \
+    --expected_identity ${params.expected_identity} 
     """
 }
 
@@ -669,15 +670,15 @@ workflow pipeline {
         bcf_insert = insert_qc_tuple.insert_stats.map{meta, bcf, stats -> bcf}
         insert_status = insert_qc_tuple.status
         
-        // Full reference
+        // Full reference QC
         qc_full = align_assembly( reorientated.fasta
         | filter {meta, assembly -> meta.full_reference}
         | map {meta, assembly -> [meta, assembly, meta.full_reference ]})
-        assembly_comparison_output = assembly_comparison( qc_full )
-        ref_bamstats = assembly_comparison_output.bamstats
+        assembly_comparison_output = assembly_comparison( qc_full.ref_aligned )
+        ref_bamstats = qc_full.bamstats
         full_assembly_stats = assembly_comparison_output.full_assembly_stats.map{meta, bcf, stats -> stats}
         bcf = assembly_comparison_output.full_assembly_stats.map{meta, bcf, stats -> bcf}
-        bam = qc_full.map{meta, bam, bai, ref -> [bam, bai]}
+        bam = qc_full.ref_aligned.map{meta, bam, bai, ref -> [bam, bai]}
 
 
         // Concat statuses and keep the last of each
@@ -716,7 +717,8 @@ workflow pipeline {
             workflow.manifest.version,
             full_assembly_stats.collect().ifEmpty(OPTIONAL_FILE),
             ref_bamstats.collect().ifEmpty(OPTIONAL_FILE),
-            cutsite_csv
+            cutsite_csv,
+            insert_qc_tuple.insert_align_stats.collect().ifEmpty(OPTIONAL_FILE)
             )
 
         results = reorientated.fasta.map { meta, polished -> polished }.concat(
