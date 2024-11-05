@@ -165,16 +165,13 @@ process reorientateFastqAndGetFasta {
                 rstart = \$indices["rstart"]
             }
             END {
-                # bamstats start coordinates are 0-based; add 1 when comparing against
-                # ref length
-                # Add 1 as bamstats is 0-based and seqkit restart is 1-based
                 rstart += 1
                 if (strand == "-") {
                     # For negative strand, move to the end of the reference
                     rstart = rstart + ref_length
-                    if (rstart + 1 > assembly_length) rstart -= assembly_length
+                    if (rstart > assembly_length) rstart -= assembly_length
                 }
-                if (rstart + 1 > assembly_length) rstart -= assembly_length
+                if (rstart > assembly_length) rstart -= assembly_length
                 print strand, rstart
             }
         ' bamstats.tsv)"
