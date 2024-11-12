@@ -734,7 +734,9 @@ workflow pipeline {
             full_assembly_stats,
             bcf,
             ref_bamstats,
-            assembly_quality.collect().ifEmpty(OPTIONAL_FILE))
+            assembly_quality.collect(),
+            mafs.map{ meta, maf -> maf}.collect()
+        )
         
     emit:
         results

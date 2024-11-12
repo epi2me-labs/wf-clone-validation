@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Assembly reorientation attempted so that it starts at full_reference start position and matches the direction, when --full_reference is provided.
 - Demo has been updated to include 12 samples.
+- Emit mafs to enable dot plots to be re-used in reports generated in aliased workflows.
 
 ## [v1.5.0]
 ### Fixed
