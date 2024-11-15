@@ -57,7 +57,7 @@ def button_format(reason):
 
 def format_tick_cross(is_expected):
     """Return a formatted tick or cross."""
-    return raw("&#9989;") if is_expected else raw("&#10060;")
+    return raw("&#9989;") if (is_expected is True) else raw("&#10060;")
 
 
 def add_expected_column(
