@@ -304,6 +304,7 @@ process getVersions {
 
 process getParams {
     label "wfplasmid"
+    cache false
     cpus 1
     memory "2GB"
     output:
