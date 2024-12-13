@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### Added
+- Support for `host_reference` and `regions_bedfile` columns in the sample sheet (to provide different references for individual samples). Sample sheet specification cannot be used in conjunction with `--host_reference` and `--regions_bedfile` parameters.
+- Host reference BAM and BAI are now published in outputs.
+
 ## [v1.6.0]
 ### Added
 - Expected reference and insert columns added to the sample status table with a tick or cross indicating if the assembly is as expected based on the provided reference.

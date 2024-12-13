@@ -96,6 +96,22 @@
       "optional": true,
       "type": "per-sample"
     },
+    "host_bam" : {
+      "filepath": "./{{ alias }}.host.bam",
+      "title": "Host reference alignment",
+      "description": "Host reference aligned with sample in BAM format, only relevant if a host reference was provided.",
+      "mime-type": "application/gzip",
+      "optional": true,
+      "type": "per-sample"
+    },
+    "host_bai" : {
+      "filepath": "./{{ alias }}.host.bam.bai",
+      "title": "Host reference alignment index",
+      "description": "The index for the host reference aligned with sample, only relevant if a host reference was provided.",
+      "mime-type": "application/octet-stream",
+      "optional": true,
+      "type": "per-sample"
+    },
     "bam_stats" : {
       "filepath": "./{{ alias }}.bam.stats",
       "title": "BAM Stats",

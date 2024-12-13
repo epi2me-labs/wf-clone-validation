@@ -12,38 +12,6 @@ if (params.assembly_tool == 'canu'){
 
 OPTIONAL_FILE = file("$projectDir/data/OPTIONAL_FILE")
 
-process checkIfEnoughReads {
-    label "wfplasmid"
-    cpus params.threads
-    memory "2GB"
-    input:
-        tuple val(meta), path("input.fastq.gz"), path("fastcat_stats")
-    output:
-        tuple val(meta), path("${meta.alias}.fastq.gz"),
-            optional: true, emit: sample
-        path("${meta.alias}.fastcat_stats"), emit: stats
-        tuple val(meta.alias), env(STATUS), emit: status
-    script:
-        int min_read_length = params.large_construct ? 200 : meta.approx_size * 0.5
-        int max_read_length = meta.approx_size * 1.5
-        def extra_args = "-a $min_read_length -b $max_read_length"
-        def expected_depth = "$params.assm_coverage"
-        // a little heuristic to decide if we have enough data
-        
-        int value = (expected_depth.toInteger()) * 0.8
-        int bgzip_threads = task.cpus == 1 ? 1 : task.cpus - 1
-    """
-    STATUS="Failed due to insufficient reads"
-    mv fastcat_stats "${meta.alias}.fastcat_stats"
-    fastcat -s ${meta.alias} -r ${meta.alias}.interim $extra_args input.fastq.gz \
-    | bgzip -@ $bgzip_threads > interim.fastq.gz
-    if [[ "\$(wc -l < "${meta.alias}.interim")" -ge "$value" ]]; then
-        mv interim.fastq.gz ${meta.alias}.fastq.gz
-        STATUS="Completed successfully"
-    fi
-    """
-}
-
 
 process filterHostReads {
     errorStrategy 'ignore'
@@ -51,11 +19,10 @@ process filterHostReads {
     cpus params.threads
     memory "4GB"
     input:
-        tuple val(meta), path(fastq)
-        path reference
-        path regions_bedfile
+        tuple val(meta), path(fastq), path(fastcat_stats), path(reference), path(regions_bedfile)
     output:
-        tuple val(meta), path("*.filtered.fastq"), optional: true, emit: unmapped
+        tuple val(meta), path("*.filtered.fastq"), path(fastcat_stats), optional: true, emit: unmapped
+        tuple val(meta), path("${meta.alias}.host.bam"), path("${meta.alias}.host.bam.bai"), optional: true, emit: host_bam
         path "*.stats", optional: true, emit: host_filter_stats
         tuple val(meta.alias), env(STATUS), emit: status
     script:
@@ -66,9 +33,10 @@ process filterHostReads {
     (minimap2 -t $task.cpus -y -ax map-ont $reference $fastq \
         | samtools sort -o ${name}.sorted.aligned.bam -
     samtools index ${name}.sorted.aligned.bam 
-    samtools view -b -f 4  ${name}.sorted.aligned.bam > unmapped.bam
-    samtools view -b -F 4  ${name}.sorted.aligned.bam > mapped.bam
+    samtools view --bam --require-flags 4 --write-index -o "unmapped.bam##idx##unmapped.bam.bai" --output-unselected  "${name}.host.bam##idx##${name}.host.bam.bai" "${name}.sorted.aligned.bam"
     samtools fastq unmapped.bam > ${name}.filtered.fastq
+
+    # Run fastcat on filtered reads
     fastcat -s ${name} -r ${name}.interim ${name}.filtered.fastq > /dev/null
     if [[ "\$(wc -l <"${name}.interim")" -ge "1" ]];  then
         mv ${name}.interim ${name}.stats
@@ -78,6 +46,39 @@ process filterHostReads {
             | samtools view -bh - > retained.bam
         samtools fastq retained.bam >> ${name}.filtered.fastq
     fi ) && STATUS="Completed successfully"
+    """
+}
+
+
+process checkIfEnoughReads {
+    label "wfplasmid"
+    cpus params.threads
+    memory "2GB"
+    input:
+        tuple val(meta), path("input.fastq.gz"), path("fastcat_stats")
+    output:
+        tuple val(meta), path("${meta.alias}.fastq.gz"), optional: true, emit: sample
+        path("${meta.alias}.fastcat_stats"), emit: stats
+        tuple val(meta.alias), env(STATUS), emit: status
+    script:
+        int min_read_length = params.large_construct ? 200 : meta.approx_size * 0.5
+        int max_read_length = meta.approx_size * 1.5
+        def extra_args = "-a $min_read_length -b $max_read_length"
+        def expected_depth = "$params.assm_coverage"
+        // a little heuristic to decide if we have enough data
+        int value = (expected_depth.toInteger()) * 0.8
+        int bgzip_threads = task.cpus == 1 ? 1 : task.cpus - 1
+    """
+    STATUS="Failed due to insufficient reads"
+    # Raw fastcat stats - carried forward from filterHost (if run)
+    mv fastcat_stats "${meta.alias}.fastcat_stats"
+
+    fastcat -s ${meta.alias} -r ${meta.alias}.interim $extra_args input.fastq.gz \
+    | bgzip -@ $bgzip_threads > interim.fastq.gz
+    if [[ "\$(wc -l < "${meta.alias}.interim")" -ge "$value" ]]; then
+        mv interim.fastq.gz ${meta.alias}.fastq.gz
+        STATUS="Completed successfully"
+    fi
     """
 }
 
@@ -400,8 +401,8 @@ process insert_qc {
     input:
          tuple val(meta), path("insert_assembly.fasta"), path("insert_ref.fasta")
     output:
-         tuple val(meta), path("${meta.alias}.insert.calls.bcf"), path("${meta.alias}.insert.stats"), optional: true, emit: insert_stats
-         tuple val(meta.alias), env(STATUS), emit: status
+        tuple val(meta), path("${meta.alias}.insert.calls.bcf"), path("${meta.alias}.insert.calls.bcf.csi"), path("${meta.alias}.insert.stats"), optional: true, emit: insert_stats
+        tuple val(meta.alias), env(STATUS), emit: status
          path("${meta.alias}.insert.bam.stats"), emit: insert_align_stats
     script:
     """
@@ -412,6 +413,7 @@ process insert_qc {
     if [ \$mapped != 0 ]; then
         # -m1 reduces evidence for indels to 1 read instead of the default 2
         bcftools mpileup -m1 -Ou -f insert_ref.fasta output.bam | bcftools call -mv -Ob -o "${meta.alias}.insert.calls.bcf"
+        bcftools index "${meta.alias}.insert.calls.bcf"
         bcftools stats "${meta.alias}.insert.calls.bcf" > "${meta.alias}.insert.stats"
         STATUS="Completed successfully"
     fi
@@ -426,7 +428,7 @@ process align_assembly {
     input:
         tuple val(meta), path("full_assembly.fasta"), path("full_reference.fasta")
     output:
-        path("${meta.alias}.bam.stats"), emit: bamstats
+        tuple val(meta), path("${meta.alias}.bam.stats"), emit: bamstats
         tuple val(meta), path("${meta.alias}.bam"), path("${meta.alias}.bam.bai"), path("full_reference.fasta"), emit: ref_aligned, optional: true
     script:
     // Align assembly with the reference. The assembly has previously been attempted to be reorientated to match with the reference.
@@ -448,12 +450,13 @@ process assembly_comparison {
     input:
         tuple val(meta), path("${meta.alias}.bam"), path("${meta.alias}.bam.bai"), path("full_reference.fasta")
     output: 
-        tuple val(meta), path("${meta.alias}.full_construct.calls.bcf"), path("${meta.alias}.full_construct.stats"), emit: full_assembly_stats
+        tuple val(meta), path("${meta.alias}.full_construct.calls.bcf"), path("${meta.alias}.full_construct.calls.bcf.csi"), path("${meta.alias}.full_construct.stats"), emit: full_assembly_stats
     script:
     // Also get variants report
     """
     # -m1 reduces evidence for indels to 1 read instead of the default 2
     bcftools mpileup -m1 -Ou -f full_reference.fasta "${meta.alias}.bam" | bcftools call -mv -Ob -o "${meta.alias}.full_construct.calls.bcf"
+    bcftools index "${meta.alias}.full_construct.calls.bcf"
     bcftools stats "${meta.alias}.full_construct.calls.bcf" > ${meta.alias}.full_construct.stats
     """
 }
@@ -467,7 +470,7 @@ process assembly_qc {
     input:
         tuple val(meta), path("assembly.fastq")
     output:
-        path "${meta.alias}.assembly_stats.tsv"
+        tuple val(meta), path("${meta.alias}.assembly_stats.tsv")
     script:
     """
     fastcat -s "${meta.alias}" -r "${meta.alias}.assembly_stats.tsv" assembly.fastq
@@ -580,35 +583,37 @@ process report {
 workflow pipeline {
     take:
         samples
-        host_reference
-        regions_bedfile
         database
         primers
         cutsite_csv // alias, read_counts, cutsite_count
         user_medaka_model
 
     main:
-        // drop samples with too low coverage
-        sample_fastqs = checkIfEnoughReads(samples)
 
         // Optionally filter the data, removing reads mapping to
         // the host or background genome
-        if (host_reference.name != "NO_HOST_REF") {
-            filtered = filterHostReads(
-                    sample_fastqs.sample, host_reference, regions_bedfile)
-            samples_filtered = filtered.unmapped
-            updated_status = filtered.status
-            filtered_stats = filtered.host_filter_stats.collect()
-                             .ifEmpty(OPTIONAL_FILE)
+
+        samples
+        | branch {meta, fastq, stats ->
+            host: meta.host_reference != "NO_HOST_REF"
+                return [meta, fastq, stats, meta.host_reference, meta.regions_bedfile]
+            no_host: meta.host_reference == "NO_HOST_REF"
+                return [meta, fastq, stats]
         }
-        else {
-            samples_filtered = sample_fastqs.sample
-            updated_status = sample_fastqs.status
-            filtered_stats = OPTIONAL_FILE
-        }
+        | set{ host_samples }
+        
+        filtered = filterHostReads(host_samples.host)
+        samples_filtered = filtered.unmapped.concat(host_samples.no_host)
+        host_bams = filtered.host_bam
+        host_status = filtered.status
+        filtered_stats = filtered.host_filter_stats | collect | ifEmpty(OPTIONAL_FILE)
+
+        // drop samples with too low coverage
+        sample_fastqs = checkIfEnoughReads(samples_filtered)
+
 
         // Core assembly and reconciliation
-        assemblies = assembleCore(samples_filtered)
+        assemblies = assembleCore(sample_fastqs.sample)
         named_drafts = assemblies.assembly.groupTuple()
         named_samples = assemblies.downsampled.groupTuple()
         named_drafts_samples = named_drafts
@@ -664,8 +669,8 @@ workflow pipeline {
         // Insert QC
         insert_qc_tuple = insert_qc(insert_meta)
 
-        qc_insert = insert_qc_tuple.insert_stats.map{meta, bcf, stats -> stats}
-        bcf_insert = insert_qc_tuple.insert_stats.map{meta, bcf, stats -> bcf}
+        qc_insert = insert_qc_tuple.insert_stats.map{meta, bcf, idx, stats -> stats}
+        bcf_insert = insert_qc_tuple.insert_stats.map{meta, bcf, idx, stats -> bcf}
         insert_status = insert_qc_tuple.status
         
         // Full reference QC
@@ -674,13 +679,13 @@ workflow pipeline {
         | map {meta, assembly -> [meta, assembly, meta.full_reference ]})
         assembly_comparison_output = assembly_comparison( qc_full.ref_aligned )
         ref_bamstats = qc_full.bamstats
-        full_assembly_stats = assembly_comparison_output.full_assembly_stats.map{meta, bcf, stats -> stats}
-        bcf = assembly_comparison_output.full_assembly_stats.map{meta, bcf, stats -> bcf}
-        bam = qc_full.ref_aligned.map{meta, bam, bai, ref -> [bam, bai]}
+        full_assembly_stats = assembly_comparison_output.full_assembly_stats.map{meta, bcf, idx, stats -> stats}
+        bcf = assembly_comparison_output.full_assembly_stats.map{meta, bcf, idx, stats -> bcf}
+        bam = qc_full.ref_aligned.map{meta, bam, bai, ref -> [meta, bam, bai]}
 
 
         // Concat statuses and keep the last of each
-        final_status = sample_fastqs.status.concat(updated_status)
+        final_status = host_status.concat(sample_fastqs.status)
         .concat(assemblies.status).concat(polished.status).concat(insert_status).groupTuple()
         .map { it -> it[0].toString() + ',' + it[1][-1].toString() }
         final_status = final_status.collectFile(name: 'final_status.csv', newLine: true)
@@ -709,50 +714,39 @@ workflow pipeline {
             insert.json.collect(),
             annotation.json,
             qc_insert.collect().ifEmpty(OPTIONAL_FILE),
-            assembly_quality.collect().ifEmpty(OPTIONAL_FILE),
+            assembly_quality.map{ meta, stats -> stats }.collect().ifEmpty(OPTIONAL_FILE),
             mafs.map{ meta, maf -> maf}.collect().ifEmpty(OPTIONAL_FILE),
             client_fields,
             workflow.manifest.version,
             full_assembly_stats.collect().ifEmpty(OPTIONAL_FILE),
-            ref_bamstats.collect().ifEmpty(OPTIONAL_FILE),
+            ref_bamstats.map{ meta, bamstats -> bamstats }.collect().ifEmpty(OPTIONAL_FILE),
             cutsite_csv,
             insert_qc_tuple.insert_align_stats.collect().ifEmpty(OPTIONAL_FILE)
             )
 
-        results = reorientated.fasta.map { meta, polished -> polished }.concat(
-            report.html,
-            report.sample_stat,
-            annotation.feature_table,
-            insert.inserts.collect(),
-            annotation.json,
-            annotation.annotations,
-            annotation.gbk,
-            workflow_params,
-            bcf_insert,
-            qc_insert,
-            reorientated.fastq.map { meta, fastq -> fastq },
-            bam.flatten(),
-            full_assembly_stats,
-            bcf,
-            ref_bamstats,
-            assembly_quality.collect(),
-            mafs.map{ meta, maf -> maf}.collect()
-        )
-        
     emit:
-        results
-        telemetry = workflow_params
+        report = report | concat // aggregated channel
+        annotations = annotation | concat // aggregated channel
+        assemblies = reorientated | join // per-sample channel
+        inserts = insert.inserts // per-insert channel
+        insert_qc = insert_qc_tuple.insert_stats // per-sample channel
+        bams = bam //per-sample channel
+        full_assembly_stats = assembly_comparison_output.full_assembly_stats // per-sample channel
+        bamstats = ref_bamstats // per-sample channel
+        assembly_stats = assembly_quality // per-sample channel
+        mafs = mafs // per-sample channel
+        host = host_bams // per-sample channel
+        telemetry = workflow_params // run specific
 }
 
 
 // See https://github.com/nextflow-io/nextflow/issues/1636
 // This is the only way to publish files from a workflow whilst
 // decoupling the publish from the process steps.
-process output {
+process publish {
     // publish inputs to output directory
     label "wfplasmid"
-    publishDir "${params.out_dir}", mode: 'copy', pattern: "*", saveAs: {
-        f -> params.prefix ? "${params.prefix}-${f}" : "${f}" }
+    publishDir "${params.out_dir}", mode: 'copy', pattern: "*"
     input:
         file fname
     output:
@@ -828,6 +822,16 @@ workflow {
         if (meta.insert_reference == ""){
             throw new Exception("When using a sample sheet with 'full_reference' column please provide a reference for each sample.")
         }
+
+        // Host reference checks
+        if (meta.host_reference && params.host_reference){
+            throw new Exception("Parameter --host_reference cannot be used in conjunction with a sample sheet with column 'host_reference'")
+        }
+        // Host regions bed
+        if (meta.regions_bedfile && params.regions_bedfile){
+            throw new Exception("Parameter --regions_bedfile cannot be used in conjunction with a sample sheet with column 'regions_bedfile'")
+        }
+
         // Approx size checks
         if (meta.approx_size && params.approx_size){
             log.warn("Parameter --approx_size will be overwritten by column 'approx_size'")
@@ -835,7 +839,6 @@ workflow {
         if (meta.approx_size == ""){
             throw new Exception("When using a sample sheet with `approx_size` column please provide  for all samples.")
         }
-
         // Cut site
         if (meta.cut_site == ""){
             throw new Exception("One or more cut_sites from the sample sheet were missing. Add one cut site per sample.")
@@ -852,23 +855,22 @@ workflow {
             }
         }
         // Check that files in sample_sheets exist
-        // Turn file objects toString() to keep in meta and stop StackOverflowError
 	    full_reference = (meta.full_reference ?: params.full_reference) 
         insert_reference = (meta.insert_reference ?: params.insert_reference)
+        host_reference = (meta.host_reference ?: params.host_reference)
+        regions_bedfile = (meta.regions_bedfile ?: params.regions_bedfile)
         approx_size = (meta.approx_size ?: params.approx_size) as int
         // Check if null before adding file around it ()
         new_keys = ["full_reference": full_reference ? file(full_reference, checkIfExists: true) : null,
             "insert_reference": insert_reference ? file(insert_reference, checkIfExists: true) : null,
+            "host_reference": host_reference ? file(host_reference, checkIfExists: true) : "NO_HOST_REF",
+            "regions_bedfile": regions_bedfile ? file(regions_bedfile, checkIfExists: true) : file("NO_REG_BED", checkIfExists: false),
             "approx_size": approx_size
         ]
         return [ meta + new_keys, read, stats ]
     }
 
 
-    host_reference = params.host_reference ?: 'NO_HOST_REF'
-    host_reference = file(host_reference, checkIfExists: host_reference == 'NO_HOST_REF' ? false : true)
-    regions_bedfile = params.regions_bedfile ?: 'NO_REG_BED'
-    regions_bedfile = file(regions_bedfile, checkIfExists: regions_bedfile == 'NO_REG_BED' ? false : true)
     primer_file = OPTIONAL_FILE
     if (params.primers != null){
         primer_file = file(params.primers, type: "file")
@@ -900,16 +902,25 @@ workflow {
     // Run pipeline
     results = pipeline(
         samples,
-        host_reference,
-        regions_bedfile,
         database,
         primer_file,
         cutsite_csv,
         user_medaka_model
         )
-
-    results[0]
-    | output
+        
+    results.report
+    | concat(
+        results.annotations | flatten ,
+        results.inserts | collect ,
+        results.assemblies | map { meta, fa, fq -> [fa, fq] }| flatten ,
+        results.insert_qc | map { meta, bcf, idx, stats -> [bcf, idx, stats] } | flatten , 
+        results.full_assembly_stats | map { meta, bcf, idx, stats -> [bcf, idx, stats ] } | flatten ,
+        results.bamstats | map { meta, bamstats -> bamstats }, 
+        results.assembly_stats | map { meta, stats -> stats },
+        results.mafs | map { meta, mafs -> mafs }, 
+        results.host | map { meta, bam, bai -> [ bam, bai ] } | flatten ,
+        results.bams | map { meta, bam, bai -> [ bam, bai ] } | flatten )
+    | publish
 }
 
 workflow.onComplete {
