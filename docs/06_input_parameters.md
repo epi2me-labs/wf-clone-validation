@@ -16,8 +16,8 @@
 |--------------------------|------|-------------|------|---------|
 | insert_reference | string | Optional file containing insert reference sequence which will be used for comparison with consensus insert in the report. | Providing a reference sequence can be useful as a QC on the base-level resolution of the the reconstructed insert sequences. Users can specify different insert references for individual samples using the sample sheet and including an `insert_reference` column. This cannot be used in conjunction with `--insert_reference`. |  |
 | full_reference | string | Optional FASTA file containing the reference sequence of the full plasmid. This will be used for comparison with the assembled construct. | Providing a reference sequence can be useful as a quality check on the base-level resolution of the reconstructed sequence, the reference is not used to generate the assembly. Users can specify different full references for individual samples using the sample sheet and including a `full_reference` column. This cannot be used in conjunction with `--full_reference`. |  |
-| host_reference | string | A host reference genome FASTA file. Read which map to this reference are discarded and not used for the assembly. |  |  |
-| regions_bedfile | string | If a host_reference supplied, add an optional BED file to provide host reference regions that will be masked during filtering. |  |  |
+| host_reference | string | A host reference genome FASTA file. Read which map to this reference are discarded and not used for the assembly.  Users can specify different host references for individual samples using the sample sheet and including a `host_reference` column. This cannot be used in conjunction with `--host_reference`. |  |  |
+| regions_bedfile | string | If a host_reference supplied, add an optional BED file to provide host reference regions that will be masked during filtering.  Users can specify different BED files for individual samples using the sample sheet and including a `regions_bedfile` column. This cannot be used in conjunction with `--regions_bedfile`. |  |  |
 
 
 ### Sample Options

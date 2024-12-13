@@ -14,4 +14,6 @@ Output files may be aggregated including information for all samples or provided
 | Variants BCF file | ./{{ alias }}.full_construct.calls.bcf | A BCF file with any variants found per sample, only relevant if a full reference was provided. | per-sample |
 | Reference alignment | ./{{ alias }}.bam | Reference aligned with the assembly in BAM format, only relevant if a full reference was provided. | per-sample |
 | Reference alignment index | ./{{ alias }}.bam.bai | The index for the reference aligned with the assembly, only relevant if a full reference was provided. | per-sample |
+| Host reference alignment | ./{{ alias }}.host.bam | Host reference aligned with sample in BAM format, only relevant if a host reference was provided. | per-sample |
+| Host reference alignment index | ./{{ alias }}.host.bam.bai | The index for the host reference aligned with sample, only relevant if a host reference was provided. | per-sample |
 | BAM Stats | ./{{ alias }}.bam.stats | Stats report for the reference aligned with the assembly, only relevant if a full reference was provided. | per-sample |

@@ -130,13 +130,13 @@ input_reads.fastq   ─── input_directory  ─── input_directory
                                               └── reads0.fastq
 ```
 
-When using a sample sheet the workflow allows the use of additional columns `approx_size`, `full_reference` and `insert_reference` which replace parameters `--approx_size`, `--full_reference` and `--insert_reference` respectively. This allows per-sample variables to be applied rather than global settings. An example sample sheet is shown below.
+When using a sample sheet the workflow allows the use of additional columns `approx_size`, `full_reference` `insert_reference`, `host_reference` and `regions_bedfile` which replace parameters `--approx_size`, `--full_reference`, `--insert_reference`, `--host_reference` and `--regions_bedfile` respectively. This allows per-sample variables to be applied rather than global settings. Users should provide the full path to these files, with windows users requiring to add the prefix `/mnt/c` to all paths. An example sample sheet is shown below. 
 
 ```
-alias,barcode,type,approx_size,full_reference,insert_reference
-sample1,barcode01,test_sample,4000,/path/to/full_reference.fasta,/path/to/insert_reference.fasta
-sample2,barcode02,test_sample,4000,/path/to/full_reference.fasta,/path/to/insert_reference.fasta
-sample3,barcode03,test_sample,7000,/path/to/full_reference_alt.fasta,/path/to/insert_reference_alt.fasta
+alias,barcode,type,approx_size,full_reference,insert_reference,host_reference,regions_bedfile
+sample1,barcode01,test_sample,4000,/path/to/full_reference.fasta,/path/to/insert_reference.fasta,/path/to/host_reference.fasta,/path/to/regions_bedfile.bed
+sample2,barcode02,test_sample,4000,/path/to/full_reference.fasta,/path/to/insert_reference.fasta,/path/to/host_reference.fasta,/path/to/regions_bedfile.bed
+sample3,barcode03,test_sample,7000,/path/to/full_reference_alt.fasta,/path/to/insert_reference_alt.fasta/,path/to/host_reference_alt.fasta,/path/to/regions_bedfile_alt.bed
 ```
 
 
@@ -161,8 +161,8 @@ sample3,barcode03,test_sample,7000,/path/to/full_reference_alt.fasta,/path/to/in
 |--------------------------|------|-------------|------|---------|
 | insert_reference | string | Optional file containing insert reference sequence which will be used for comparison with consensus insert in the report. | Providing a reference sequence can be useful as a QC on the base-level resolution of the the reconstructed insert sequences. Users can specify different insert references for individual samples using the sample sheet and including an `insert_reference` column. This cannot be used in conjunction with `--insert_reference`. |  |
 | full_reference | string | Optional FASTA file containing the reference sequence of the full plasmid. This will be used for comparison with the assembled construct. | Providing a reference sequence can be useful as a quality check on the base-level resolution of the reconstructed sequence, the reference is not used to generate the assembly. Users can specify different full references for individual samples using the sample sheet and including a `full_reference` column. This cannot be used in conjunction with `--full_reference`. |  |
-| host_reference | string | A host reference genome FASTA file. Read which map to this reference are discarded and not used for the assembly. |  |  |
-| regions_bedfile | string | If a host_reference supplied, add an optional BED file to provide host reference regions that will be masked during filtering. |  |  |
+| host_reference | string | A host reference genome FASTA file. Read which map to this reference are discarded and not used for the assembly.  Users can specify different host references for individual samples using the sample sheet and including a `host_reference` column. This cannot be used in conjunction with `--host_reference`. |  |  |
+| regions_bedfile | string | If a host_reference supplied, add an optional BED file to provide host reference regions that will be masked during filtering.  Users can specify different BED files for individual samples using the sample sheet and including a `regions_bedfile` column. This cannot be used in conjunction with `--regions_bedfile`. |  |  |
 
 
 ### Sample Options
@@ -228,6 +228,8 @@ Output files may be aggregated including information for all samples or provided
 | Variants BCF file | ./{{ alias }}.full_construct.calls.bcf | A BCF file with any variants found per sample, only relevant if a full reference was provided. | per-sample |
 | Reference alignment | ./{{ alias }}.bam | Reference aligned with the assembly in BAM format, only relevant if a full reference was provided. | per-sample |
 | Reference alignment index | ./{{ alias }}.bam.bai | The index for the reference aligned with the assembly, only relevant if a full reference was provided. | per-sample |
+| Host reference alignment | ./{{ alias }}.host.bam | Host reference aligned with sample in BAM format, only relevant if a host reference was provided. | per-sample |
+| Host reference alignment index | ./{{ alias }}.host.bam.bai | The index for the host reference aligned with sample, only relevant if a host reference was provided. | per-sample |
 | BAM Stats | ./{{ alias }}.bam.stats | Stats report for the reference aligned with the assembly, only relevant if a full reference was provided. | per-sample |
 
 

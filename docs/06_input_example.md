@@ -17,11 +17,11 @@ input_reads.fastq   ─── input_directory  ─── input_directory
                                               └── reads0.fastq
 ```
 
-When using a sample sheet the workflow allows the use of additional columns `approx_size`, `full_reference` and `insert_reference` which replace parameters `--approx_size`, `--full_reference` and `--insert_reference` respectively. This allows per-sample variables to be applied rather than global settings. An example sample sheet is shown below.
+When using a sample sheet the workflow allows the use of additional columns `approx_size`, `full_reference` `insert_reference`, `host_reference` and `regions_bedfile` which replace parameters `--approx_size`, `--full_reference`, `--insert_reference`, `--host_reference` and `--regions_bedfile` respectively. This allows per-sample variables to be applied rather than global settings. Users should provide the full path to these files, with windows users requiring to add the prefix `/mnt/c` to all paths. An example sample sheet is shown below. 
 
 ```
-alias,barcode,type,approx_size,full_reference,insert_reference
-sample1,barcode01,test_sample,4000,/path/to/full_reference.fasta,/path/to/insert_reference.fasta
-sample2,barcode02,test_sample,4000,/path/to/full_reference.fasta,/path/to/insert_reference.fasta
-sample3,barcode03,test_sample,7000,/path/to/full_reference_alt.fasta,/path/to/insert_reference_alt.fasta
+alias,barcode,type,approx_size,full_reference,insert_reference,host_reference,regions_bedfile
+sample1,barcode01,test_sample,4000,/path/to/full_reference.fasta,/path/to/insert_reference.fasta,/path/to/host_reference.fasta,/path/to/regions_bedfile.bed
+sample2,barcode02,test_sample,4000,/path/to/full_reference.fasta,/path/to/insert_reference.fasta,/path/to/host_reference.fasta,/path/to/regions_bedfile.bed
+sample3,barcode03,test_sample,7000,/path/to/full_reference_alt.fasta,/path/to/insert_reference_alt.fasta/,path/to/host_reference_alt.fasta,/path/to/regions_bedfile_alt.bed
 ```

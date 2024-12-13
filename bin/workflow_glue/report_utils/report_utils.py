@@ -69,7 +69,7 @@ def create_fastcat_dic(sample_names, raw, host_file, downsampled_file):
     else:
         summary_stats = downsampled_file
     per_sample_dic = {}
-    lists = {'Raw': raw, 'Hostfilt': host_filt, 'Downsampled': summary_stats}
+    lists = {'Raw': raw, 'Host_filtered': host_filt, 'Downsampled': summary_stats}
     for sample in sample_names:
         new_dic = {}
         item_search = '/' + str(sample) + '.'

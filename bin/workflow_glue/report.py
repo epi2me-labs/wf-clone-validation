@@ -207,7 +207,7 @@ if a host reference was provided.
                     # For each sample, plot fastcat stats
                     fastcat_tabs = fastcat_dic[item]
                     for key, value in fastcat_tabs.items():
-                        with internal_tabs.add_tab(key):
+                        with internal_tabs.add_tab(key.replace("_", " ")):
                             if key == "Raw":
                                 stats = load_histogram(value)
                                 depth = stats["count"].sum()

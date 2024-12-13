@@ -29,7 +29,7 @@ docker-run:
                 "full_reference_snp_indels", "full_reference", "wrong_full_reference",
                 "cutsite", "bam_input", "insert_reference_sample_sheet", "no-basecall-model", "no-basecall-model-basecaller-cfg",
                 "insert_case01", "insert_case02", "insert_case03", "insert_case04",
-                "trim_length_zero", "medaka-model-path", "no-insert", "reorientation"]
+                "trim_length_zero", "medaka-model-path", "no-insert", "reorientation", "clone-val-host-sample_sheet"]
     rules:
         - if: ($CI_COMMIT_BRANCH == null || $CI_COMMIT_BRANCH == "dev-template")
           when: never
@@ -39,7 +39,7 @@ docker-run:
               NF_WORKFLOW_OPTS: "--fastq ${CI_PROJECT_NAME}/data/clone_val_test/fastq --primers ${CI_PROJECT_NAME}/data/clone_val_test/primers.tsv --host_reference ${CI_PROJECT_NAME}/data/clone_val_test/host_reference.fa.gz \
               --regions_bedfile ${CI_PROJECT_NAME}/data/clone_val_test/reference.bed --sample_sheet ${CI_PROJECT_NAME}/data/clone_val_test/sample_sheet.csv \
               --override_basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v4.2.0"
-              NF_IGNORE_PROCESSES: "canuVersion,cutsite_qc,align_assembly,assembly_comparison"
+              NF_IGNORE_PROCESSES: "canuVersion,cutsite_qc"
         - if: $MATRIX_NAME == "insert-wrong-reference"
           variables:
               NF_WORKFLOW_OPTS: "--fastq test_data/test --insert_reference test_data/other_reference.fasta \
@@ -172,7 +172,13 @@ docker-run:
               AFTER_NEXTFLOW_CMD: "
                 if ! diff -q <(tail -n +2 '${CI_PROJECT_NAME}/barcode01.final.fasta') <(tail -n +2 '${CI_PROJECT_NAME}/data/clone-val-orientation/reference.fasta'); then echo 'Assembly found is not as expected' && exit 1; fi
                 "
-
+        # Sample 5 and 6 have no host references
+        - if: $MATRIX_NAME == "clone-val-host-sample_sheet"
+          variables:
+              NF_BEFORE_SCRIPT: "mkdir -p ${CI_PROJECT_NAME}/data/ && wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/clone_val_test.tar.gz -O ${CI_PROJECT_NAME}/data/clone_val_test.tar.gz && tar -xzvf ${CI_PROJECT_NAME}/data/clone_val_test.tar.gz -C ${CI_PROJECT_NAME}/data/"
+              NF_WORKFLOW_OPTS: "--fastq ${CI_PROJECT_NAME}/data/clone_val_test/fastq --primers ${CI_PROJECT_NAME}/data/clone_val_test/primers.tsv --sample_sheet test_data/sample_sheet_hosts.csv \
+              --override_basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v4.2.0"
+              NF_IGNORE_PROCESSES: "canuVersion,cutsite_qc"
 aws-run:
     parallel:
         matrix:

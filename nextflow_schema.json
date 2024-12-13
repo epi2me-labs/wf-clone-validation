@@ -101,13 +101,13 @@
                 "host_reference": {
                     "type": "string",
                     "format": "file-path",
-                    "description": "A host reference genome FASTA file. Read which map to this reference are discarded and not used for the assembly."
+                    "description": "A host reference genome FASTA file. Read which map to this reference are discarded and not used for the assembly.  Users can specify different host references for individual samples using the sample sheet and including a `host_reference` column. This cannot be used in conjunction with `--host_reference`."
                 },
                 "regions_bedfile": {
                     "type": "string",
                     "title": "Regions BED file",
                     "format": "file-path",
-                    "description": "If a host_reference supplied, add an optional BED file to provide host reference regions that will be masked during filtering."
+                    "description": "If a host_reference supplied, add an optional BED file to provide host reference regions that will be masked during filtering.  Users can specify different BED files for individual samples using the sample sheet and including a `regions_bedfile` column. This cannot be used in conjunction with `--regions_bedfile`."
                 }
             }
         },
