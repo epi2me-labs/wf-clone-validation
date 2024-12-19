@@ -192,7 +192,7 @@ use the zoom and hover tools to decipher the labels.
     with report.add_section("Read stats", "Read stats"):
         p("""
 For each assembly, read length statistics and plots of quality \
-before and after downsampling, and after host filtering \
+before and after host filtering, and after downsampling \
 if a host reference was provided.
 """)
         fastcat_dic = report_utils.create_fastcat_dic(

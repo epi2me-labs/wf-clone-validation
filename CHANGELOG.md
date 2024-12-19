@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [v1.7.1]
 ### Changed
 - Reconciled workflow with wf-template v5.3.4.
+- Report wording to correctly reflect order of host filtering and downsampling.
 
 ## [v1.7.0]
 ### Added
