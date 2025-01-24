@@ -237,7 +237,7 @@ if a host reference was provided.
 This section can be used to ensure the provided insert reference
 matches the insert found in the assembly.
 
-The table belows shows coverage and BLAST identity between
+The table below shows coverage and BLAST identity between
 the two.
 
 Reference coverage is the percentage of the provided insert reference
@@ -299,7 +299,7 @@ Reference coverage is the percentage of the provided reference sequence covered
 in the alignment with the assembled construct.
 
 Assembly coverage is the percentage of assembled
-contruct sequence covered in the alignment with the provided reference.
+construct sequence covered in the alignment with the provided reference.
 
 BLAST Identity is calculated as: (length - ins - del - sub) / length.
 
