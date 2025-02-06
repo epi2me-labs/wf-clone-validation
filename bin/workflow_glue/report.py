@@ -434,11 +434,16 @@ last</a>
                 p(error)
     if args.cutsite_csv:
         with report.add_section("Linearisation efficiency", "Linearisation"):
-            raw("""This table gives the percentage of reads which did not align
-                across the cutsite provided in the sample sheet and therefore
-                assumed to be linearized correctly.
-                """)
-            cutsite_table = report_utils.get_cutsite_table(args.cutsite_csv)
+            p("""This table gives the percentage of reads which did not align
+                across the cutsite provided in the sample sheet, and are therefore
+                assumed to be linearised correctly.\n""")
+            p("""This is calculated by comparing the reference sequence
+                with the reads, so this metric will still be
+                produced for failed assemblies.\n""")
+            p("""Furthermore, if a cut site was not provided for a
+                sample, this metric will be N/A.\n""")
+            cutsite_table = report_utils.get_cutsite_table(
+                args.cutsite_csv, sample_names)
             DataTable.from_pandas(cutsite_table, use_index=False)
     report.write(args.report)
     logger.info(f"Report written to {args.report}.")
