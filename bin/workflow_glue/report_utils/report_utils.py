@@ -211,8 +211,12 @@ def bamstats_table(input_files, passed_samples):
     return df
 
 
-def get_cutsite_table(cutsite_csv):
+def get_cutsite_table(cutsite_csv, sample_names):
     """Use cutsite csv to create linearisation efficiency table."""
+    # Make a default dataframe with all samples
+    default_df = pd.DataFrame(sample_names, columns=['Sample'])
+    default_df['Linearisation efficiency (%)'] = "N/A"
+    # Create a dataframe from the cutsite_csv
     cutsite_table = pd.read_csv(
         cutsite_csv,
         index_col=False,
@@ -225,5 +229,7 @@ def get_cutsite_table(cutsite_csv):
     cutsite_table = cutsite_table.round(2)
     cutsite_table = cutsite_table.drop(
         ['readcount', 'cutsitecount'], axis=1)
-    cutsite_table = cutsite_table.sort_values(by='Sample')
+    # Update the default table where values available
+    default_df.update(cutsite_table)
+    cutsite_table = default_df.sort_values(by='Sample')
     return cutsite_table

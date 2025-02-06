@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [unreleased]
 ### Fixed
 - Typos in "Full construct QC" section of report
+### Changed
+- Linearisation table includes rows for not applicable samples.
 
 ## [v1.7.2]
 This is a re-release of v1.7.1 with support for MinKNOW integration.
