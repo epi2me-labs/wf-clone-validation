@@ -168,7 +168,9 @@
             "default": "",
             "overrides": {
                 "minknow": {
-                    "hidden": true
+                    "parameters": {
+                        "hidden": true
+                    }
                 }
             },
             "properties": {
@@ -387,7 +389,9 @@
             "default": "",
             "overrides": {
                 "minknow": {
-                    "hidden": true
+                    "parameters": {
+                        "hidden": true
+                    }
                 }
             },
             "properties": {
