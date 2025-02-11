@@ -76,7 +76,7 @@ docker-run:
               NF_BEFORE_SCRIPT: "mkdir -p ${CI_PROJECT_NAME}/data/ && wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/clone_val_test.tar.gz -O ${CI_PROJECT_NAME}/data/clone_val_test.tar.gz && tar -xzvf ${CI_PROJECT_NAME}/data/clone_val_test.tar.gz -C ${CI_PROJECT_NAME}/data/"
               NF_WORKFLOW_OPTS: "--fastq ${CI_PROJECT_NAME}/data/clone_val_test/fastq/barcode12 --full_reference ${CI_PROJECT_NAME}/data/clone_val_test/full_reference_snps.fasta --assm_coverage 120 --approx_size 3100 --override_basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v4.2.0"
               NF_IGNORE_PROCESSES: "insert_qc,cutsite_qc,canuVersion,filterHostReads"
-              AFTER_NEXTFLOW_CMD: "grep 'number of indels:\\s3' '${CI_PROJECT_NAME}/barcode12.full_construct.stats'"
+              AFTER_NEXTFLOW_CMD: "grep 'number of records:\\s7' '${CI_PROJECT_NAME}/barcode12.full_construct.stats'"
         - if: $MATRIX_NAME == "wrong_full_reference"
           variables:
               NF_BEFORE_SCRIPT: "mkdir -p ${CI_PROJECT_NAME}/data/ && wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/clone_val_test.tar.gz -O ${CI_PROJECT_NAME}/data/clone_val_test.tar.gz && tar -xzvf ${CI_PROJECT_NAME}/data/clone_val_test.tar.gz -C ${CI_PROJECT_NAME}/data/"
