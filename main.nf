@@ -455,7 +455,8 @@ process assembly_comparison {
     // Also get variants report
     """
     # -m1 reduces evidence for indels to 1 read instead of the default 2
-    bcftools mpileup -m1 -Ou -f full_reference.fasta "${meta.alias}.bam" | bcftools call -mv -Ob -o "${meta.alias}.full_construct.calls.bcf"
+    # -P 1 increases the sensitivity by setting a very high mutation rate prior
+    bcftools mpileup -m1 -Ou -f full_reference.fasta "${meta.alias}.bam" | bcftools call -mv -Ob -P 1 -o "${meta.alias}.full_construct.calls.bcf"
     bcftools index "${meta.alias}.full_construct.calls.bcf"
     bcftools stats "${meta.alias}.full_construct.calls.bcf" > ${meta.alias}.full_construct.stats
     """
