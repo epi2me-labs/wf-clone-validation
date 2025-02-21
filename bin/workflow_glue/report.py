@@ -196,7 +196,8 @@ if a host reference was provided.
             with tabs.add_dropdown_menu():
                 for ref, inserts in json_combined.items():
                     with tabs.add_dropdown_tab(ref):
-                        seq_segment = pd.read_json(inserts['bed_df'])
+                        seq_segment = pd.read_json(
+                            inserts['bed_df'], dtype={'Sample': str})
                         insert_df = seq_segment.merge(stats_df, how='left')
                         insert_df['Insert length'] = list(
                             map(
@@ -363,7 +364,7 @@ parameters which have been set to {}% and {}% respectively.
         merged_status_df.to_csv('sample_status.txt', index=False)
         # Mean quality
         if ('assembly_quality/OPTIONAL_FILE' not in args.assembly_quality):
-            qc_df = read_files(args.assembly_quality)[
+            qc_df = read_files(args.assembly_quality, dtype={'sample_name': str})[
                 ['sample_name', 'mean_quality']]
             qc_df = qc_df.rename(columns={
                 'sample_name': 'Sample', 'mean_quality': 'Mean Quality'})

@@ -13,7 +13,7 @@ THEME = 'epi2melabs'
 
 def tidyup_status_file(status_sheet, annotations):
     """Tidy up the sample status file."""
-    sample_status = pd.read_csv(status_sheet[0], header=None)
+    sample_status = pd.read_csv(status_sheet[0], header=None, dtype={0: str})
     unique_samples = sample_status[0].unique()
     sample_status_dic = {}
     # Default all to success
