@@ -31,7 +31,8 @@ def read_seqkit(bed_files, assemblies_dir):
                     [
                         'Sample', 'start',
                         'end', 'primer', 'score',
-                        'strand', 'sequence']))
+                        'strand', 'sequence']),
+                dtype={'Sample': str})
         seq = str(df['sequence'][0])
         # need to find the sequence if seq spans origin
         if seq == 'nan':

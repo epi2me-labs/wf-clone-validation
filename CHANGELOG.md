@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Changed
 - Updated pass/fail badges in report sample status table.
+### Fixed
+- The workflow no longer fails if the aliases in the sample sheet are numbers when primers are provided.
 
 ## [v1.7.3]
 ### Fixed
