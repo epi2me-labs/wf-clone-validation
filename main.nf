@@ -343,7 +343,7 @@ process assemblyMafs {
 process runPlannotate {
     label "plannotate"
     cpus 1
-    memory params.large_construct ? "8GB" : "2GB"
+    memory params.large_construct ? "7GB" : "2GB"
     input:
         path annotation_database
         path "assemblies/*"
@@ -371,7 +371,7 @@ process runPlannotate {
 process inserts {
     label "wfplasmid"
     cpus 1
-    memory "1GB"
+    memory "4GB"
     input:
          tuple path(align_ref), path("assemblies/*"), path("primer_beds/*")
     output:
@@ -424,7 +424,7 @@ process insert_qc {
 process align_assembly {
     label "wfplasmid"
     cpus 3
-    memory "8GB"
+    memory "7GB"
     input:
         tuple val(meta), path("full_assembly.fasta"), path("full_reference.fasta")
     output:

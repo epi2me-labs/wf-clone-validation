@@ -1,7 +1,7 @@
 {
   "files": {
     "workflow-report": {
-      "filepath": "./wf-clone-validation-report.html",
+      "filepath": "wf-clone-validation-report.html",
       "title": "worfklow report",
       "description": "A report bringing together the main results of the workflow, across samples.",
       "mime-type": "text/html",
@@ -9,7 +9,7 @@
       "type": "aggregated"
     },
     "sample-status-csv-summary": {
-      "filepath": "./sample_status.txt",
+      "filepath": "sample_status.txt",
       "title": "sample status",
       "description": "A CSV file with per-sample assembly success or failure reasons",
       "mime-type": "text/csv",
@@ -17,7 +17,7 @@
       "type": "aggregated"
     },
     "plannotate-annotations": {
-      "filepath": "./plannotate.json",
+      "filepath": "plannotate.json",
       "title": "plasmid annotations",
       "description": "Plasmid annotations in a JSON structure.",
       "mime-type": "text/json",
@@ -25,7 +25,7 @@
       "type": "aggregated"
     },
     "annotations_bed" : {
-      "filepath": "./{{ alias }}.annotations.bed",
+      "filepath": "{{ alias }}.annotations.bed",
       "title": "annotations bed",
       "description": "Plasmid annotations in a BED file format for onward use",
       "mime-type": "text/tab-separated-values",
@@ -33,7 +33,7 @@
       "type": "per-sample"
     },
     "annotations_gbk" : {
-      "filepath": "./{{ alias }}.annotations.gbk",
+      "filepath": "{{ alias }}.annotations.gbk",
       "title": "annotations gbk",
       "description": "Plasmid annotations in a GBK file format for onward use",
       "mime-type": "application/octet-stream",
@@ -41,7 +41,7 @@
       "type": "per-sample"
     },
     "assembly_fastq" : {
-      "filepath": "./{{ alias }}.final.fastq",
+      "filepath": "{{ alias }}.final.fastq",
       "title": "Assembly FASTQ",
       "description": "Sequence and quality score of the final assembly.",
       "mime-type": "text/plain",
@@ -49,7 +49,7 @@
       "type": "per-sample"
     },
     "assembly_stats": {
-      "filepath": "./{{ alias }}.assembly_stats.tsv",
+      "filepath": "{{ alias }}.assembly_stats.tsv",
       "title": "Assembly statistics",
       "description": "Assembly statistics from fastcat.",
       "mime-type": "text/tab-separated-values",
@@ -57,7 +57,7 @@
       "type": "per-sample"
     },
     "insert_fasta" : {
-      "filepath": "./{{ alias }}.insert.fasta",
+      "filepath": "{{ alias }}.insert.fasta",
       "title": "Insert FASTA",
       "description": "Insert sequence found in the final assembly, only relevant if the primers parameter was used.",
       "mime-type": "text/plain",
@@ -65,7 +65,7 @@
       "type": "per-sample"
     },
     "variant_stats" : {
-      "filepath": "./{{ alias }}.full_construct.stats",
+      "filepath": "{{ alias }}.full_construct.stats",
       "title": "Variant stats report",
       "description": "A BCF stats report with any variants found, only relevant if a full reference was provided.",
       "mime-type": "text/plain",
@@ -73,7 +73,7 @@
       "type": "per-sample"
     },
     "bcf" : {
-      "filepath": "./{{ alias }}.full_construct.calls.bcf",
+      "filepath": "{{ alias }}.full_construct.calls.bcf",
       "title": "Variants BCF file",
       "description": "A BCF file with any variants found per sample, only relevant if a full reference was provided.",
       "mime-type": "application/gzip",
@@ -81,7 +81,7 @@
       "type": "per-sample"
     },
     "bam" : {
-      "filepath": "./{{ alias }}.bam",
+      "filepath": "{{ alias }}.bam",
       "title": "Reference alignment",
       "description": "Reference aligned with the assembly in BAM format, only relevant if a full reference was provided.",
       "mime-type": "application/gzip",
@@ -89,7 +89,7 @@
       "type": "per-sample"
     },
     "bai" : {
-      "filepath": "./{{ alias }}.bam.bai",
+      "filepath": "{{ alias }}.bam.bai",
       "title": "Reference alignment index",
       "description": "The index for the reference aligned with the assembly, only relevant if a full reference was provided.",
       "mime-type": "application/octet-stream",
@@ -97,7 +97,7 @@
       "type": "per-sample"
     },
     "host_bam" : {
-      "filepath": "./{{ alias }}.host.bam",
+      "filepath": "{{ alias }}.host.bam",
       "title": "Host reference alignment",
       "description": "Host reference aligned with sample in BAM format, only relevant if a host reference was provided.",
       "mime-type": "application/gzip",
@@ -105,7 +105,7 @@
       "type": "per-sample"
     },
     "host_bai" : {
-      "filepath": "./{{ alias }}.host.bam.bai",
+      "filepath": "{{ alias }}.host.bam.bai",
       "title": "Host reference alignment index",
       "description": "The index for the host reference aligned with sample, only relevant if a host reference was provided.",
       "mime-type": "application/octet-stream",
@@ -113,7 +113,7 @@
       "type": "per-sample"
     },
     "bam_stats" : {
-      "filepath": "./{{ alias }}.bam.stats",
+      "filepath": "{{ alias }}.bam.stats",
       "title": "BAM Stats",
       "description": "Stats report for the reference aligned with the assembly, only relevant if a full reference was provided.",
       "mime-type": "text/tab-separated-values",

@@ -8,6 +8,7 @@ process assembleCore_canu {
     maxRetries 4
     label "canu"
     cpus params.threads
+    memory "7GB"
     input:
         tuple val(meta), path(fastq)
     output:

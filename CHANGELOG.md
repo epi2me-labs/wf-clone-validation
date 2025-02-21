@@ -7,8 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Changed
 - Updated pass/fail badges in report sample status table.
+- Minor decrease to some memory directives to avoid “Process requirement exceeds available memory” errors when running in WSL.
 ### Fixed
 - The workflow no longer fails if the aliases in the sample sheet are numbers when primers are provided.
+- Increase memory of `inserts` process to avoid pipeline terminated with an error exit status (137).
 
 ## [v1.7.3]
 ### Fixed
