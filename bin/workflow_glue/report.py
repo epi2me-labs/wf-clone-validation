@@ -47,17 +47,18 @@ def format_msa(inserts):
     return reorg_slices
 
 
-def button_format(reason):
-    """Format button, blue for success, red for failure."""
-    if reason == "Completed successfully":
-        return """<span class="badge bg-primary">""" + reason + """</span>"""
+def format_badge(status):
+    """Format badge, green for success, red for failure."""
+    if status == "Completed successfully" or status is True:
+        badge = 'badge-pass-solid'
+        if status is True:
+            status = 'Pass'
     else:
-        return """<span class="badge bg-danger">""" + reason + """</span>"""
-
-
-def format_tick_cross(is_expected):
-    """Return a formatted tick or cross."""
-    return "&#9989;" if (is_expected is True) else "&#10060;"
+        badge = 'badge-fail-solid'
+        if not isinstance(status, str):
+            status = 'Fail'
+    return '<span class="badge badge-icon-solid rounded-pill p-2 ' + \
+        badge + '">' + status + '</span>'
 
 
 def add_expected_column(
@@ -74,7 +75,7 @@ def add_expected_column(
                 ['Sample name', 'expected']],
                 how="outer", left_on='Sample', right_on='Sample name')
     merged[column_name] = merged.apply(
-            lambda x: format_tick_cross(x['expected']),
+            lambda x: format_badge(x['expected']),
             axis=1)
     merged = merged.drop('Sample name', axis=1)
     merged = merged.drop('expected', axis=1)
@@ -370,11 +371,11 @@ parameters which have been set to {}% and {}% respectively.
             merged_status_df = pd.merge(merged_status_df, qc_df, how="outer")
             # N/A for samples which failed assembly
             merged_status_df.fillna('N/A', inplace=True)
-            merged_status_df['Assembly completed / failed reason'] = \
-                merged_status_df.apply(
-                    lambda x: button_format(
-                        x['Assembly completed / failed reason']),
-                    axis=1)
+        merged_status_df['Assembly completed / failed reason'] = \
+            merged_status_df.apply(
+                lambda x: format_badge(
+                    x['Assembly completed / failed reason']),
+                axis=1)
         # Expected assembly/inserts
         for expected_column in sample_status_fields.keys():
             merged_status_df = add_expected_column(
