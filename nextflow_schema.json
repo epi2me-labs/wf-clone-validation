@@ -419,6 +419,10 @@
                     "type": "boolean",
                     "default": false,
                     "description": "Enable to prevent sending a workflow ping."
+                },
+                "store_dir": {
+                    "type": "string",
+                    "hidden": true
                 }
             }
         }
