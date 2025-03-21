@@ -41,36 +41,37 @@ def deconcatenate(seq, approx_size):
     trimmed_assm = seq
     while not finished:
         iteration += 1
-        sys.stdout.write(f"Trimming sequence... Round {iteration}")
+        sys.stdout.write(f"Trimming sequence... Round {iteration}\n")
         approx_size = int(approx_size)
         upper_limit = approx_size * 1.2
         lower_limit = approx_size * 0.8
         hits, first, second = align_self(trimmed_assm)
         if lower_limit < len(trimmed_assm) < upper_limit:
             sys.stdout.write(
-                "Approx size is as expected, stopping here.")
+                "Approx size is as expected, stopping here.\n")
             finished = True
             break
         elif len(hits) == 1:
-            sys.stdout.write("> Single self-alignment detected.")
+            sys.stdout.write("> Single self-alignment detected.\n")
         elif len(hits) > 1:
-            sys.stdout.write("> Multiple self-alignments detected.")
+            sys.stdout.write("> Multiple self-alignments detected.\n")
             # Tested variations of this, but if works...
             hits = [hit for hit in hits if hit.q_st < 5]
             if not hits:
                 sys.stdout.write(
-                    "> No self-alignments match criteria, stopping here.")
+                    "> No self-alignments match criteria, stopping here.\n")
                 finished = True
+                break
 
         else:
-            sys.stdout.write("> No self-alignments, stopping here.")
+            sys.stdout.write("> No self-alignments, stopping here.\n")
             finished = True
             break
-        try:
-            hit = hits[0]
+        hit = hits[0]
+        if hit.r_st < hit.q_st:
             trimmed_assm = second[:hit.q_en] + first[hit.r_en:]
-        except IndexError:
-            trimmed_assm = seq
+        else:
+            trimmed_assm = first[:hit.r_en] + second[hit.q_en:]
 
     return trimmed_assm
 

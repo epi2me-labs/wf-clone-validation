@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - The workflow no longer fails if the aliases in the sample sheet are numbers when primers are provided.
 - Increase memory of `inserts` process to avoid pipeline terminated with an error exit status (137).
+- Fixed over-deconcatenation of assembly when there are multiple repeats. Previously the assembly could end up shorter than the provided approximate length due to other sections of sequence being removed instead of repeats.
 
 ## [v1.7.3]
 ### Fixed

@@ -25,7 +25,7 @@ docker-run:
             - MATRIX_NAME: [
                 "clone-val", "insert-reference", "insert-wrong-reference",
                 "sample-sheet-with-approx-size", "sample-sheet", "no-assemblies", "filter-host-reads",
-                "repetitive-region-dotplot", "large_construct", "canu", "canu-fast",
+                "repetitive-region-dotplot", "deconcatenate", "large_construct", "canu", "canu-fast",
                 "full_reference_snp_indels", "full_reference", "wrong_full_reference",
                 "cutsite", "bam_input", "insert_reference_sample_sheet", "insert-number-alias",
                 "no-basecall-model", "no-basecall-model-basecaller-cfg",
@@ -60,6 +60,11 @@ docker-run:
               NF_BEFORE_SCRIPT: "mkdir -p ${CI_PROJECT_NAME}/data/ && wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/clone_validation_repetitive_region.tar.gz -O ${CI_PROJECT_NAME}/data/clone_validation_repetitive_region.tar.gz && tar -xzvf ${CI_PROJECT_NAME}/data/clone_validation_repetitive_region.tar.gz  -C ${CI_PROJECT_NAME}/data/" 
               NF_WORKFLOW_OPTS: "--fastq ${CI_PROJECT_NAME}/data/clone_validation_repetitive_region/test.fastq --approx_size 3000 --override_basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v4.2.0"
               NF_IGNORE_PROCESSES: "sampleStatus,cutsite_qc,insert_qc,assembleCore,assembly_qc,downsampledStats,findPrimers,filterHostReads,canuVersion,full_assembly_qc,align_assembly,assembly_comparison"
+        - if: $MATRIX_NAME == "deconcatenate"
+          variables:
+              NF_BEFORE_SCRIPT: "mkdir -p ${CI_PROJECT_NAME}/data/ && wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/clone_val_deconcat.tar.gz -O ${CI_PROJECT_NAME}/data/clone_val_deconcat.tar.gz && tar -xzvf ${CI_PROJECT_NAME}/data/clone_val_deconcat.tar.gz -C ${CI_PROJECT_NAME}/data/" 
+              NF_WORKFLOW_OPTS: "--fastq ${CI_PROJECT_NAME}/data/clone_val_deconcat/test.fastq --approx_size 4690 --full_reference ${CI_PROJECT_NAME}/data/clone_val_deconcat/ref.fa --assembly_tool canu"
+              NF_IGNORE_PROCESSES: "sampleStatus,cutsite_qc,insert_qc,assembleCore,assembly_qc,downsampledStats,findPrimers,filterHostReads,flyeVersion,full_assembly_qc,align_assembly,assembly_comparison"
         - if: $MATRIX_NAME == "large_construct"
           variables:
               NF_BEFORE_SCRIPT: "mkdir -p ${CI_PROJECT_NAME}/data/ && wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/clone_validation_bacs.tar.gz -O ${CI_PROJECT_NAME}/data/clone_validation_bacs.tar.gz && tar -xzvf ${CI_PROJECT_NAME}/data/clone_validation_bacs.tar.gz -C ${CI_PROJECT_NAME}/data/"
