@@ -261,7 +261,7 @@
                 },
                 "trim_length": {
                     "type": "integer",
-                    "default": 150,
+                    "default": 0,
                     "description": "Number of base pairs to trim from both ends of each read. Set to 0 if no trimming is required."
                 },
                 "flye_quality": {

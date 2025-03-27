@@ -188,7 +188,7 @@ sample3,barcode03,test_sample,7000,/path/to/full_reference_alt.fasta,/path/to/in
 | override_basecaller_cfg | string | Override auto-detected basecaller model that processed the signal data; used to select an appropriate Medaka model. | Per default, the workflow tries to determine the basecall model from the input data. This parameter can be used to override the detected value (or to provide a model name if none was found in the inputs). However, users should only do this if they know for certain which model was used as selecting the wrong option might give sub-optimal results. A list of recent models can be found here: https://github.com/nanoporetech/dorado#DNA-models. |  |
 | medaka_model_path | string | A custom model file (.tar.gz or .hdf) to be used instead of the automatic model selection and take precedence over the optional `--override_basecaller_cfg` parameter. | Allows for users to test experimental Medaka models. Users should not provide a model with this parameter for general analysis. |  |
 | large_construct | boolean | Enable assembly of larger constructs including Bacterial Artificial Chromosomes (50,000-300,000 base pairs). | Selecting this will skip approximate size filtering steps allowing the assembly of larger genomes. Multiple sequence alignment of inserts will be skipped in this mode. | False |
-| trim_length | integer | Number of base pairs to trim from both ends of each read. Set to 0 if no trimming is required. |  | 150 |
+| trim_length | integer | Number of base pairs to trim from both ends of each read. Set to 0 if no trimming is required. |  | 0 |
 | flye_quality | string | The Flye parameter for quality of input reads, default `nano-hq`: high-quality reads, Guppy5+ SUP or Q20 (<5% error). | Other options include `nano-corr`: reads that were corrected with other methods (<3% error), `nano-raw`: pre-Guppy5 (<20% error). | nano-hq |
 | non_uniform_coverage | boolean | Set this to true if your reads have highly non-uniform coverage. | Run `flye` in metagenome assembly mode, which may help with the assembly if you have high non-uniform coverage reads; generally, should not be required. | False |
 | db_directory | string | Optional directory containing a gene annotation database. | A default generic annotation is provided in tar.gz format, containing entries from [fpbase](https://www.fpbase.org/), [Swiss-Prot](https://www.expasy.org/resources/uniprotkb-swiss-prot) , [Rfam](https://rfam.org/) and [snapgene](https://www.snapgene.com/) |  |
@@ -247,7 +247,7 @@ If a host_reference fasta file is provided, [Minimap2](https://github.com/lh3/mi
 
 ### 3. Trim reads
 
-The reads are then trimmed at the ends using [SeqKit](https://bioinf.shenwei.me/seqkit/) with the provided trim length parameter, which has a default of 150bp. Set this value to 0 if no trimming is desired, such as for non-linearized plasmid sequences or linearized plasmid sequences that have already been trimmed.
+If a trim length is provided, the reads are then trimmed at the ends using [SeqKit](https://bioinf.shenwei.me/seqkit/). Use the default value of 0 if no trimming is desired, such as for non-linearized plasmid sequences or linearized plasmid sequences that have already been trimmed.
 At this stage SeqKit is also used to filter out reads that are longer than 1.2 x the approximate size or shorter than 100bp.
 
 ### 4. Subsample reads
