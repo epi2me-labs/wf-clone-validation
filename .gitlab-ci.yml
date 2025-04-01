@@ -44,7 +44,7 @@ docker-run:
         - if: $MATRIX_NAME == "insert-wrong-reference"
           variables:
               NF_WORKFLOW_OPTS: "--fastq test_data/test --insert_reference test_data/other_reference.fasta \
-              --threads 4 --assm_coverage 25 --primers data/primers.tsv"
+              --threads 4 --assm_coverage 25 --primers data/primers.tsv --min_quality 7"
               NF_IGNORE_PROCESSES: "filterHostReads,cutsite_qc,sampleStatus,canuVersion,full_assembly_qc,align_assembly,assembly_comparison"
         - if: $MATRIX_NAME == "sample-sheet"
           variables:
@@ -91,11 +91,11 @@ docker-run:
               NF_AFTER_SCRIPT: "grep 'None of the assemblies found aligned with the provided reference' '${CI_PROJECT_NAME}/output/wf-clone-validation-report.html'"
         - if: $MATRIX_NAME == "canu"
           variables:
-              NF_WORKFLOW_OPTS: "--fastq test_data/test --approx_size 3000 --assembly_tool canu"
+              NF_WORKFLOW_OPTS: "--fastq test_data/test --approx_size 3000 --assembly_tool canu --min_quality 7"
               NF_IGNORE_PROCESSES: "sampleStatus,cutsite_qc,insert_qc,assembleCore,align_assembly,assembly_comparison,assembly_qc,downsampledStats,findPrimers,filterHostReads,flyeVersion"
         - if: $MATRIX_NAME == "canu-fast"
           variables:
-              NF_WORKFLOW_OPTS: "--fastq test_data/test --approx_size 3000 --assembly_tool canu --canu_fast"
+              NF_WORKFLOW_OPTS: "--fastq test_data/test --approx_size 3000 --assembly_tool canu --canu_fast --min_quality 7"
               NF_IGNORE_PROCESSES: "sampleStatus,cutsite_qc,insert_qc,assembleCore,align_assembly,assembly_comparison,assembly_qc,downsampledStats,findPrimers,filterHostReads,flyeVersion"
         - if: $MATRIX_NAME == "cutsite"
           variables:
@@ -103,20 +103,20 @@ docker-run:
               NF_IGNORE_PROCESSES: "sampleStatus,canuVersion,insert_qc,assembleCore,align_assembly,assembly_comparison,assembly_qc,downsampledStats,findPrimers,filterHostReads,flyeVersion"
         - if: $MATRIX_NAME == "bam_input"
           variables:
-              NF_WORKFLOW_OPTS: "--bam test_data/plasmid.bam"
+              NF_WORKFLOW_OPTS: "--bam test_data/plasmid.bam --min_quality 7"
               NF_IGNORE_PROCESSES: "sampleStatus,canuVersion,cutsite_qc,insert_qc,assembleCore,align_assembly,assembly_comparison,assembly_qc,downsampledStats,findPrimers,filterHostReads,flyeVersion"
         - if: $MATRIX_NAME == "no-basecall-model"
           variables:
               NF_WORKFLOW_OPTS: >
                 --fastq test_data/fastq-no-basecall-model
-                --assm_coverage 25
+                --assm_coverage 25 --min_quality 7
               ASSERT_NEXTFLOW_FAILURE: 1
               ASSERT_NEXTFLOW_FAILURE_REXP: Found no basecall model information in the input data for sample .*\. Please provide it with the `--override_basecaller_cfg` parameter.
         - if: $MATRIX_NAME == "no-basecall-model-basecaller-cfg"
           variables:
               NF_BEFORE_SCRIPT: "mkdir -p ${CI_PROJECT_NAME}/data/ && wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/wf-clone-validation-db.tar.gz -O ${CI_PROJECT_NAME}/data/wf-clone-validation-db.tar.gz && tar -xzvf ${CI_PROJECT_NAME}/data/wf-clone-validation-db.tar.gz -C ${CI_PROJECT_NAME}/data/"
               NF_WORKFLOW_OPTS: "--fastq test_data/fastq-no-basecall-model --db_directory ${CI_PROJECT_NAME}/data/wf-clone-validation-db \
-              --threads 4 --assm_coverage 25 --primers data/primers.tsv --non_uniform_coverage --override_basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v4.2.0"
+              --threads 4 --assm_coverage 25 --primers data/primers.tsv --non_uniform_coverage --override_basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v4.2.0 --min_quality 7"
               NF_IGNORE_PROCESSES: "filterHostReads,cutsite_qc,align_assembly,assembly_comparison,sampleStatus,insert_qc,canuVersion,full_assembly_qc"
         - if: $MATRIX_NAME == "insert_reference_sample_sheet"
           variables:
@@ -172,7 +172,7 @@ docker-run:
               NF_IGNORE_PROCESSES: "sampleStatus,canuVersion,cutsite_qc,insert_qc,assembleCore,align_assembly,assembly_comparison,assembly_qc,downsampledStats,findPrimers,filterHostReads"
         - if: $MATRIX_NAME == "no-insert"
           variables:
-              NF_WORKFLOW_OPTS: "--fastq test_data/test --approx_size 3000 --primers test_data/test_primers.tsv --insert_reference test_data/insert_reference.fasta"
+              NF_WORKFLOW_OPTS: "--fastq test_data/test --approx_size 3000 --primers test_data/test_primers.tsv --insert_reference test_data/insert_reference.fasta --min_quality 7"
               NF_IGNORE_PROCESSES: "canuVersion,sampleStatus,cutsite_qc,insert_qc,align_assembly,assembly_comparison,assembly_qc,downsampledStats,findPrimers,filterHostReads"
               AFTER_NEXTFLOW_CMD: "[[ ! -f  '${CI_PROJECT_NAME}/barcode01.insert.stats' ]] || ( echo 'Insert stats file unexpectedly found' && exit 1 )"
         - if: $MATRIX_NAME == "reorientation"

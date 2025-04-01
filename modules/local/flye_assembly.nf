@@ -21,7 +21,6 @@ process assembleCore_flye {
         int min_dep = (params.assm_coverage / 3) * 2
         int min_len = 100
         int max_len = (meta.approx_size as Integer) * 1.2
-        int min_q = 7
         int exit_number = task.attempt <= 4 ? 1 : 0
         // min_overlap normally auto calculated but with a lower limit of 3000
         // assembly with same size as overlap will likely fail
@@ -42,7 +41,7 @@ process assembleCore_flye {
             cat $fastq
         fi \
         | seqkit subseq -j $seqkit_threads -r 1:$max_len \
-        | seqkit seq -j $seqkit_threads -m $min_len -Q $min_q -g > "${meta.alias}.trimmed.fastq"
+        | seqkit seq -j $seqkit_threads -m $min_len -Q $params.min_quality -g > "${meta.alias}.trimmed.fastq"
     ) &&
         
 
