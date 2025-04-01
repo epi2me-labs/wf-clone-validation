@@ -264,6 +264,12 @@
                     "default": 0,
                     "description": "Number of base pairs to trim from both ends of each read. Set to 0 if no trimming is required."
                 },
+                "min_quality": {
+                    "type": "integer",
+                    "default": 9,
+                    "description": "Set the minimum average quality score required for reads to be used in assembly.",
+                    "help_text": "Increasing this value can give more confidence in the assembly when high-quality reads are available."
+                },
                 "flye_quality": {
                     "type": "string",
                     "default": "nano-hq",

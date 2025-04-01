@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The workflow no longer fails if the aliases in the sample sheet are numbers when primers are provided.
 - Increase memory of `inserts` process to avoid pipeline terminated with an error exit status (137).
 - Fixed over-deconcatenation of assembly when there are multiple repeats. Previously the assembly could end up shorter than the provided approximate length due to other sections of sequence being removed instead of repeats.
+### Added
+- `min_quality` parameter to set the minimum average quality required for reads to be used in assembly (default 9). This adds more flexibility to the workflow and can improve assembly when high quality reads are available.
 
 ## [v1.7.3]
 ### Fixed

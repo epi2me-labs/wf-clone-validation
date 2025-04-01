@@ -9,7 +9,7 @@ If a host_reference fasta file is provided, [Minimap2](https://github.com/lh3/mi
 ### 3. Trim reads
 
 If a trim length is provided, the reads are then trimmed at the ends using [SeqKit](https://bioinf.shenwei.me/seqkit/). Use the default value of 0 if no trimming is desired, such as for non-linearized plasmid sequences or linearized plasmid sequences that have already been trimmed.
-At this stage SeqKit is also used to filter out reads that are longer than 1.2 x the approximate size or shorter than 100bp.
+At this stage SeqKit is also used to filter out reads that are longer than 1.2 x the approximate size or shorter than 100bp, and reads that don't meet the minimum quality score set by the `min_quality` parameter.
 
 ### 4. Subsample reads
 
