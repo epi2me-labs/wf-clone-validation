@@ -30,7 +30,8 @@ docker-run:
                 "cutsite", "bam_input", "insert_reference_sample_sheet", "insert-number-alias",
                 "no-basecall-model", "no-basecall-model-basecaller-cfg",
                 "insert_case01", "insert_case02", "insert_case03", "insert_case04",
-                "trim_length_zero", "medaka-model-path", "no-insert", "reorientation", "clone-val-host-sample_sheet"]
+                "trim_length_zero", "medaka-model-path", "no-insert", "reorientation", "clone-val-host-sample_sheet",
+                "plannotate"]
     rules:
         - if: ($CI_COMMIT_BRANCH == null || $CI_COMMIT_BRANCH == "dev-template")
           when: never
@@ -190,6 +191,11 @@ docker-run:
               NF_WORKFLOW_OPTS: "--fastq ${CI_PROJECT_NAME}/data/clone_val_test/fastq --primers ${CI_PROJECT_NAME}/data/clone_val_test/primers.tsv --sample_sheet test_data/sample_sheet_hosts.csv \
               --override_basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v4.2.0"
               NF_IGNORE_PROCESSES: "canuVersion,cutsite_qc"
+        - if: $MATRIX_NAME == "plannotate"
+          variables:
+              NF_BEFORE_SCRIPT: "mkdir -p ${CI_PROJECT_NAME}/data/ && wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/clone_val_plannotate_test.tar.gz -O ${CI_PROJECT_NAME}/data/clone_val_plannotate_test.tar.gz && tar -xzvf ${CI_PROJECT_NAME}/data/clone_val_plannotate_test.tar.gz -C ${CI_PROJECT_NAME}/data/"
+              NF_WORKFLOW_OPTS: "--fastq ${CI_PROJECT_NAME}/data/clone_val_plannotate_test/fastq --sample_sheet ${CI_PROJECT_NAME}/data/clone_val_plannotate_test/sample_sheet.csv"
+              NF_IGNORE_PROCESSES: "canuVersion,cutsite_qc,filterHostReads,insert_qc"
 aws-run:
     parallel:
         matrix:
