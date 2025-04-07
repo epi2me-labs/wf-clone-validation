@@ -15,15 +15,28 @@ from plannotate.resources import get_gbk
 import pysam
 from workflow_glue.bokeh_plot import get_bokeh
 
-from .util import wf_parser  # noqa: ABS101
+from .util import wf_parser, get_named_logger  # noqa: ABS101
 
 
-def run_plannotate(fasta, linear=False):
+def run_plannotate(fasta):
     """Run annotate and create Bokeh plot."""
     with pysam.FastxFile(fasta) as fh:
         seq = next(fh).sequence
-    df = annotate(
-        seq, is_detailed=True, linear=linear, yaml_file="plannotate.yaml")
+    # When the plasmid is annotated as non linear, the sequence is
+    # doubled (to look for annotations that span the start and end of the plasmid)
+    # which can mean no hits are reported as significant.
+    # This causes an index error downstream in plannotate.
+    # So retry with linear on first IndexError,
+    # if still fails again with IndexError this
+    # will be handled below as a failed annotation.
+    try:
+        linear = False
+        df = annotate(
+            seq, is_detailed=True, linear=linear, yaml_file="plannotate.yaml")
+    except IndexError:
+        linear = True
+        df = annotate(
+            seq, is_detailed=True, linear=linear, yaml_file="plannotate.yaml")
     plot = get_bokeh(df, linear=linear)
     plot.xgrid.grid_line_color = None
     plot.ygrid.grid_line_color = None
@@ -220,6 +233,7 @@ def attempt_annotation(sample_file, name):
 
 def main(args):
     """Entry point to create a wf-clone-validation report."""
+    logger = get_named_logger("runPlannotate")
     final_samples = []
     report_dic = {}
     plannotate_collection = {}
@@ -235,7 +249,10 @@ def main(args):
                 final_samples.append(tup_dic)
                 plannotate_collection[name] = plannotate_dic
                 report_dic[name] = report
-            except KeyError:
+            except (KeyError, IndexError) as e:
+                logger.error(
+                    f"Plannotate error for sample {name} \
+                      failed with error: {e}.")
                 with pysam.FastxFile(file) as fh:
                     seq_len = len(next(fh).sequence)
                 plannotate_dic = {
