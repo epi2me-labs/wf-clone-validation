@@ -308,10 +308,23 @@ process getParams {
     cache false
     cpus 1
     memory "2GB"
+    input: 
+        val(meta)
     output:
         path "params.json"
     script:
-        def paramsJSON = new JsonBuilder(params).toPrettyString()
+        // for some reason just writing params_copy = params wouldn't work
+        // we have to ser and deser to make a completely new copy 
+        // not sure why
+        def jsonString = new JsonBuilder(params).toString() // Serialize to JSON
+        def params_copy = new JsonSlurper().parseText(jsonString) // Deserialize to create a deep copy
+        true_approx_size = meta.approx_size ?: params.approx_size
+        println("true_approx_size: ${true_approx_size}")
+        params_copy["approx_size"] = true_approx_size
+        println("params_copy: ${params_copy["approx_size"]}")
+
+        def paramsJSON = new JsonBuilder(params_copy).toPrettyString() // Serialize to JSON
+        //println("paramsJSON: ${paramsJSON}")
     """
     # Output nextflow params object to JSON
     echo '$paramsJSON' > params.json
@@ -640,7 +653,10 @@ workflow pipeline {
             assembly_version = canuVersion(medaka_version)
         }
         software_versions = getVersions(assembly_version)
-        workflow_params = getParams()
+	// pass meta to getParams so we can get the approx size value
+        workflow_params = getParams(
+            samples.map { meta, reads, stats -> meta }
+        )
 
 
 
