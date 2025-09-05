@@ -30,7 +30,8 @@ docker-run:
                 "cutsite", "bam_input", "insert_reference_sample_sheet", "insert-number-alias",
                 "no-basecall-model", "no-basecall-model-basecaller-cfg",
                 "insert_case01", "insert_case02", "insert_case03", "insert_case04",
-                "trim_length_zero", "medaka-model-path", "no-insert", "reorientation", "clone-val-host-sample_sheet",
+                "trim_length_zero", "medaka-model-path", "no-insert", "reorientation", 
+                "reorientation-fail", "clone-val-host-sample_sheet",
                 "plannotate"]
     rules:
         - if: ($CI_COMMIT_BRANCH == null || $CI_COMMIT_BRANCH == "dev-template")
@@ -184,6 +185,11 @@ docker-run:
               AFTER_NEXTFLOW_CMD: "
                 if ! diff -q <(tail -n +2 '${CI_PROJECT_NAME}/barcode01.final.fasta') <(tail -n +2 '${CI_PROJECT_NAME}/data/clone-val-orientation/reference.fasta'); then echo 'Assembly found is not as expected' && exit 1; fi
                 "
+        - if: $MATRIX_NAME == "reorientation-fail"
+          variables:
+              NF_BEFORE_SCRIPT: "mkdir -p ${CI_PROJECT_NAME}/data/ && wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/reorientation-fail-test.tar.gz -O ${CI_PROJECT_NAME}/data/reorientation-fail-test.tar.gz && tar -xzvf ${CI_PROJECT_NAME}/data/reorientation-fail-test.tar.gz -C ${CI_PROJECT_NAME}/data/"
+              NF_WORKFLOW_OPTS: "--fastq ${CI_PROJECT_NAME}/data/reorientation-fail-test/barcode09 --full_reference ${CI_PROJECT_NAME}/data/reorientation-fail-test/sample09_ref.fa --approx_size 7221"
+              NF_IGNORE_PROCESSES: "canuVersion,sampleStatus,cutsite_qc,insert_qc,align_assembly,assembly_comparison,assembly_qc,downsampledStats,findPrimers,filterHostReads"
         # Sample 5 and 6 have no host references
         - if: $MATRIX_NAME == "clone-val-host-sample_sheet"
           variables:
