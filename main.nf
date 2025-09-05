@@ -131,6 +131,8 @@ process reorientateFastqAndGetFasta {
     script:
         reoriented_fastq = "${meta.alias}.final.fastq"
         reoriented_fasta = "${meta.alias}.final.fasta"
+        // minimum alignment coverage required to continue reorient
+        def coverage_limit = 50
     """
     (
         set -euo pipefail
@@ -144,19 +146,25 @@ process reorientateFastqAndGetFasta {
         seqkit concat assembly.fastq assembly.fastq -w0 > double-assembly.fastq
 
         # align ref against the duplicated assembly and get alignment stats
-        minimap2 -ax asm5 double-assembly.fastq $full_reference | bamstats - > bamstats.tsv
+        minimap2 -ax asm5 double-assembly.fastq "$full_reference" | bamstats - > bamstats.tsv
 
         # bamstats ignores non-primary alignments; so there is either one alignment (i.e.
-        # two lines) or none (one line) ine the file
+        # two lines) or none (one line) in the file
         if [[ \$(wc -l < bamstats.tsv) == 1 ]]; then
             echo "Reference didn't map against the assembly; skipping reorientation."
             exit 0
         fi
 
+        coverage=\$(awk -F'\\t' 'NR==1 {for (i=1; i<=NF; i++) if (\$i=="coverage") col=i; next} {print \$col}' bamstats.tsv)
+        
+        if awk -v a=\$coverage -v b="$coverage_limit" 'BEGIN { exit !(a < b) }'; then
+            echo "Reference didn't map with > $coverage_limit % coverage against the assembly; skipping reorientation."
+            exit 0
+        fi
         # get the length of the assembly
         assembly_length=\$(awk 'NR == 2 {print length}' assembly.fastq)
 
-        ref_length=\$(awk 'NR == 2 {print length}' $full_reference)
+        ref_length=\$(awk 'NR == 2 {print length}' "$full_reference")
 
         # get the strand ('+' or '-') and offset to rotate the assembly
         read -r strand offset <<< "\$(awk -F '\\t' -v assembly_length="\$assembly_length" -v ref_length="\$ref_length" '

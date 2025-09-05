@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - dacite.exceptions.WrongTypeError during report generation when barcode is null.
     - Sequence summary read length N50 incorrectly displayed minimum read length, it now correctly shows the N50.
     - Sequence summary component alignment and coverage plots failed to plot under some conditions.
+- The reorientation process breaking with the error `new start exceeds length of sequence`. Reorientation will now not be attempted if the assembly and reference do not align with >50% coverage.
 
 
 ## [v1.8.0]
