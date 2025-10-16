@@ -1,4 +1,4 @@
-# Clone validation workflow
+# Clone Validation
 
 De-novo reconstruction of plasmid sequences.
 

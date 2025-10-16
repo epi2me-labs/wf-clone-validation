@@ -3,7 +3,7 @@
     "$id": "https://raw.githubusercontent.com/./master/nextflow_schema.json",
     "title": "epi2me-labs/wf-clone-validation",
     "description": "De-novo reconstruction of plasmid sequences.",
-    "workflow_title": "Clone validation workflow",
+    "workflow_title": "Clone Validation",
     "demo_url": "https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/wf-clone-validation-demo.tar.gz",
     "aws_demo_url": "https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-clone-validation/wf-clone-validation-demo/aws.nextflow.config",
     "url": "https://github.com/epi2me-labs/wf-clone-validation",
@@ -433,7 +433,8 @@
                 },
                 "store_dir": {
                     "type": "string",
-                    "hidden": true
+                    "hidden": true,
+                    "format": "directory-path"
                 }
             }
         }
