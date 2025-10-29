@@ -4,12 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [v1.8.1]
+This patch release of wf-clone-validation addresses an edge case error occurring during the reorientation process and fixes the N50 displayed in the report. All other workflow outputs are not affected.
 ### Changed
 - Updated to wf-template v5.6.2, changing:
     - Reduce verbosity of debug logging from fastcat which can occasionally occlude errors found in FASTQ files during ingress.
     - Log banner art to say "EPI2ME" instead of "EPI2ME Labs" to match current branding. This has no effect on the workflow outputs.
     - pre-commit configuration to resolve an internal dependency problem with flake8. This has no effect on the workflow.
+- Removed 'workflow' suffix from workflow title for display in EPI2ME Desktop.
 
 ### Fixed
 - Updated to wf-template v5.6.2, fixing:
