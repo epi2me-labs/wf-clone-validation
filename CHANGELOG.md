@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.8.2]
+This patch release of `wf-clone-validation` updates the `Canu` container image to ensure the workflow can be correctly executed on computers with ARM processors. Users do not need to adopt this release unless they are using the workflow on a computer with an ARM processor and are using `Canu` as the assembler.
+
+### Fixed
+- Updated Canu Docker image to natively support ARM processors.
+
 ## [v1.8.1]
 This patch release of wf-clone-validation addresses an edge case error occurring during the reorientation process and fixes the N50 displayed in the report. All other workflow outputs are not affected.
 ### Changed
